@@ -6,11 +6,13 @@ import { SourceApiClient } from './source-api.client';
 import { FomplusSourceApiClient } from './fomplus-source-api.client';
 import { SOURCE_API_CLIENT } from './source.constants';
 import { SourceController } from './source.controller';
+import { SourceScheduler } from './source.scheduler';
 
 @Module({
   controllers: [SourceController],
   providers: [
     SyncService,
+    SourceScheduler,
     {
       provide: SOURCE_API_CLIENT,
       useFactory: (): SourceApiClient => {
