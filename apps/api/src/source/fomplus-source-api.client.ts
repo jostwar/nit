@@ -72,11 +72,19 @@ export class FomplusSourceApiClient implements SourceApiClient {
       params,
       timeout: 30000,
     });
-    return typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    const raw = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    if (raw.includes('System.InvalidOperationException')) {
+      throw new Error(`Fomplus API error: ${raw}`);
+    }
+    return raw;
   }
 
-  private extractRecords(xml: string): FlatRecord[] {
-    const parsed = this.parser.parse(xml);
+  private extractRecords(payload: string): FlatRecord[] {
+    const trimmed = payload.trim();
+    const parsed =
+      trimmed.startsWith('{') || trimmed.startsWith('[')
+        ? this.parseJson(trimmed)
+        : this.parser.parse(payload);
     const records: FlatRecord[] = [];
     const visit = (node: unknown) => {
       if (!node) return;
@@ -104,6 +112,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
     };
     visit(parsed);
     return records;
+  }
+
+  private parseJson(payload: string): unknown {
+    try {
+      return JSON.parse(payload);
+    } catch {
+      return payload;
+    }
   }
 
   private mapCustomers(records: FlatRecord[]): SourceCustomer[] {
