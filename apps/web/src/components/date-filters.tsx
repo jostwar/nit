@@ -70,7 +70,7 @@ export function DateFilters() {
           className="rounded-md border border-slate-200 px-2 py-1 text-xs"
         />
       </label>
-      <Button size="sm" onClick={applyFilters}>
+      <Button onClick={applyFilters} className="h-8 px-3 text-xs">
         Aplicar
       </Button>
     </div>
