@@ -114,9 +114,16 @@ export default function DashboardPage() {
                     typeof value === "string" ? value.slice(5).replace("-", "/") : value
                   }
                 />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => formatCop(value)} />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) =>
+                    typeof value === "number" ? formatCop(value) : formatCop(Number(value))
+                  }
+                />
                 <Tooltip
-                  formatter={(value: number) => formatCop(value)}
+                  formatter={(value) =>
+                    typeof value === "number" ? formatCop(value) : formatCop(Number(value))
+                  }
                   labelFormatter={(label) =>
                     typeof label === "string" ? `Fecha: ${label}` : `Fecha: ${label}`
                   }
@@ -143,8 +150,10 @@ export default function DashboardPage() {
                 />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip
-                  formatter={(value: number, name) =>
-                    name === "totalUnits" ? value.toLocaleString("es-CO") : value.toLocaleString("es-CO")
+                  formatter={(value, name) =>
+                    typeof value === "number"
+                      ? value.toLocaleString("es-CO")
+                      : Number(value).toLocaleString("es-CO")
                   }
                   labelFormatter={(label) =>
                     typeof label === "string" ? `Fecha: ${label}` : `Fecha: ${label}`
