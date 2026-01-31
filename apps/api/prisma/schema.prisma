@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+}
+
+enum AlertRuleType {
+  NO_PURCHASE_DAYS
+  DROP_PERCENT
+  BRAND_LOST
+  DSO_HIGH
+}
+
+enum AlertStatus {
+  OPEN
+  CLOSED
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users      User[]
+  customers  Customer[]
+  invoices   Invoice[]
+  invoiceItems InvoiceItem[]
+  payments   Payment[]
+  credits    Credit[]
+  metrics    MetricsDaily[]
+  alertRules AlertRule[]
+  alertEvents AlertEvent[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  nit       String
+  name      String
+  segment   String?
+  city      String?
+  createdAt DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  invoices Invoice[]
+  payments Payment[]
+  credit   Credit?
+  metrics  MetricsDaily[]
+  alertEvents AlertEvent[]
+
+  @@index([tenantId])
+  @@unique([tenantId, nit])
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  tenantId      String
+  customerId    String
+  invoiceNumber String
+  issuedAt      DateTime
+  total         Decimal  @db.Decimal(14, 2)
+  margin        Decimal  @db.Decimal(14, 2)
+  units         Int
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([tenantId])
+  @@index([customerId])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  invoiceId   String
+  productName String
+  brand       String
+  category    String
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(14, 2)
+  total       Decimal  @db.Decimal(14, 2)
+  margin      Decimal  @db.Decimal(14, 2)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@index([invoiceId])
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  customerId String
+  invoiceId  String?
+  paidAt     DateTime
+  amount     Decimal  @db.Decimal(14, 2)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  invoice  Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@index([customerId])
+}
+
+model Credit {
+  id         String   @id @default(cuid())
+  tenantId   String
+  customerId String   @unique
+  creditLimit Decimal @db.Decimal(14, 2)
+  balance     Decimal @db.Decimal(14, 2)
+  overdue     Decimal @db.Decimal(14, 2)
+  dsoDays     Int
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([tenantId])
+}
+
+model MetricsDaily {
+  id            String   @id @default(cuid())
+  tenantId      String
+  customerId    String
+  date          DateTime
+  totalSales    Decimal  @db.Decimal(14, 2)
+  totalInvoices Int
+  totalUnits    Int
+  totalMargin   Decimal  @db.Decimal(14, 2)
+  avgTicket     Decimal  @db.Decimal(14, 2)
+  lastPurchaseAt DateTime?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([tenantId])
+  @@index([customerId, date])
+  @@unique([tenantId, customerId, date])
+}
+
+model AlertRule {
+  id        String        @id @default(cuid())
+  tenantId  String
+  name      String
+  type      AlertRuleType
+  params    Json
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  events AlertEvent[]
+
+  @@index([tenantId])
+}
+
+model AlertEvent {
+  id         String      @id @default(cuid())
+  tenantId   String
+  customerId String
+  ruleId     String
+  status     AlertStatus @default(OPEN)
+  message    String
+  createdAt  DateTime    @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  customer Customer  @relation(fields: [customerId], references: [id])
+  rule     AlertRule @relation(fields: [ruleId], references: [id])
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([ruleId])
+}
