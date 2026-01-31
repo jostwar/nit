@@ -23,6 +23,13 @@ export default function AlertsPage() {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [events, setEvents] = useState<AlertEvent[]>([]);
 
+  const displayCustomerName = (name?: string | null) => {
+    if (!name) return "Cliente sin nombre";
+    if (/^\d+$/.test(name)) return "Cliente sin nombre";
+    if (/^cliente\\s+\\d+/i.test(name)) return "Cliente sin nombre";
+    return name;
+  };
+
   useEffect(() => {
     apiGet<AlertRule[]>("/alerts/rules").then(setRules);
     apiGet<AlertEvent[]>("/alerts/events?status=OPEN").then(setEvents);
@@ -53,7 +60,10 @@ export default function AlertsPage() {
         <CardContent>
           <DataTable
             columns={[
-              { header: "Cliente", accessorFn: (row) => row.customer?.name ?? "N/A" },
+              {
+                header: "Cliente",
+                accessorFn: (row) => displayCustomerName(row.customer?.name ?? null),
+              },
               { header: "Regla", accessorFn: (row) => row.rule?.name ?? "N/A" },
               { header: "Mensaje", accessorKey: "message" },
             ]}

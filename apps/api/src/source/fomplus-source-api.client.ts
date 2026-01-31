@@ -201,6 +201,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
         ]) ?? (prefijo && numdoc ? `${prefijo}${numdoc}` : '');
       const nit =
         this.pick(record, ['cedula', 'nit', 'documentocliente', 'idcliente', 'nitcliente']) ?? '';
+      const customerName =
+        this.pick(record, ['nomced', 'cliente', 'nombre', 'razonsocial']) ?? undefined;
       const issuedAt =
         this.normalizeDate(
           this.pick(record, ['fecha', 'fechafac', 'fechafactura', 'fechaemision', 'fecfac']),
@@ -239,6 +241,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         grouped.set(key, {
           externalId: invoiceId || key,
           customerNit: nit,
+          customerName,
           issuedAt,
           total: total ?? itemTotal ?? 0,
           margin,
@@ -299,6 +302,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
     for (const record of records) {
       const customerNit =
         this.pick(record, ['cedula', 'nit', 'documentocliente', 'nitcliente']) ?? '';
+      const customerName =
+        this.pick(record, ['nomced', 'cliente', 'nombre', 'razonsocial']) ?? undefined;
       const paidAt =
         this.normalizeDate(
           this.pick(record, ['ultpag', 'fecha', 'fechapago', 'fecpago']),
@@ -314,6 +319,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
           this.pick(record, ['numdoc', 'prefij', 'recibo', 'documento', 'id', 'numero']) ??
           `${customerNit}-${paidAt}-${balance ?? amount}`,
         customerNit,
+        customerName,
         invoiceExternalId: this.pick(record, ['numdoc', 'factura', 'nofactura', 'idfactura']),
         paidAt,
         amount,

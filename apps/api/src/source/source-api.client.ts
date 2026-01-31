@@ -1,6 +1,7 @@
 export type SourceInvoice = {
   externalId: string;
   customerNit: string;
+  customerName?: string;
   issuedAt: string;
   total: number;
   margin: number;
@@ -19,6 +20,7 @@ export type SourceInvoice = {
 export type SourcePayment = {
   externalId: string;
   customerNit: string;
+  customerName?: string;
   invoiceExternalId?: string;
   paidAt: string;
   amount: number;

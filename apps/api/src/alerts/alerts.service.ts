@@ -197,7 +197,7 @@ export class AlertsService {
         tenantId,
         credit.customerId,
         ruleId,
-        `DSO estimado alto: ${credit.dsoDays} días`,
+        `DSO alto (umbral ${threshold} días). Actual: ${credit.dsoDays} días`,
       );
     }
   }

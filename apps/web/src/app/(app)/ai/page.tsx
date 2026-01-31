@@ -22,9 +22,18 @@ export default function AiPage() {
   }, [searchParams]);
 
   const rows = Array.isArray(response?.rows) ? response.rows : [];
+  const normalizedRows = rows.map((row: Record<string, unknown>) => {
+    const next = { ...row };
+    delete next.customerId;
+    if (next.customerName && next.customerNit && next.customerName === next.customerNit) {
+      next.customerNit = "";
+    }
+    return next;
+  });
+  const visibleKeys = normalizedRows.length > 0 ? Object.keys(normalizedRows[0]) : [];
   const columns =
-    rows.length > 0
-      ? Object.keys(rows[0]).map((key) => ({
+    visibleKeys.length > 0
+      ? visibleKeys.map((key) => ({
           header: key
             .replace(/([A-Z])/g, " $1")
             .replace(/^./, (c) => c.toUpperCase()),
@@ -94,8 +103,8 @@ export default function AiPage() {
                 Template: {response.template}
               </div>
               <p>{response.explanation}</p>
-              {rows.length > 0 ? (
-                <DataTable columns={columns} data={rows} />
+              {normalizedRows.length > 0 ? (
+                <DataTable columns={columns} data={normalizedRows} />
               ) : (
                 <p className="text-xs text-slate-500">Sin resultados para el periodo.</p>
               )}

@@ -15,6 +15,7 @@ export class SyncService {
         Array<{
           externalId: string;
           customerNit: string;
+          customerName?: string;
           issuedAt: string;
           total: number;
           margin: number;
@@ -38,6 +39,7 @@ export class SyncService {
         Array<{
           externalId: string;
           customerNit: string;
+          customerName?: string;
           invoiceExternalId?: string;
           paidAt: string;
           amount: number;
@@ -77,11 +79,17 @@ export class SyncService {
       if (!invoice.customerNit || !invoice.externalId) continue;
       const customer = await this.prisma.customer.upsert({
         where: { tenantId_nit: { tenantId, nit: invoice.customerNit } },
-        update: {},
+        update:
+          invoice.customerName && invoice.customerName != invoice.customerNit
+            ? { name: invoice.customerName }
+            : {},
         create: {
           tenantId,
           nit: invoice.customerNit,
-          name: invoice.customerNit,
+          name:
+            invoice.customerName && invoice.customerName != invoice.customerNit
+              ? invoice.customerName
+              : invoice.customerNit,
         },
       });
       const issuedAt = new Date(invoice.issuedAt);
@@ -151,11 +159,17 @@ export class SyncService {
       if (!payment.customerNit) continue;
       const customer = await this.prisma.customer.upsert({
         where: { tenantId_nit: { tenantId, nit: payment.customerNit } },
-        update: {},
+        update:
+          payment.customerName && payment.customerName != payment.customerNit
+            ? { name: payment.customerName }
+            : {},
         create: {
           tenantId,
           nit: payment.customerNit,
-          name: payment.customerNit,
+          name:
+            payment.customerName && payment.customerName != payment.customerNit
+              ? payment.customerName
+              : payment.customerNit,
         },
       });
 
