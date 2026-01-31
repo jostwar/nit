@@ -14,14 +14,44 @@ type Customer = {
   totalInvoices: number;
 };
 
+type CustomerOverview = {
+  current: {
+    totalSales: number;
+    totalMargin: number;
+    totalInvoices: number;
+    totalUnits: number;
+  };
+};
+
+type CustomerBrand = {
+  brand: string;
+  currentTotal: number;
+  compareTotal: number;
+};
+
+type CustomerProduct = {
+  product: string;
+  currentTotal: number;
+  compareTotal: number;
+};
+
+type CustomerCollections = {
+  credit?: {
+    creditLimit: number;
+    balance: number;
+    overdue: number;
+    dsoDays: number;
+  } | null;
+};
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [overview, setOverview] = useState<any>(null);
-  const [brands, setBrands] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [collections, setCollections] = useState<any>(null);
+  const [overview, setOverview] = useState<CustomerOverview | null>(null);
+  const [brands, setBrands] = useState<CustomerBrand[]>([]);
+  const [products, setProducts] = useState<CustomerProduct[]>([]);
+  const [collections, setCollections] = useState<CustomerCollections | null>(null);
   const [tab, setTab] = useState<"resumen" | "marcas" | "productos" | "cartera">("resumen");
 
   useEffect(() => {
@@ -35,10 +65,10 @@ export default function CustomersPage() {
 
   useEffect(() => {
     if (!selectedId) return;
-    apiGet(`/customers/${selectedId}/overview`).then(setOverview);
-    apiGet(`/customers/${selectedId}/brands`).then(setBrands);
-    apiGet(`/customers/${selectedId}/products`).then(setProducts);
-    apiGet(`/customers/${selectedId}/collections`).then(setCollections);
+    apiGet<CustomerOverview>(`/customers/${selectedId}/overview`).then(setOverview);
+    apiGet<CustomerBrand[]>(`/customers/${selectedId}/brands`).then(setBrands);
+    apiGet<CustomerProduct[]>(`/customers/${selectedId}/products`).then(setProducts);
+    apiGet<CustomerCollections>(`/customers/${selectedId}/collections`).then(setCollections);
   }, [selectedId]);
 
   const columns = useMemo<ColumnDef<Customer>[]>(
