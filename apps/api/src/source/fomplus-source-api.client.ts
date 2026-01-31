@@ -5,6 +5,7 @@ import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment } from '.
 type FomplusConfig = {
   carteraBaseUrl: string;
   ventasBaseUrl: string;
+  inventarioBaseUrl: string;
   database: string;
   token: string;
   vendor?: string;
@@ -22,6 +23,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
   private readonly config: FomplusConfig = {
     carteraBaseUrl: process.env.SOURCE_API_CXC_BASE_URL ?? 'https://cartera.fomplus.com',
     ventasBaseUrl: process.env.SOURCE_API_VENTAS_BASE_URL ?? 'https://gspapiest.fomplus.com',
+    inventarioBaseUrl:
+      process.env.SOURCE_API_INVENTARIO_BASE_URL ?? 'https://gspapi.fomplus.com',
     database: process.env.SOURCE_API_DB ?? '',
     token: process.env.SOURCE_API_TOKEN ?? '',
     vendor: process.env.SOURCE_API_VENDOR ?? '',
@@ -35,7 +38,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
       objPar_Objeto: this.config.token,
     });
     const records = this.extractRecords(xml);
-    return this.mapInvoices(records, from);
+    const brandMap = await this.fetchInventoryBrands(tenantExternalId);
+    return this.mapInvoices(records, from, brandMap);
   }
 
   async fetchPayments(tenantExternalId: string, _from: string, to: string): Promise<SourcePayment[]> {
@@ -176,7 +180,11 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return customers;
   }
 
-  private mapInvoices(records: FlatRecord[], fallbackDate: string): SourceInvoice[] {
+  private mapInvoices(
+    records: FlatRecord[],
+    fallbackDate: string,
+    brandMap: Map<string, string>,
+  ): SourceInvoice[] {
     const grouped = new Map<string, SourceInvoice>();
     records.forEach((record) => {
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
@@ -210,8 +218,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const productName =
         this.pick(record, ['nomref', 'producto', 'nombreproducto', 'articulo', 'descripcion']) ??
         'Total';
+      const mappedBrand =
+        productRef && brandMap.has(productRef) ? brandMap.get(productRef) : undefined;
       const brand =
-        this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']) ?? 'Sin marca';
+        mappedBrand ??
+        this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']) ??
+        'Sin marca';
       const category =
         this.pick(record, ['nomsec', 'categoria', 'linea', 'grupo', 'codsec']) ?? 'Sin categoría';
       const unitPrice = this.toNumber(
@@ -253,6 +265,33 @@ export class FomplusSourceApiClient implements SourceApiClient {
       }
     });
     return Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
+  }
+
+  private async fetchInventoryBrands(tenantExternalId: string): Promise<Map<string, string>> {
+    if (!this.config.inventarioBaseUrl || !this.config.token) {
+      return new Map();
+    }
+    try {
+      const xml = await this.getXml(
+        `${this.config.inventarioBaseUrl}/srvAPI.asmx/GenerarInformacionInventariosGet`,
+        {
+          strPar_Empresa: this.config.database || tenantExternalId,
+          objPar_Objeto: this.config.token,
+        },
+      );
+      const records = this.extractRecords(xml);
+      const map = new Map<string, string>();
+      records.forEach((record) => {
+        const ref = this.pick(record, ['refer', 'referencia', 'codigo', 'codref']);
+        const brand = this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']);
+        if (ref && brand) {
+          map.set(ref, brand);
+        }
+      });
+      return map;
+    } catch {
+      return new Map();
+    }
   }
 
   private mapPayments(records: FlatRecord[], fallbackDate: string): SourcePayment[] {
