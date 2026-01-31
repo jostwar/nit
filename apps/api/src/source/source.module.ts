@@ -5,8 +5,10 @@ import { MockSourceApiClient } from './mock-source-api.client';
 import { SourceApiClient } from './source-api.client';
 import { FomplusSourceApiClient } from './fomplus-source-api.client';
 import { SOURCE_API_CLIENT } from './source.constants';
+import { SourceController } from './source.controller';
 
 @Module({
+  controllers: [SourceController],
   providers: [
     SyncService,
     {

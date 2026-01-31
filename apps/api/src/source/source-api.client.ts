@@ -22,6 +22,9 @@ export type SourcePayment = {
   invoiceExternalId?: string;
   paidAt: string;
   amount: number;
+  balance?: number;
+  dueAt?: string;
+  overdueDays?: number;
 };
 
 export type SourceCustomer = {
@@ -32,6 +35,8 @@ export type SourceCustomer = {
   phone?: string;
   address?: string;
   city?: string;
+  segment?: string;
+  vendor?: string;
 };
 
 export interface SourceApiClient {

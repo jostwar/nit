@@ -109,8 +109,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
   private mapCustomers(records: FlatRecord[]): SourceCustomer[] {
     const customers: SourceCustomer[] = [];
     for (const record of records) {
-      const nit = this.pick(record, ['nit', 'cedula', 'documento', 'idcliente']);
+      const nit = this.pick(record, ['cli_cedula', 'nit', 'cedula', 'documento', 'idcliente']);
       const name = this.pick(record, [
+        'cli_nombre',
         'nombre',
         'razonsocial',
         'cliente',
@@ -122,10 +123,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
         externalId: this.pick(record, ['id', 'codigo', 'codcliente']) ?? nit,
         nit,
         name,
-        email: this.pick(record, ['email', 'correo']),
-        phone: this.pick(record, ['telefono', 'celular', 'movil']),
-        address: this.pick(record, ['direccion']),
-        city: this.pick(record, ['ciudad', 'municipio']),
+        email: this.pick(record, ['cli_email', 'email', 'correo']),
+        phone: this.pick(record, ['cli_telefo', 'cli_telcel', 'telefono', 'celular', 'movil']),
+        address: this.pick(record, ['cli_direcc', 'direccion']),
+        city: this.pick(record, ['ciudad', 'municipio', 'nomciu']),
+        segment: this.pick(record, ['cli_nomsec', 'nomsec', 'sector']),
+        vendor: this.pick(record, ['cli_nomven', 'nomven', 'vendedor']),
       });
     }
     return customers;
@@ -134,37 +137,46 @@ export class FomplusSourceApiClient implements SourceApiClient {
   private mapInvoices(records: FlatRecord[], fallbackDate: string): SourceInvoice[] {
     const grouped = new Map<string, SourceInvoice>();
     records.forEach((record) => {
+      const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
+      const numdoc = this.pick(record, ['numdoc', 'numero', 'documento', 'docafe']) ?? '';
       const invoiceId =
         this.pick(record, [
+          'docafe',
           'factura',
           'nofactura',
           'numero',
           'documento',
           'idfactura',
           'nrodocumento',
-        ]) ?? '';
+        ]) ?? (prefijo && numdoc ? `${prefijo}${numdoc}` : '');
       const nit =
-        this.pick(record, ['nit', 'cedula', 'documentocliente', 'idcliente', 'nitcliente']) ?? '';
+        this.pick(record, ['cedula', 'nit', 'documentocliente', 'idcliente', 'nitcliente']) ?? '';
       const issuedAt =
         this.normalizeDate(
-          this.pick(record, ['fecha', 'fechafac', 'fechafactura', 'fechaemision']),
+          this.pick(record, ['fecha', 'fechafac', 'fechafactura', 'fechaemision', 'fecfac']),
         ) ?? fallbackDate;
       const total = this.toNumber(
-        this.pick(record, ['total', 'valortotal', 'valor', 'vrtotal', 'totalfactura']),
+        this.pick(record, ['valtot', 'total', 'valortotal', 'valor', 'vrtotal', 'totalfactura']),
       );
-      const margin = this.toNumber(this.pick(record, ['margen', 'utilidad', 'vrmargen'])) ?? 0;
+      const margin =
+        this.toNumber(this.pick(record, ['valuti', 'margen', 'utilidad', 'vrmargen'])) ?? 0;
       const quantity = this.toNumber(
-        this.pick(record, ['cantidad', 'unidades', 'cant', 'qty']),
+        this.pick(record, ['cantid', 'cantidad', 'unidades', 'cant', 'qty']),
       );
+      const productRef =
+        this.pick(record, ['refer', 'referencia', 'codigo', 'codref']) ?? '';
       const productName =
-        this.pick(record, ['producto', 'nombreproducto', 'articulo', 'descripcion']) ?? 'Total';
-      const brand = this.pick(record, ['marca', 'brand']) ?? 'Sin marca';
-      const category = this.pick(record, ['categoria', 'linea', 'grupo']) ?? 'Sin categoría';
+        this.pick(record, ['nomref', 'producto', 'nombreproducto', 'articulo', 'descripcion']) ??
+        'Total';
+      const brand =
+        this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']) ?? 'Sin marca';
+      const category =
+        this.pick(record, ['nomsec', 'categoria', 'linea', 'grupo', 'codsec']) ?? 'Sin categoría';
       const unitPrice = this.toNumber(
-        this.pick(record, ['valorunitario', 'precio', 'vr_unitario', 'preciounitario']),
+        this.pick(record, ['valund', 'valorunitario', 'precio', 'vr_unitario', 'preciounitario']),
       );
       const itemTotal = this.toNumber(
-        this.pick(record, ['totalitem', 'subtotal', 'valoritem', 'totaldetalle']),
+        this.pick(record, ['valtot', 'totalitem', 'subtotal', 'valoritem', 'totaldetalle']),
       );
 
       const key = invoiceId || `${nit}-${issuedAt}-${total}`;
@@ -185,7 +197,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const resolvedQty = quantity ?? 0;
       const resolvedTotal = itemTotal ?? total ?? 0;
       target.items.push({
-        productName,
+        productName: productRef || productName,
         brand,
         category,
         quantity: resolvedQty,
@@ -205,21 +217,28 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const payments: SourcePayment[] = [];
     for (const record of records) {
       const customerNit =
-        this.pick(record, ['nit', 'cedula', 'documentocliente', 'nitcliente']) ?? '';
+        this.pick(record, ['cedula', 'nit', 'documentocliente', 'nitcliente']) ?? '';
       const paidAt =
-        this.normalizeDate(this.pick(record, ['fecha', 'fechapago', 'fecpago'])) ?? fallbackDate;
-      const amount = this.toNumber(
-        this.pick(record, ['valor', 'abono', 'pago', 'valorpago', 'vrpago']),
-      );
-      if (!customerNit || amount === null) continue;
+        this.normalizeDate(
+          this.pick(record, ['ultpag', 'fecha', 'fechapago', 'fecpago']),
+        ) ?? fallbackDate;
+      const amount =
+        this.toNumber(this.pick(record, ['valor', 'abono', 'pago', 'valorpago', 'vrpago'])) ?? 0;
+      const balance = this.toNumber(this.pick(record, ['saldo'])) ?? undefined;
+      const dueAt = this.normalizeDate(this.pick(record, ['fecven', 'fechaven', 'fechavenc']));
+      const overdueDays = this.toNumber(this.pick(record, ['daiaven'])) ?? undefined;
+      if (!customerNit) continue;
       payments.push({
         externalId:
-          this.pick(record, ['recibo', 'documento', 'id', 'numero']) ??
-          `${customerNit}-${paidAt}-${amount}`,
+          this.pick(record, ['numdoc', 'prefij', 'recibo', 'documento', 'id', 'numero']) ??
+          `${customerNit}-${paidAt}-${balance ?? amount}`,
         customerNit,
-        invoiceExternalId: this.pick(record, ['factura', 'nofactura', 'idfactura']),
+        invoiceExternalId: this.pick(record, ['numdoc', 'factura', 'nofactura', 'idfactura']),
         paidAt,
         amount,
+        balance,
+        dueAt,
+        overdueDays: overdueDays ?? undefined,
       });
     }
     return payments;

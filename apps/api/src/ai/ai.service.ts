@@ -58,6 +58,7 @@ export class AiService {
       rows: rows.map((row) => ({
         customerId: row.customerId,
         customerName: customerMap.get(row.customerId)?.name ?? 'N/A',
+        customerNit: customerMap.get(row.customerId)?.nit ?? 'N/A',
         totalSales: Number(row._sum.total ?? 0),
       })),
       explanation: 'Top clientes por ventas en el periodo consultado.',
@@ -77,6 +78,7 @@ export class AiService {
       rows: events.map((event) => ({
         customerId: event.customerId,
         customerName: event.customer.name,
+        customerNit: event.customer.nit,
         rule: event.rule.name,
         message: event.message,
       })),
@@ -123,6 +125,7 @@ export class AiService {
       rows: drops.map((row) => ({
         customerId: row.customerId,
         customerName: customerMap.get(row.customerId)?.name ?? 'N/A',
+        customerNit: customerMap.get(row.customerId)?.nit ?? 'N/A',
         dropPercent: Number(row.dropPercent.toFixed(1)),
         currentSales: row.currentTotal,
       })),
@@ -151,11 +154,17 @@ export class AiService {
       .filter((row) => !currentSet.has(row.key))
       .slice(0, 10);
 
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: lost.map((row) => row.customerId) } },
+    });
+    const customerMap = new Map(customers.map((c) => [c.id, c]));
     return {
       template: 'brand_lost',
       period: { from: from.toISOString(), to: to.toISOString() },
       rows: lost.map((row) => ({
         customerId: row.customerId,
+        customerName: customerMap.get(row.customerId)?.name ?? 'N/A',
+        customerNit: customerMap.get(row.customerId)?.nit ?? 'N/A',
         brand: row.brand,
       })),
       explanation: 'Clientes que dejaron de comprar marcas vs periodo anterior.',
@@ -178,6 +187,7 @@ export class AiService {
       rows: credits.map((credit) => ({
         customerId: credit.customerId,
         customerName: customerMap.get(credit.customerId)?.name ?? 'N/A',
+        customerNit: customerMap.get(credit.customerId)?.nit ?? 'N/A',
         dsoDays: credit.dsoDays,
         overdue: Number(credit.overdue),
       })),
@@ -206,6 +216,7 @@ export class AiService {
         {
           customerId,
           customerName: customer?.name ?? 'N/A',
+          customerNit: customer?.nit ?? 'N/A',
           totalSales: Number(metrics._sum.total ?? 0),
           totalMargin: Number(metrics._sum.margin ?? 0),
           totalUnits: Number(metrics._sum.units ?? 0),

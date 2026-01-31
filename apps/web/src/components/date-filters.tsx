@@ -1,13 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState(today);
-  const [compareFrom, setCompareFrom] = useState(today);
-  const [compareTo, setCompareTo] = useState(today);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initial = useMemo(
+    () => ({
+      from: searchParams.get("from") ?? today,
+      to: searchParams.get("to") ?? today,
+      compareFrom: searchParams.get("compareFrom") ?? today,
+      compareTo: searchParams.get("compareTo") ?? today,
+    }),
+    [searchParams, today],
+  );
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
+  const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
+  const [compareTo, setCompareTo] = useState(initial.compareTo);
+
+  const applyFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("from", from);
+    params.set("to", to);
+    params.set("compareFrom", compareFrom);
+    params.set("compareTo", compareTo);
+    router.replace(`?${params.toString()}`);
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -48,6 +70,9 @@ export function DateFilters() {
           className="rounded-md border border-slate-200 px-2 py-1 text-xs"
         />
       </label>
+      <Button size="sm" onClick={applyFilters}>
+        Aplicar
+      </Button>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCop } from "@/lib/utils";
 import {
   LineChart,
   Line,
@@ -38,17 +40,31 @@ type DashboardSummary = {
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const searchParams = useSearchParams();
+  const query = useMemo(() => {
+    const params = new URLSearchParams();
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    const compareFrom = searchParams.get("compareFrom");
+    const compareTo = searchParams.get("compareTo");
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (compareFrom) params.set("compareFrom", compareFrom);
+    if (compareTo) params.set("compareTo", compareTo);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }, [searchParams]);
 
   useEffect(() => {
-    apiGet<DashboardSummary>("/dashboard/summary")
+    apiGet<DashboardSummary>(`/dashboard/summary${query}`)
       .then(setSummary)
       .catch(() => setSummary(null));
-  }, []);
+  }, [query]);
 
   const cards = [
-    { label: "Ventas totales", value: summary?.current.totalSales ?? 0 },
-    { label: "Margen", value: summary?.current.totalMargin ?? 0 },
-    { label: "Ticket promedio", value: summary?.current.avgTicket ?? 0 },
+    { label: "Ventas totales", value: summary?.current.totalSales ?? 0, currency: true },
+    { label: "Margen", value: summary?.current.totalMargin ?? 0, currency: true },
+    { label: "Ticket promedio", value: summary?.current.avgTicket ?? 0, currency: true },
     { label: "Clientes únicos", value: summary?.current.uniqueCustomers ?? 0 },
     { label: "Facturas", value: summary?.current.totalInvoices ?? 0 },
     { label: "Unidades", value: summary?.current.totalUnits ?? 0 },
@@ -64,7 +80,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-semibold text-slate-900">
-                {card.value.toLocaleString("es-CO")}
+                {card.currency ? formatCop(card.value) : card.value.toLocaleString("es-CO")}
               </div>
             </CardContent>
           </Card>

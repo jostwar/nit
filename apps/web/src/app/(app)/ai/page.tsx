@@ -1,22 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiPost } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/data-table";
+import { formatCop } from "@/lib/utils";
 
 export default function AiPage() {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const period = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      from: searchParams.get("from") ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      to: searchParams.get("to") ?? today,
+    };
+  }, [searchParams]);
+
+  const rows = Array.isArray(response?.rows) ? response.rows : [];
+  const columns =
+    rows.length > 0
+      ? Object.keys(rows[0]).map((key) => ({
+          header: key
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (c) => c.toUpperCase()),
+          accessorKey: key,
+          cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
+            const value = row.original[key];
+            if (typeof value === "number") {
+              if (key.toLowerCase().includes("percent")) {
+                return `${value.toFixed(1)}%`;
+              }
+              if (
+                ["sales", "total", "overdue", "amount", "margin", "ticket"].some((token) =>
+                  key.toLowerCase().includes(token),
+                )
+              ) {
+                return formatCop(value);
+              }
+              return value.toLocaleString("es-CO");
+            }
+            return value ?? "-";
+          },
+        }))
+      : [];
 
   const sendQuestion = async () => {
     setLoading(true);
     try {
       const result = await apiPost("/ai/chat", {
         question,
-        from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-        to: new Date().toISOString().slice(0, 10),
+        from: period.from,
+        to: period.to,
       });
       setResponse(result);
     } finally {
@@ -55,9 +94,11 @@ export default function AiPage() {
                 Template: {response.template}
               </div>
               <p>{response.explanation}</p>
-              <pre className="overflow-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
-                {JSON.stringify(response.rows, null, 2)}
-              </pre>
+              {rows.length > 0 ? (
+                <DataTable columns={columns} data={rows} />
+              ) : (
+                <p className="text-xs text-slate-500">Sin resultados para el periodo.</p>
+              )}
             </div>
           ) : (
             <p className="text-sm text-slate-500">Sin respuesta aún.</p>
