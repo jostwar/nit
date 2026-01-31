@@ -75,7 +75,7 @@ export default function AiPage() {
             onChange={(event) => setQuestion(event.target.value)}
             rows={6}
             placeholder="Ej: ¿Cuáles son los clientes con mayor caída?"
-            className="w-full rounded-md border border-slate-200 p-3 text-sm"
+            className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
           />
           <Button onClick={sendQuestion} disabled={loading || !question}>
             {loading ? "Consultando..." : "Enviar"}

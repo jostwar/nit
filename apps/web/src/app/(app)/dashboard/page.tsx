@@ -64,6 +64,14 @@ export default function DashboardPage() {
   const cards = [
     { label: "Ventas totales", value: summary?.current.totalSales ?? 0, currency: true },
     { label: "Margen", value: summary?.current.totalMargin ?? 0, currency: true },
+    {
+      label: "Margen %",
+      value:
+        summary && summary.current.totalSales > 0
+          ? (summary.current.totalMargin / summary.current.totalSales) * 100
+          : 0,
+      percent: true,
+    },
     { label: "Ticket promedio", value: summary?.current.avgTicket ?? 0, currency: true },
     { label: "Clientes únicos", value: summary?.current.uniqueCustomers ?? 0 },
     { label: "Facturas", value: summary?.current.totalInvoices ?? 0 },
@@ -80,7 +88,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-semibold text-slate-900">
-                {card.currency ? formatCop(card.value) : card.value.toLocaleString("es-CO")}
+                {card.percent
+                  ? `${card.value.toFixed(1)}%`
+                  : card.currency
+                    ? formatCop(card.value)
+                    : card.value.toLocaleString("es-CO")}
               </div>
             </CardContent>
           </Card>
@@ -95,9 +107,20 @@ export default function DashboardPage() {
           <CardContent className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={summary?.series ?? []}>
-                <XAxis dataKey="date" hide />
-                <YAxis hide />
-                <Tooltip />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) =>
+                    typeof value === "string" ? value.slice(5).replace("-", "/") : value
+                  }
+                />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => formatCop(value)} />
+                <Tooltip
+                  formatter={(value: number) => formatCop(value)}
+                  labelFormatter={(label) =>
+                    typeof label === "string" ? `Fecha: ${label}` : `Fecha: ${label}`
+                  }
+                />
                 <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
@@ -111,9 +134,22 @@ export default function DashboardPage() {
           <CardContent className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={summary?.series ?? []}>
-                <XAxis dataKey="date" hide />
-                <YAxis hide />
-                <Tooltip />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) =>
+                    typeof value === "string" ? value.slice(5).replace("-", "/") : value
+                  }
+                />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(value: number, name) =>
+                    name === "totalUnits" ? value.toLocaleString("es-CO") : value.toLocaleString("es-CO")
+                  }
+                  labelFormatter={(label) =>
+                    typeof label === "string" ? `Fecha: ${label}` : `Fecha: ${label}`
+                  }
+                />
                 <Line type="monotone" dataKey="totalInvoices" stroke="#0ea5e9" strokeWidth={2} />
                 <Line type="monotone" dataKey="totalUnits" stroke="#f97316" strokeWidth={2} />
               </LineChart>

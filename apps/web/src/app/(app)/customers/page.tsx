@@ -185,6 +185,14 @@ export default function CustomersPage() {
                 </div>
               </div>
               <div>
+                <div className="text-xs text-slate-500">Margen %</div>
+                <div className="text-lg font-semibold text-slate-900">
+                  {overview && overview.current.totalSales > 0
+                    ? `${((overview.current.totalMargin / overview.current.totalSales) * 100).toFixed(1)}%`
+                    : "0.0%"}
+                </div>
+              </div>
+              <div>
                 <div className="text-xs text-slate-500">Facturas</div>
                 <div className="text-lg font-semibold text-slate-900">
                   {overview?.current?.totalInvoices ?? 0}
