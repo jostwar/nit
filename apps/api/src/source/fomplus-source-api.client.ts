@@ -80,7 +80,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
   }
 
   private extractRecords(payload: string): FlatRecord[] {
-    const trimmed = payload.trim();
+    const trimmed = this.stripBom(payload.trim());
     const parsed =
       trimmed.startsWith('{') || trimmed.startsWith('[')
         ? this.parseJson(trimmed)
@@ -118,8 +118,34 @@ export class FomplusSourceApiClient implements SourceApiClient {
     try {
       return JSON.parse(payload);
     } catch {
+      const fixed = this.sliceJson(payload);
+      if (fixed) {
+        try {
+          return JSON.parse(fixed);
+        } catch {
+          return payload;
+        }
+      }
       return payload;
     }
+  }
+
+  private sliceJson(payload: string): string | null {
+    const startArray = payload.indexOf('[');
+    const endArray = payload.lastIndexOf(']');
+    if (startArray !== -1 && endArray !== -1 && endArray > startArray) {
+      return payload.slice(startArray, endArray + 1);
+    }
+    const startObj = payload.indexOf('{');
+    const endObj = payload.lastIndexOf('}');
+    if (startObj !== -1 && endObj !== -1 && endObj > startObj) {
+      return payload.slice(startObj, endObj + 1);
+    }
+    return null;
+  }
+
+  private stripBom(payload: string): string {
+    return payload.replace(/^\uFEFF/, '');
   }
 
   private mapCustomers(records: FlatRecord[]): SourceCustomer[] {
