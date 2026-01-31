@@ -31,12 +31,12 @@ async function main() {
     data: { name: process.env.TENANT_NAME ?? 'NITIQ Demo' },
   });
 
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminPassword = await bcrypt.hash('Admin123', 10);
   const analystPassword = await bcrypt.hash('analyst123', 10);
 
   await prisma.user.createMany({
     data: [
-      { tenantId: tenant.id, email: 'admin@nitiq.local', passwordHash: adminPassword, role: Role.ADMIN },
+      { tenantId: tenant.id, email: 'jarrieta@gsp.com.co', passwordHash: adminPassword, role: Role.ADMIN },
       { tenantId: tenant.id, email: 'analyst@nitiq.local', passwordHash: analystPassword, role: Role.ANALYST },
     ],
   });
