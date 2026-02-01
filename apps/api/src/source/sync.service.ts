@@ -74,6 +74,16 @@ export class SyncService {
     return value.replace(/[^\d]/g, '');
   }
 
+  private isInvalidName(name?: string, nit?: string) {
+    if (!name) return true;
+    const trimmed = name.trim();
+    if (!trimmed) return true;
+    if (nit && trimmed === nit) return true;
+    if (/^\d+$/.test(trimmed)) return true;
+    if (/^cliente\s+\d+/i.test(trimmed)) return true;
+    return false;
+  }
+
   async syncInvoices(tenantId: string, tenantExternalId: string, from: string, to: string) {
     const invoices = await this.sourceApi.fetchInvoices(tenantExternalId, from, to);
     if (invoices.length === 0) {
@@ -83,25 +93,16 @@ export class SyncService {
     for (const invoice of invoices) {
       const normalizedNit = this.normalizeNit(invoice.customerNit) || invoice.customerNit;
       if (!normalizedNit || !invoice.externalId) continue;
-      const safeName = invoice.customerName?.trim();
-      const shouldUseName =
-        safeName &&
-        safeName !== normalizedNit &&
-        !/^\d+$/.test(safeName) &&
-        !/^cliente\s+\d+/i.test(safeName);
       const existingCustomer = await this.prisma.customer.findFirst({
         where: { tenantId, nit: normalizedNit },
       });
       const customer = existingCustomer
-        ? await this.prisma.customer.update({
-            where: { id: existingCustomer.id },
-            data: shouldUseName ? { name: safeName } : {},
-          })
+        ? existingCustomer
         : await this.prisma.customer.create({
             data: {
               tenantId,
               nit: normalizedNit,
-              name: shouldUseName ? safeName : normalizedNit,
+              name: 'Cliente sin nombre',
             },
           });
       const issuedAt = new Date(invoice.issuedAt);
@@ -170,25 +171,16 @@ export class SyncService {
     for (const payment of payments) {
       const normalizedNit = this.normalizeNit(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) continue;
-      const safeName = payment.customerName?.trim();
-      const shouldUseName =
-        safeName &&
-        safeName !== normalizedNit &&
-        !/^\d+$/.test(safeName) &&
-        !/^cliente\s+\d+/i.test(safeName);
       const existingCustomer = await this.prisma.customer.findFirst({
         where: { tenantId, nit: normalizedNit },
       });
       const customer = existingCustomer
-        ? await this.prisma.customer.update({
-            where: { id: existingCustomer.id },
-            data: shouldUseName ? { name: safeName } : {},
-          })
+        ? existingCustomer
         : await this.prisma.customer.create({
             data: {
               tenantId,
               nit: normalizedNit,
-              name: shouldUseName ? safeName : normalizedNit,
+              name: 'Cliente sin nombre',
             },
           });
 
@@ -297,17 +289,20 @@ export class SyncService {
           });
         }
       }
+      const safeName = this.isInvalidName(customer.name, normalizedNit)
+        ? 'Cliente sin nombre'
+        : customer.name.trim();
       await this.prisma.customer.upsert({
         where: { tenantId_nit: { tenantId, nit: normalizedNit } },
         update: {
-          name: customer.name,
+          name: safeName,
           segment: customer.segment ?? undefined,
           city: customer.city ?? undefined,
         },
         create: {
           tenantId,
           nit: normalizedNit,
-          name: customer.name,
+          name: safeName,
           segment: customer.segment ?? undefined,
           city: customer.city ?? undefined,
         },
