@@ -9,15 +9,34 @@ export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initial = useMemo(
-    () => ({
-      from: searchParams.get("from") ?? today,
-      to: searchParams.get("to") ?? today,
-      compareFrom: searchParams.get("compareFrom") ?? today,
-      compareTo: searchParams.get("compareTo") ?? today,
-    }),
-    [searchParams, today],
-  );
+  const computeCompareRange = (fromValue: string, toValue: string) => {
+    const fromDate = new Date(fromValue);
+    const toDate = new Date(toValue);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      return { compareFrom: today, compareTo: today };
+    }
+    const diff = toDate.getTime() - fromDate.getTime();
+    const prevTo = new Date(fromDate.getTime());
+    const prevFrom = new Date(fromDate.getTime() - diff);
+    return {
+      compareFrom: prevFrom.toISOString().slice(0, 10),
+      compareTo: prevTo.toISOString().slice(0, 10),
+    };
+  };
+  const initial = useMemo(() => {
+    const defaultFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const from = searchParams.get("from") ?? defaultFrom;
+    const to = searchParams.get("to") ?? today;
+    const compareDefaults = computeCompareRange(from, to);
+    return {
+      from,
+      to,
+      compareFrom: searchParams.get("compareFrom") ?? compareDefaults.compareFrom,
+      compareTo: searchParams.get("compareTo") ?? compareDefaults.compareTo,
+    };
+  }, [searchParams, today]);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
@@ -69,6 +88,9 @@ export function DateFilters() {
   };
 
   const applyCompare = () => {
+    const compareDefaults = computeCompareRange(from, to);
+    setCompareFrom(compareDefaults.compareFrom);
+    setCompareTo(compareDefaults.compareTo);
     setCompareEnabled(true);
     updateQuery(true);
   };
