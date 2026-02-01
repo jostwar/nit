@@ -164,7 +164,7 @@ export default function AdminReportsPage() {
         <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
             <Button
-              onClick={applyReport}
+              onClick={() => applyReport()}
               className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             >
               Filtros
@@ -195,7 +195,7 @@ export default function AdminReportsPage() {
                 className="rounded-md border border-slate-200 px-2 py-1 text-xs"
               />
             </label>
-            <Button onClick={applyReport} disabled={loading}>
+            <Button onClick={() => applyReport()} disabled={loading}>
               {loading ? "Actualizando..." : "Aplicar"}
             </Button>
           </div>
