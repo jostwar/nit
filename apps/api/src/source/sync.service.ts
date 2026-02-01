@@ -83,21 +83,27 @@ export class SyncService {
     for (const invoice of invoices) {
       const normalizedNit = this.normalizeNit(invoice.customerNit) || invoice.customerNit;
       if (!normalizedNit || !invoice.externalId) continue;
-      const customer = await this.prisma.customer.upsert({
-        where: { tenantId_nit: { tenantId, nit: normalizedNit } },
-        update:
-          invoice.customerName && invoice.customerName != normalizedNit
-            ? { name: invoice.customerName }
-            : {},
-        create: {
-          tenantId,
-          nit: normalizedNit,
-          name:
-            invoice.customerName && invoice.customerName != normalizedNit
-              ? invoice.customerName
-              : normalizedNit,
-        },
+      const safeName = invoice.customerName?.trim();
+      const shouldUseName =
+        safeName &&
+        safeName !== normalizedNit &&
+        !/^\d+$/.test(safeName) &&
+        !/^cliente\s+\d+/i.test(safeName);
+      const existingCustomer = await this.prisma.customer.findFirst({
+        where: { tenantId, nit: normalizedNit },
       });
+      const customer = existingCustomer
+        ? await this.prisma.customer.update({
+            where: { id: existingCustomer.id },
+            data: shouldUseName ? { name: safeName } : {},
+          })
+        : await this.prisma.customer.create({
+            data: {
+              tenantId,
+              nit: normalizedNit,
+              name: shouldUseName ? safeName : normalizedNit,
+            },
+          });
       const issuedAt = new Date(invoice.issuedAt);
       const existing = await this.prisma.invoice.findFirst({
         where: {
@@ -164,21 +170,27 @@ export class SyncService {
     for (const payment of payments) {
       const normalizedNit = this.normalizeNit(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) continue;
-      const customer = await this.prisma.customer.upsert({
-        where: { tenantId_nit: { tenantId, nit: normalizedNit } },
-        update:
-          payment.customerName && payment.customerName != normalizedNit
-            ? { name: payment.customerName }
-            : {},
-        create: {
-          tenantId,
-          nit: normalizedNit,
-          name:
-            payment.customerName && payment.customerName != normalizedNit
-              ? payment.customerName
-              : normalizedNit,
-        },
+      const safeName = payment.customerName?.trim();
+      const shouldUseName =
+        safeName &&
+        safeName !== normalizedNit &&
+        !/^\d+$/.test(safeName) &&
+        !/^cliente\s+\d+/i.test(safeName);
+      const existingCustomer = await this.prisma.customer.findFirst({
+        where: { tenantId, nit: normalizedNit },
       });
+      const customer = existingCustomer
+        ? await this.prisma.customer.update({
+            where: { id: existingCustomer.id },
+            data: shouldUseName ? { name: safeName } : {},
+          })
+        : await this.prisma.customer.create({
+            data: {
+              tenantId,
+              nit: normalizedNit,
+              name: shouldUseName ? safeName : normalizedNit,
+            },
+          });
 
       const balance = payment.balance ?? 0;
       if (balance > 0) {
@@ -265,26 +277,42 @@ export class SyncService {
     if (customers.length === 0) {
       return { synced: 0 };
     }
-    await this.prisma.$transaction(
-      customers.map((customer) => {
-        const normalizedNit = this.normalizeNit(customer.nit) || customer.nit;
-        return this.prisma.customer.upsert({
-          where: { tenantId_nit: { tenantId, nit: normalizedNit } },
-          update: {
-            name: customer.name,
-            segment: customer.segment ?? undefined,
-            city: customer.city ?? undefined,
-          },
-          create: {
-            tenantId,
-            nit: normalizedNit,
-            name: customer.name,
-            segment: customer.segment ?? undefined,
-            city: customer.city ?? undefined,
-          },
+    for (const customer of customers) {
+      const normalizedNit = this.normalizeNit(customer.nit);
+      if (!normalizedNit) continue;
+      const existing = await this.prisma.customer.findFirst({
+        where: {
+          tenantId,
+          OR: [{ nit: normalizedNit }, { nit: customer.nit }],
+        },
+      });
+      if (existing && existing.nit !== normalizedNit) {
+        const conflict = await this.prisma.customer.findFirst({
+          where: { tenantId, nit: normalizedNit },
         });
-      }),
-    );
+        if (!conflict) {
+          await this.prisma.customer.update({
+            where: { id: existing.id },
+            data: { nit: normalizedNit },
+          });
+        }
+      }
+      await this.prisma.customer.upsert({
+        where: { tenantId_nit: { tenantId, nit: normalizedNit } },
+        update: {
+          name: customer.name,
+          segment: customer.segment ?? undefined,
+          city: customer.city ?? undefined,
+        },
+        create: {
+          tenantId,
+          nit: normalizedNit,
+          name: customer.name,
+          segment: customer.segment ?? undefined,
+          city: customer.city ?? undefined,
+        },
+      });
+    }
     return { synced: customers.length };
   }
 }
