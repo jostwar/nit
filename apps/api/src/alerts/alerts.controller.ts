@@ -4,6 +4,7 @@ import { TenantId } from '../common/decorators/tenant-id.decorator';
 import { CreateAlertRuleDto } from './dto/create-alert-rule.dto';
 import { UpdateAlertRuleDto } from './dto/update-alert-rule.dto';
 import { AlertStatus } from '@prisma/client';
+import { UpdateAlertEventDto } from './dto/update-alert-event.dto';
 
 @Controller('alerts')
 export class AlertsController {
@@ -34,7 +35,19 @@ export class AlertsController {
   }
 
   @Get('events')
-  listEvents(@TenantId() tenantId: string, @Query('status') status?: AlertStatus) {
-    return this.alertsService.listEvents(tenantId, status);
+  listEvents(@TenantId() tenantId: string, @Query('status') status?: string) {
+    const normalized = status?.toUpperCase();
+    const filter =
+      normalized === 'OPEN' || normalized === 'CLOSED' ? (normalized as AlertStatus) : undefined;
+    return this.alertsService.listEvents(tenantId, filter);
+  }
+
+  @Patch('events/:id')
+  updateEvent(
+    @TenantId() tenantId: string,
+    @Param('id') eventId: string,
+    @Body() dto: UpdateAlertEventDto,
+  ) {
+    return this.alertsService.updateEventStatus(tenantId, eventId, dto.status);
   }
 }

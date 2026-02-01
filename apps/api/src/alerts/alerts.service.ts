@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { AlertRuleType, AlertStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAlertRuleDto } from './dto/create-alert-rule.dto';
@@ -27,23 +27,31 @@ export class AlertsService {
     });
   }
 
-  updateRule(tenantId: string, ruleId: string, dto: UpdateAlertRuleDto) {
+  async updateRule(tenantId: string, ruleId: string, dto: UpdateAlertRuleDto) {
     const data: Prisma.AlertRuleUpdateManyMutationInput = {
       ...(dto.name ? { name: dto.name } : {}),
       ...(dto.type ? { type: dto.type } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       ...(dto.params !== undefined ? { params: dto.params as Prisma.InputJsonValue } : {}),
     };
-    return this.prisma.alertRule.updateMany({
+    const updated = await this.prisma.alertRule.updateMany({
       where: { id: ruleId, tenantId },
       data,
     });
+    if (updated.count === 0) {
+      throw new NotFoundException('Alert rule not found');
+    }
+    return { ok: true };
   }
 
-  deleteRule(tenantId: string, ruleId: string) {
-    return this.prisma.alertRule.deleteMany({
+  async deleteRule(tenantId: string, ruleId: string) {
+    const deleted = await this.prisma.alertRule.deleteMany({
       where: { id: ruleId, tenantId },
     });
+    if (deleted.count === 0) {
+      throw new NotFoundException('Alert rule not found');
+    }
+    return { ok: true };
   }
 
   listEvents(tenantId: string, status?: AlertStatus) {
@@ -52,6 +60,17 @@ export class AlertsService {
       orderBy: { createdAt: 'desc' },
       include: { customer: true, rule: true },
     });
+  }
+
+  async updateEventStatus(tenantId: string, eventId: string, status: AlertStatus) {
+    const updated = await this.prisma.alertEvent.updateMany({
+      where: { id: eventId, tenantId },
+      data: { status },
+    });
+    if (updated.count === 0) {
+      throw new NotFoundException('Alert event not found');
+    }
+    return { ok: true };
   }
 
   async evaluateRules(tenantId: string) {
