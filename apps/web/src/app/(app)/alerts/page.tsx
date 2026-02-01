@@ -61,10 +61,11 @@ export default function AlertsPage() {
           <DataTable
             columns={[
               {
+                id: "customer",
                 header: "Cliente",
                 accessorFn: (row) => displayCustomerName(row.customer?.name ?? null),
               },
-              { header: "Regla", accessorFn: (row) => row.rule?.name ?? "N/A" },
+              { id: "rule", header: "Regla", accessorFn: (row) => row.rule?.name ?? "N/A" },
               { header: "Mensaje", accessorKey: "message" },
             ]}
             data={events}

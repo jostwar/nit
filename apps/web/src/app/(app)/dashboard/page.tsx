@@ -191,6 +191,7 @@ export default function DashboardPage() {
       },
       { header: "Acción", accessorKey: "actionLabel" },
       {
+        id: "actions",
         header: "",
         cell: ({ row }) => (
           <Button
@@ -234,7 +235,7 @@ export default function DashboardPage() {
             <CardTitle>Evolución de ventas</CardTitle>
           </CardHeader>
           <CardContent className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
               <LineChart data={summary?.series ?? []}>
                 <XAxis
                   dataKey="date"
@@ -268,7 +269,7 @@ export default function DashboardPage() {
             <CardTitle>Facturas y unidades</CardTitle>
           </CardHeader>
           <CardContent className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
               <LineChart data={summary?.series ?? []}>
                 <XAxis
                   dataKey="date"
