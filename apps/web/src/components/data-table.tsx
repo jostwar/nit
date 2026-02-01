@@ -14,11 +14,21 @@ type DataTableProps<TData> = {
 };
 
 export function DataTable<TData>({ columns, data }: DataTableProps<TData>) {
+  const safeColumns = Array.isArray(columns) ? columns : [];
+  const safeData = Array.isArray(data) ? data : [];
   const table = useReactTable({
-    data,
-    columns,
+    data: safeData,
+    columns: safeColumns,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  if (safeColumns.length === 0) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
+        Sin datos para mostrar.
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
