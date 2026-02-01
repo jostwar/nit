@@ -194,8 +194,7 @@ export default function DashboardPage() {
         header: "",
         cell: ({ row }) => (
           <Button
-            variant="outline"
-            size="sm"
+            className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50"
             onClick={() => {
               window.location.href = `/customers?search=${row.original.nit}`;
             }}
