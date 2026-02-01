@@ -149,6 +149,28 @@ export class CustomersService {
     });
 
     const compareMap = new Map(compare.map((row) => [row.brand, Number(row._sum.total ?? 0)]));
+    if (current.length === 0) {
+      const currentTotals = await this.prisma.invoice.aggregate({
+        where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
+        _sum: { total: true },
+      });
+      const compareTotals = await this.prisma.invoice.aggregate({
+        where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
+        _sum: { total: true },
+      });
+      const currentTotal = Number(currentTotals._sum.total ?? 0);
+      const compareTotal = Number(compareTotals._sum.total ?? 0);
+      if (currentTotal === 0 && compareTotal === 0) {
+        return [];
+      }
+      return [
+        {
+          brand: 'Sin detalle',
+          currentTotal,
+          compareTotal,
+        },
+      ];
+    }
     return current.map((row) => ({
       brand: row.brand,
       currentTotal: Number(row._sum.total ?? 0),
@@ -188,6 +210,28 @@ export class CustomersService {
     const compareMap = new Map(
       compare.map((row) => [row.productName, Number(row._sum.total ?? 0)]),
     );
+    if (current.length === 0) {
+      const currentTotals = await this.prisma.invoice.aggregate({
+        where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
+        _sum: { total: true },
+      });
+      const compareTotals = await this.prisma.invoice.aggregate({
+        where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
+        _sum: { total: true },
+      });
+      const currentTotal = Number(currentTotals._sum.total ?? 0);
+      const compareTotal = Number(compareTotals._sum.total ?? 0);
+      if (currentTotal === 0 && compareTotal === 0) {
+        return [];
+      }
+      return [
+        {
+          product: 'Sin detalle',
+          currentTotal,
+          compareTotal,
+        },
+      ];
+    }
     return current.map((row) => ({
       product: row.productName,
       currentTotal: Number(row._sum.total ?? 0),
