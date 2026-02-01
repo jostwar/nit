@@ -5,6 +5,16 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private sanitizeName(name?: string | null, nit?: string | null) {
+    if (!name) return 'Cliente sin nombre';
+    const trimmed = name.trim();
+    if (!trimmed) return 'Cliente sin nombre';
+    if (nit && trimmed === nit) return 'Cliente sin nombre';
+    if (/^\d+$/.test(trimmed)) return 'Cliente sin nombre';
+    if (/^cliente\s+\d+/i.test(trimmed)) return 'Cliente sin nombre';
+    return trimmed;
+  }
+
   async searchCustomers(tenantId: string, search?: string, from?: Date, to?: Date) {
     const customers = await this.prisma.customer.findMany({
       where: {
@@ -33,7 +43,7 @@ export class CustomersService {
         return {
           id: customer.id,
           nit: customer.nit,
-          name: customer.name,
+          name: this.sanitizeName(customer.name, customer.nit),
           segment: customer.segment,
           city: customer.city,
           totalSales: Number(metrics._sum.total ?? 0),
@@ -95,7 +105,7 @@ export class CustomersService {
       customer: {
         id: customer.id,
         nit: customer.nit,
-        name: customer.name,
+        name: this.sanitizeName(customer.name, customer.nit),
       },
       lastPurchaseAt: lastPurchase._max.issuedAt,
       current: {
