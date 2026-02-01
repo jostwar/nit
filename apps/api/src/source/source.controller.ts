@@ -3,10 +3,14 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SyncService } from './sync.service';
 import { SyncDto } from './dto/sync.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('source')
 export class SourceController {
-  constructor(private readonly syncService: SyncService) {}
+  constructor(
+    private readonly syncService: SyncService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Post('sync')
   @Roles('ADMIN')
@@ -39,14 +43,25 @@ export class SourceController {
 
     for (let cursor = new Date(safeFrom); cursor <= safeTo; cursor.setDate(cursor.getDate() + 1)) {
       const day = cursor.toISOString().slice(0, 10);
+      const dayStart = new Date(`${day}T00:00:00.000Z`);
+      const dayEnd = new Date(`${day}T23:59:59.999Z`);
       try {
-        const result = await this.syncService.syncInvoices(
-          user.tenantId,
-          tenantExternalId,
-          day,
-          day,
-        );
-        invoicesSynced += result.synced;
+        const existingInvoice = await this.prisma.invoice.findFirst({
+          where: {
+            tenantId: user.tenantId,
+            issuedAt: { gte: dayStart, lte: dayEnd },
+          },
+          select: { id: true },
+        });
+        if (!existingInvoice) {
+          const result = await this.syncService.syncInvoices(
+            user.tenantId,
+            tenantExternalId,
+            day,
+            day,
+          );
+          invoicesSynced += result.synced;
+        }
       } catch (error) {
         errors.push({
           date: day,
@@ -55,13 +70,22 @@ export class SourceController {
         });
       }
       try {
-        const result = await this.syncService.syncPayments(
-          user.tenantId,
-          tenantExternalId,
-          day,
-          day,
-        );
-        paymentsSynced += result.synced;
+        const existingPayment = await this.prisma.payment.findFirst({
+          where: {
+            tenantId: user.tenantId,
+            paidAt: { gte: dayStart, lte: dayEnd },
+          },
+          select: { id: true },
+        });
+        if (!existingPayment) {
+          const result = await this.syncService.syncPayments(
+            user.tenantId,
+            tenantExternalId,
+            day,
+            day,
+          );
+          paymentsSynced += result.synced;
+        }
       } catch (error) {
         errors.push({
           date: day,
