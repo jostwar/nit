@@ -14,13 +14,8 @@ type DataTableProps<TData> = {
 };
 
 export function DataTable<TData>({ columns, data }: DataTableProps<TData>) {
-  const safeColumns = Array.isArray(columns) ? columns : [];
+  const safeColumns = Array.isArray(columns) ? columns.filter(Boolean) : [];
   const safeData = Array.isArray(data) ? data : [];
-  const table = useReactTable({
-    data: safeData,
-    columns: safeColumns,
-    getCoreRowModel: getCoreRowModel(),
-  });
 
   if (safeColumns.length === 0) {
     return (
@@ -29,6 +24,12 @@ export function DataTable<TData>({ columns, data }: DataTableProps<TData>) {
       </div>
     );
   }
+
+  const table = useReactTable({
+    data: safeData,
+    columns: safeColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
