@@ -59,14 +59,21 @@ export default function AiPage() {
       : [];
 
   const sendQuestion = async () => {
+    if (!question.trim()) return;
     setLoading(true);
     try {
       const result = await apiPost("/ai/chat", {
-        question,
+        question: question.trim(),
         from: period.from,
         to: period.to,
       });
       setResponse(result);
+    } catch {
+      setResponse({
+        template: "error",
+        explanation: "No se pudo consultar el copiloto. Revisa el rango de fechas y la conexión.",
+        rows: [],
+      });
     } finally {
       setLoading(false);
     }
