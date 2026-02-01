@@ -36,17 +36,19 @@ export class FomplusSourceApiClient implements SourceApiClient {
     to: string,
     options?: { cedula?: string; vendor?: string },
   ): Promise<SourceInvoice[]> {
-    const xml = await this.postSoap(
+    const params = {
+      strPar_Empresa: this.config.database || tenantExternalId,
+      datPar_FecIni: new Date(from).toISOString(),
+      datPar_FecFin: new Date(to).toISOString(),
+      objPar_Objeto: this.config.token,
+      ...(options?.cedula ? { strPar_Cedula: options.cedula } : {}),
+    };
+    const xml = await this.getWithSoapFallback(
+      `${this.config.ventasBaseUrl}/srvAPI.asmx/GenerarInfoVentas`,
       `${this.config.ventasBaseUrl}/srvAPI.asmx`,
       'http://tempuri.org/GenerarInfoVentas',
       'GenerarInfoVentas',
-      {
-        strPar_Empresa: this.config.database || tenantExternalId,
-        datPar_FecIni: new Date(from).toISOString(),
-        datPar_FecFin: new Date(to).toISOString(),
-        objPar_Objeto: this.config.token,
-        ...(options?.cedula ? { strPar_Cedula: options.cedula } : {}),
-      },
+      params,
     );
     const records = this.extractRecords(xml);
     const brandMap = await this.fetchInventoryBrands(tenantExternalId);
@@ -59,17 +61,19 @@ export class FomplusSourceApiClient implements SourceApiClient {
     to: string,
     options?: { cedula?: string; vendor?: string },
   ): Promise<SourcePayment[]> {
-    const xml = await this.postSoap(
+    const params = {
+      strPar_Basedatos: this.config.database || tenantExternalId,
+      strPar_Token: this.config.token,
+      datPar_Fecha: new Date(to).toISOString(),
+      strPar_Cedula: options?.cedula ?? '',
+      strPar_Vended: options?.vendor ?? this.config.vendor ?? '',
+    };
+    const xml = await this.getWithSoapFallback(
+      `${this.config.carteraBaseUrl}/srvCxcPed.asmx/EstadoDeCuentaCartera`,
       `${this.config.carteraBaseUrl}/srvCxcPed.asmx`,
       'http://tempuri.org/EstadoDeCuentaCartera',
       'EstadoDeCuentaCartera',
-      {
-        strPar_Basedatos: this.config.database || tenantExternalId,
-        strPar_Token: this.config.token,
-        datPar_Fecha: new Date(to).toISOString(),
-        strPar_Cedula: options?.cedula ?? '',
-        strPar_Vended: options?.vendor ?? this.config.vendor ?? '',
-      },
+      params,
     );
     const records = this.extractRecords(xml);
     return this.mapPayments(records, to);
@@ -81,17 +85,19 @@ export class FomplusSourceApiClient implements SourceApiClient {
     pageSize: number,
     vendor?: string,
   ): Promise<SourceCustomer[]> {
-    const xml = await this.postSoap(
+    const params = {
+      strPar_Basedatos: this.config.database || tenantExternalId,
+      strPar_Token: this.config.token,
+      strPar_Vended: vendor ?? this.config.vendor ?? '',
+      intPar_Filas: pageSize,
+      intPar_Pagina: page,
+    };
+    const xml = await this.getWithSoapFallback(
+      `${this.config.carteraBaseUrl}/srvCxcPed.asmx/ListadoClientes`,
       `${this.config.carteraBaseUrl}/srvCxcPed.asmx`,
       'http://tempuri.org/ListadoClientes',
       'ListadoClientes',
-      {
-        strPar_Basedatos: this.config.database || tenantExternalId,
-        strPar_Token: this.config.token,
-        strPar_Vended: vendor ?? this.config.vendor ?? '',
-        intPar_Filas: pageSize,
-        intPar_Pagina: page,
-      },
+      params,
     );
     const records = this.extractRecords(xml);
     return this.mapCustomers(records);
@@ -107,6 +113,20 @@ export class FomplusSourceApiClient implements SourceApiClient {
       throw new Error(`Fomplus API error: ${raw}`);
     }
     return raw;
+  }
+
+  private async getWithSoapFallback(
+    getUrl: string,
+    soapUrl: string,
+    action: string,
+    method: string,
+    params: Record<string, string | number>,
+  ) {
+    try {
+      return await this.getXml(getUrl, params);
+    } catch {
+      return this.postSoap(soapUrl, action, method, params);
+    }
   }
 
   private async postSoap(
