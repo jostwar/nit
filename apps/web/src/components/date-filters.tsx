@@ -107,7 +107,10 @@ export function DateFilters() {
           className="rounded-md border border-slate-200 px-2 py-1 text-xs"
         />
       </label>
-      <Button onClick={applyCompare} className="h-8 px-3 text-xs" variant="outline">
+      <Button
+        onClick={applyCompare}
+        className="h-8 px-3 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      >
         Comparar
       </Button>
       {error ? <span className="text-xs text-rose-500">{error}</span> : null}
