@@ -58,6 +58,27 @@ export default function AiPage() {
         }))
       : [];
 
+  const downloadCsv = () => {
+    if (normalizedRows.length === 0) return;
+    const headers = visibleKeys;
+    const escapeValue = (value: unknown) => {
+      if (value === null || value === undefined) return "";
+      const text = String(value).replace(/"/g, '""');
+      return `"${text}"`;
+    };
+    const lines = [
+      headers.map(escapeValue).join(","),
+      ...normalizedRows.map((row) => headers.map((key) => escapeValue(row[key])).join(",")),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ai-resultados-${period.from}-${period.to}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const sendQuestion = async () => {
     if (!question.trim()) return;
     setLoading(true);
@@ -109,6 +130,13 @@ export default function AiPage() {
               <div className="text-xs text-slate-500">
                 Template: {response.template}
               </div>
+              <Button
+                className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50"
+                onClick={downloadCsv}
+                disabled={normalizedRows.length === 0}
+              >
+                Descargar Excel
+              </Button>
               <p>{response.explanation}</p>
               {normalizedRows.length > 0 ? (
                 <DataTable columns={columns} data={normalizedRows} />
