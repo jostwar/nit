@@ -316,7 +316,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     records.forEach((record) => {
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
       const numdoc = this.pick(record, ['numdoc', 'numero', 'documento', 'docafe']) ?? '';
-      const invoiceId =
+      const baseInvoiceId =
         this.pick(record, [
           'docafe',
           'factura',
@@ -325,7 +325,10 @@ export class FomplusSourceApiClient implements SourceApiClient {
           'documento',
           'idfactura',
           'nrodocumento',
-        ]) ?? (prefijo && numdoc ? `${prefijo}${numdoc}` : '');
+        ]) ?? '';
+      const invoiceId =
+        baseInvoiceId && prefijo ? `${prefijo}${baseInvoiceId}` : baseInvoiceId ||
+        (prefijo && numdoc ? `${prefijo}${numdoc}` : '');
       const nit =
         this.pick(record, ['cedula', 'nit', 'documentocliente', 'idcliente', 'nitcliente']) ?? '';
       const customerName =
@@ -362,7 +365,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         this.pick(record, ['valtot', 'totalitem', 'subtotal', 'valoritem', 'totaldetalle']),
       );
 
-      const key = invoiceId || `${nit}-${issuedAt}-${total}`;
+      const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
       if (!existing) {
         grouped.set(key, {
@@ -370,8 +373,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
           customerNit: nit,
           customerName,
           issuedAt,
-          total: total ?? itemTotal ?? 0,
-          margin,
+          total: 0,
+          margin: 0,
           units: quantity ?? 0,
           items: [],
         });
@@ -390,9 +393,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
         margin,
       });
       target.units += resolvedQty;
-      if (total && target.total === 0) {
-        target.total = total;
-      }
+      target.total += resolvedTotal;
+      target.margin += margin;
     });
     return Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
   }
