@@ -21,8 +21,8 @@ export default function AiPage() {
     };
   }, [searchParams]);
 
-  const rows = Array.isArray(response?.rows) ? response.rows : [];
-  const normalizedRows = rows.map((row: Record<string, unknown>) => {
+  const rows: Record<string, unknown>[] = Array.isArray(response?.rows) ? response.rows : [];
+  const normalizedRows: Record<string, unknown>[] = rows.map((row) => {
     const next = { ...row };
     delete next.customerId;
     if (next.customerName && next.customerNit && next.customerName === next.customerNit) {
