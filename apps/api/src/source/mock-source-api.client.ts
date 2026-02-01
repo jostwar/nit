@@ -5,6 +5,7 @@ export class MockSourceApiClient implements SourceApiClient {
     _tenantExternalId: string,
     _from: string,
     _to: string,
+    _options?: { cedula?: string; vendor?: string },
   ): Promise<SourceInvoice[]> {
     return [];
   }
@@ -13,6 +14,7 @@ export class MockSourceApiClient implements SourceApiClient {
     _tenantExternalId: string,
     _from: string,
     _to: string,
+    _options?: { cedula?: string; vendor?: string },
   ): Promise<SourcePayment[]> {
     return [];
   }

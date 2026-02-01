@@ -10,16 +10,26 @@ export class HttpSourceApiClient implements SourceApiClient {
     timeout: 30000,
   });
 
-  async fetchInvoices(tenantExternalId: string, from: string, to: string): Promise<SourceInvoice[]> {
+  async fetchInvoices(
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    options?: { cedula?: string; vendor?: string },
+  ): Promise<SourceInvoice[]> {
     const response = await this.client.get('/invoices', {
-      params: { tenantExternalId, from, to },
+      params: { tenantExternalId, from, to, ...options },
     });
     return response.data;
   }
 
-  async fetchPayments(tenantExternalId: string, from: string, to: string): Promise<SourcePayment[]> {
+  async fetchPayments(
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    options?: { cedula?: string; vendor?: string },
+  ): Promise<SourcePayment[]> {
     const response = await this.client.get('/payments', {
-      params: { tenantExternalId, from, to },
+      params: { tenantExternalId, from, to, ...options },
     });
     return response.data;
   }

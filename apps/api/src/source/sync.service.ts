@@ -11,6 +11,7 @@ export class SyncService {
         tenantExternalId: string,
         from: string,
         to: string,
+        options?: { cedula?: string; vendor?: string },
       ) => Promise<
         Array<{
           externalId: string;
@@ -35,6 +36,7 @@ export class SyncService {
         tenantExternalId: string,
         from: string,
         to: string,
+        options?: { cedula?: string; vendor?: string },
       ) => Promise<
         Array<{
           externalId: string;
@@ -85,12 +87,41 @@ export class SyncService {
   }
 
   async syncInvoices(tenantId: string, tenantExternalId: string, from: string, to: string) {
-    const invoices = await this.sourceApi.fetchInvoices(tenantExternalId, from, to);
-    if (invoices.length === 0) {
+    const usePerCustomer =
+      process.env.SOURCE_API_PROVIDER === 'fomplus' &&
+      process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
+    const invoices = usePerCustomer
+      ? []
+      : await this.sourceApi.fetchInvoices(tenantExternalId, from, to);
+    if (!usePerCustomer && invoices.length === 0) {
       return { synced: 0 };
     }
     let synced = 0;
-    for (const invoice of invoices) {
+    const customerList = usePerCustomer
+      ? await this.prisma.customer.findMany({
+          where: { tenantId },
+          select: { id: true, nit: true, vendor: true },
+        })
+      : [];
+    const invoiceBatches = usePerCustomer
+      ? await Promise.all(
+          customerList.map(async (customer) => {
+            const records = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
+              cedula: customer.nit,
+              vendor: customer.vendor ?? undefined,
+            });
+            return records.map((record) => ({
+              ...record,
+              customerNit: record.customerNit || customer.nit,
+            }));
+          }),
+        )
+      : [invoices];
+    const flattened = invoiceBatches.flat();
+    if (usePerCustomer && flattened.length === 0) {
+      return { synced: 0 };
+    }
+    for (const invoice of flattened) {
       const normalizedNit = this.normalizeNit(invoice.customerNit) || invoice.customerNit;
       if (!normalizedNit || !invoice.externalId) continue;
       const existingCustomer = await this.prisma.customer.findFirst({
@@ -158,8 +189,13 @@ export class SyncService {
   }
 
   async syncPayments(tenantId: string, tenantExternalId: string, from: string, to: string) {
-    const payments = await this.sourceApi.fetchPayments(tenantExternalId, from, to);
-    if (payments.length === 0) {
+    const usePerCustomer =
+      process.env.SOURCE_API_PROVIDER === 'fomplus' &&
+      process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
+    const payments = usePerCustomer
+      ? []
+      : await this.sourceApi.fetchPayments(tenantExternalId, from, to);
+    if (!usePerCustomer && payments.length === 0) {
       return { synced: 0 };
     }
     const creditMap = new Map<
@@ -168,7 +204,32 @@ export class SyncService {
     >();
     let synced = 0;
 
-    for (const payment of payments) {
+    const customerList = usePerCustomer
+      ? await this.prisma.customer.findMany({
+          where: { tenantId },
+          select: { id: true, nit: true, vendor: true },
+        })
+      : [];
+    const paymentBatches = usePerCustomer
+      ? await Promise.all(
+          customerList.map(async (customer) => {
+            const records = await this.sourceApi.fetchPayments(tenantExternalId, from, to, {
+              cedula: customer.nit,
+              vendor: customer.vendor ?? undefined,
+            });
+            return records.map((record) => ({
+              ...record,
+              customerNit: record.customerNit || customer.nit,
+            }));
+          }),
+        )
+      : [payments];
+    const flattened = paymentBatches.flat();
+    if (usePerCustomer && flattened.length === 0) {
+      return { synced: 0 };
+    }
+
+    for (const payment of flattened) {
       const normalizedNit = this.normalizeNit(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) continue;
       const existingCustomer = await this.prisma.customer.findFirst({
@@ -298,6 +359,7 @@ export class SyncService {
           name: safeName,
           segment: customer.segment ?? undefined,
           city: customer.city ?? undefined,
+          vendor: customer.vendor ?? undefined,
         },
         create: {
           tenantId,
@@ -305,6 +367,7 @@ export class SyncService {
           name: safeName,
           segment: customer.segment ?? undefined,
           city: customer.city ?? undefined,
+          vendor: customer.vendor ?? undefined,
         },
       });
     }

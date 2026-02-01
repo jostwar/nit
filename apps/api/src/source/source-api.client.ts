@@ -42,8 +42,18 @@ export type SourceCustomer = {
 };
 
 export interface SourceApiClient {
-  fetchInvoices(tenantExternalId: string, from: string, to: string): Promise<SourceInvoice[]>;
-  fetchPayments(tenantExternalId: string, from: string, to: string): Promise<SourcePayment[]>;
+  fetchInvoices(
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    options?: { cedula?: string; vendor?: string },
+  ): Promise<SourceInvoice[]>;
+  fetchPayments(
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    options?: { cedula?: string; vendor?: string },
+  ): Promise<SourcePayment[]>;
   fetchCustomers(
     tenantExternalId: string,
     page: number,

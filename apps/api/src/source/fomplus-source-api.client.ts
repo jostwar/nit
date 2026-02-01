@@ -30,7 +30,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
     vendor: process.env.SOURCE_API_VENDOR ?? '',
   };
 
-  async fetchInvoices(tenantExternalId: string, from: string, to: string): Promise<SourceInvoice[]> {
+  async fetchInvoices(
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    options?: { cedula?: string; vendor?: string },
+  ): Promise<SourceInvoice[]> {
     const xml = await this.postSoap(
       `${this.config.ventasBaseUrl}/srvAPI.asmx`,
       'http://tempuri.org/GenerarInfoVentas',
@@ -40,6 +45,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         datPar_FecIni: new Date(from).toISOString(),
         datPar_FecFin: new Date(to).toISOString(),
         objPar_Objeto: this.config.token,
+        ...(options?.cedula ? { strPar_Cedula: options.cedula } : {}),
       },
     );
     const records = this.extractRecords(xml);
@@ -47,7 +53,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return this.mapInvoices(records, from, brandMap);
   }
 
-  async fetchPayments(tenantExternalId: string, _from: string, to: string): Promise<SourcePayment[]> {
+  async fetchPayments(
+    tenantExternalId: string,
+    _from: string,
+    to: string,
+    options?: { cedula?: string; vendor?: string },
+  ): Promise<SourcePayment[]> {
     const xml = await this.postSoap(
       `${this.config.carteraBaseUrl}/srvCxcPed.asmx`,
       'http://tempuri.org/EstadoDeCuentaCartera',
@@ -56,8 +67,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
         strPar_Basedatos: this.config.database || tenantExternalId,
         strPar_Token: this.config.token,
         datPar_Fecha: new Date(to).toISOString(),
-        strPar_Cedula: '',
-        strPar_Vended: this.config.vendor ?? '',
+        strPar_Cedula: options?.cedula ?? '',
+        strPar_Vended: options?.vendor ?? this.config.vendor ?? '',
       },
     );
     const records = this.extractRecords(xml);
