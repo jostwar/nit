@@ -116,6 +116,10 @@ export default function AiPage() {
             placeholder="Ej: ¿Cuáles son los clientes con mayor caída?"
             className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
           />
+          <div className="text-xs text-slate-500">
+            Puedes filtrar por ciudad o vendedor: "mejor cliente ciudad Barranquilla",
+            "top clientes vendedor 66004".
+          </div>
           <Button onClick={sendQuestion} disabled={loading || !question}>
             {loading ? "Consultando..." : "Enviar"}
           </Button>

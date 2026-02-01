@@ -20,6 +20,7 @@ export class AiService {
     optionalCustomerId?: string,
   ): Promise<AiResponse> {
     const q = question.toLowerCase();
+    const filters = this.extractFilters(question);
 
     if (q.includes('dso') || q.includes('cartera')) {
       return this.dsoHigh(tenantId, from, to);
@@ -37,13 +38,60 @@ export class AiService {
       return this.customerSummary(tenantId, optionalCustomerId, from, to);
     }
 
-    return this.topCustomers(tenantId, from, to);
+    return this.topCustomers(tenantId, from, to, filters);
   }
 
-  private async topCustomers(tenantId: string, from: Date, to: Date): Promise<AiResponse> {
+  private extractFilters(question: string) {
+    const cityMatch = question.match(/ciudad\s+([a-záéíóúñ\s]+)/i);
+    const vendorMatch = question.match(/vendedor\s+([a-z0-9]+)/i);
+    return {
+      city: cityMatch ? cityMatch[1].trim() : undefined,
+      vendor: vendorMatch ? vendorMatch[1].trim() : undefined,
+    };
+  }
+
+  private async resolveCustomerScope(
+    tenantId: string,
+    filters?: { city?: string; vendor?: string },
+  ) {
+    if (!filters?.city && !filters?.vendor) return null;
+    const where: { tenantId: string; city?: object; vendor?: object } = { tenantId };
+    if (filters.city) {
+      where.city = { contains: filters.city, mode: 'insensitive' };
+    }
+    if (filters.vendor) {
+      where.vendor = { contains: filters.vendor, mode: 'insensitive' };
+    }
+    const customers = await this.prisma.customer.findMany({
+      where,
+      select: { id: true },
+      take: 2000,
+    });
+    return customers.map((c) => c.id);
+  }
+
+  private async topCustomers(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string },
+  ): Promise<AiResponse> {
+    const scopedIds = await this.resolveCustomerScope(tenantId, filters);
+    if (scopedIds && scopedIds.length === 0) {
+      return {
+        template: 'top_customers',
+        period: { from: from.toISOString(), to: to.toISOString() },
+        rows: [],
+        explanation: 'No se encontraron clientes para los filtros solicitados.',
+      };
+    }
     const rows = await this.prisma.invoice.groupBy({
       by: ['customerId'],
-      where: { tenantId, issuedAt: { gte: from, lte: to } },
+      where: {
+        tenantId,
+        issuedAt: { gte: from, lte: to },
+        ...(scopedIds ? { customerId: { in: scopedIds } } : {}),
+      },
       _sum: { total: true },
       orderBy: { _sum: { total: 'desc' } },
       take: 10,
