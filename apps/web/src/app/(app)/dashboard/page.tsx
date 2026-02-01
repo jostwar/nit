@@ -183,6 +183,8 @@ export default function DashboardPage() {
         cell: ({ row }) => {
           const name = row.original.name?.trim();
           if (!name) return "Cliente sin nombre";
+          if (/^\d+$/.test(name)) return "Cliente sin nombre";
+          if (/^cliente\s+\d+/i.test(name)) return "Cliente sin nombre";
           return name;
         },
       },
