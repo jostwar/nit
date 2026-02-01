@@ -67,4 +67,18 @@ export class MetricsService {
       })),
     };
   }
+
+  async getSalesTotal(tenantId: string, from: Date, to: Date) {
+    const totals = await this.prisma.invoice.aggregate({
+      where: { tenantId, issuedAt: { gte: from, lte: to } },
+      _sum: { total: true, margin: true, units: true },
+      _count: { _all: true },
+    });
+    return {
+      totalSales: Number(totals._sum.total ?? 0),
+      totalMargin: Number(totals._sum.margin ?? 0),
+      totalUnits: Number(totals._sum.units ?? 0),
+      totalInvoices: totals._count._all,
+    };
+  }
 }

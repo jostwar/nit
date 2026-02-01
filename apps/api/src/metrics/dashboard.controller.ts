@@ -25,4 +25,14 @@ export class DashboardController {
       compare.to,
     );
   }
+
+  @Get('total')
+  getTotal(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getSalesTotal(tenantId, current.from, current.to);
+  }
 }

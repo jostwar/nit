@@ -12,6 +12,10 @@ async function bootstrap() {
   });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new ProblemDetailsFilter());
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   await app.listen(process.env.PORT ?? 4000);
 }
 bootstrap();
