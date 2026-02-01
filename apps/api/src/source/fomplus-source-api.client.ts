@@ -41,14 +41,16 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const ranges = this.splitDateRange(from, to, Number.isFinite(chunkDays) ? chunkDays : 7);
     const payload: FlatRecord[] = [];
     for (const range of ranges) {
-      const params = {
+      const params: Record<string, string | number> = {
         strPar_Empresa: this.config.database || tenantExternalId,
-        strPar_Nit: normalizedCedula || undefined,
-        strPar_Cedula: normalizedCedula || undefined,
         datPar_FecIni: this.formatDateOnly(range.from),
         datPar_FecFin: this.formatDateOnly(range.to),
         objPar_Objeto: this.config.token,
       };
+      if (normalizedCedula) {
+        params.strPar_Nit = normalizedCedula;
+        params.strPar_Cedula = normalizedCedula;
+      }
       const xml = await this.getWithSoapFallback(
         `${this.config.ventasBaseUrl}/srvAPI.asmx/GenerarInfoVentas`,
         `${this.config.ventasBaseUrl}/srvAPI.asmx`,
