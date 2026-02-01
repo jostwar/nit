@@ -94,7 +94,10 @@ export default function AdminReportsPage() {
           <p className="text-sm text-slate-500">Tablero Analítico de Ventas</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" onClick={() => setFrom("2026-01-01")}>
+          <Button
+            onClick={() => setFrom("2026-01-01")}
+            className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          >
             Este Año
           </Button>
           <label className="flex items-center gap-2 text-xs text-slate-500">
@@ -121,7 +124,9 @@ export default function AdminReportsPage() {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
-            <Button variant="outline">Filtros</Button>
+            <Button className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
+              Filtros
+            </Button>
             <div className="text-xs text-slate-500">
               Periodo comparado:{" "}
               <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
