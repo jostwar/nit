@@ -88,7 +88,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const params = {
       strPar_Basedatos: this.config.database || tenantExternalId,
       strPar_Token: this.config.token,
-      strPar_Vended: vendor ?? this.config.vendor ?? '',
+      strPar_Vended: vendor ?? '',
       intPar_Filas: pageSize,
       intPar_Pagina: page,
     };
@@ -246,7 +246,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         address: this.pick(record, ['cli_direcc', 'direccion']),
         city: this.pick(record, ['ciudad', 'municipio', 'nomciu']),
         segment: this.pick(record, ['cli_nomsec', 'nomsec', 'sector']),
-        vendor: this.pick(record, ['cli_nomven', 'nomven', 'vendedor']),
+        vendor: this.pick(record, ['cli_vended', 'vended', 'vendedor', 'cli_nomven', 'nomven']),
       });
     }
     return customers;

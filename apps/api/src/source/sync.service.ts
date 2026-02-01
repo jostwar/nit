@@ -108,7 +108,7 @@ export class SyncService {
           customerList.map(async (customer) => {
             const records = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
               cedula: customer.nit,
-              vendor: customer.vendor ?? undefined,
+              vendor: customer.vendor ?? '',
             });
             return records.map((record) => ({
               ...record,
@@ -215,7 +215,7 @@ export class SyncService {
           customerList.map(async (customer) => {
             const records = await this.sourceApi.fetchPayments(tenantExternalId, from, to, {
               cedula: customer.nit,
-              vendor: customer.vendor ?? undefined,
+              vendor: customer.vendor ?? '',
             });
             return records.map((record) => ({
               ...record,
