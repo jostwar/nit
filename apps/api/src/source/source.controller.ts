@@ -28,9 +28,54 @@ export class SourceController {
       page,
       pageSize,
     );
-    const invoices = await this.syncService.syncInvoices(user.tenantId, tenantExternalId, from, to);
-    const payments = await this.syncService.syncPayments(user.tenantId, tenantExternalId, from, to);
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    const safeFrom = Number.isNaN(fromDate.getTime()) ? new Date(today) : fromDate;
+    const safeTo = Number.isNaN(toDate.getTime()) ? new Date(today) : toDate;
 
-    return { customers, invoices, payments };
+    let invoicesSynced = 0;
+    let paymentsSynced = 0;
+    const errors: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> = [];
+
+    for (let cursor = new Date(safeFrom); cursor <= safeTo; cursor.setDate(cursor.getDate() + 1)) {
+      const day = cursor.toISOString().slice(0, 10);
+      try {
+        const result = await this.syncService.syncInvoices(
+          user.tenantId,
+          tenantExternalId,
+          day,
+          day,
+        );
+        invoicesSynced += result.synced;
+      } catch (error) {
+        errors.push({
+          date: day,
+          stage: 'invoices',
+          message: (error as Error).message ?? 'Error sincronizando ventas',
+        });
+      }
+      try {
+        const result = await this.syncService.syncPayments(
+          user.tenantId,
+          tenantExternalId,
+          day,
+          day,
+        );
+        paymentsSynced += result.synced;
+      } catch (error) {
+        errors.push({
+          date: day,
+          stage: 'payments',
+          message: (error as Error).message ?? 'Error sincronizando cartera',
+        });
+      }
+    }
+
+    return {
+      customers,
+      invoices: { synced: invoicesSynced },
+      payments: { synced: paymentsSynced },
+      errors,
+    };
   }
 }
