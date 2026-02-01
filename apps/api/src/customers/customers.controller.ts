@@ -72,7 +72,8 @@ export class CustomersController {
   ) {
     const current = parseRange(from, to);
     const compare = parseRange(compareFrom, compareTo);
-    const safeLimit = limit ? Math.min(parseInt(limit, 10), 200) : 50;
+    const parsedLimit = limit ? parseInt(limit, 10) : NaN;
+    const safeLimit = Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 200) : 50;
     return this.customersService.getProducts(
       tenantId,
       customerId,

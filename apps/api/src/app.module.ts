@@ -19,6 +19,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AiModule } from './ai/ai.module';
 import { SourceModule } from './source/source.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { SourceModule } from './source/source.module';
     AlertsModule,
     AiModule,
     SourceModule,
+    UsersModule,
   ],
   controllers: [AppController, MeController],
   providers: [

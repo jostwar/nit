@@ -46,14 +46,22 @@ export function DateFilters() {
     setSyncing(true);
     setError(null);
     try {
-      await apiPost("/source/sync", {
-        from,
-        to,
-        page: 1,
-        pageSize: 1000,
-      });
-    } catch {
-      setError("No se pudo sincronizar el rango seleccionado.");
+      await apiPost(
+        "/source/sync",
+        {
+          from,
+          to,
+          page: 1,
+          pageSize: 1000,
+        },
+        { timeoutMs: 20000 },
+      );
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setError("La sincronización sigue en segundo plano. Revisa en unos minutos.");
+      } else {
+        setError("No se pudo sincronizar el rango seleccionado.");
+      }
     } finally {
       updateQuery(compareEnabled);
       setSyncing(false);

@@ -66,7 +66,7 @@ export default function CustomersPage() {
     () => new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }),
     [],
   );
-  const queryString = useMemo(() => {
+  const detailQueryString = useMemo(() => {
     const params = new URLSearchParams();
     const from = searchParams.get("from");
     const to = searchParams.get("to");
@@ -79,6 +79,16 @@ export default function CustomersPage() {
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [searchParams]);
+  const listQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (search.trim()) params.set("search", search.trim());
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }, [search, searchParams]);
   const toDate = useMemo(() => {
     const to = searchParams.get("to");
     const parsed = to ? new Date(to) : new Date();
@@ -92,27 +102,27 @@ export default function CustomersPage() {
     : null;
 
   useEffect(() => {
-    apiGet<Customer[]>(`/customers?search=${encodeURIComponent(search)}${queryString}`).then(
-      (data) => {
+    apiGet<Customer[]>(`/customers${listQueryString}`).then((data) => {
       setCustomers(data);
       if (!selectedId && data.length > 0) {
         setSelectedId(data[0].id);
       }
-      },
-    );
-  }, [search, selectedId, queryString]);
+    });
+  }, [listQueryString, selectedId]);
 
   useEffect(() => {
     if (!selectedId) return;
-    apiGet<CustomerOverview>(`/customers/${selectedId}/overview${queryString}`).then(setOverview);
-    apiGet<CustomerBrand[]>(`/customers/${selectedId}/brands${queryString}`).then(setBrands);
-    apiGet<CustomerProduct[]>(`/customers/${selectedId}/products${queryString}`).then(
+    apiGet<CustomerOverview>(`/customers/${selectedId}/overview${detailQueryString}`).then(
+      setOverview,
+    );
+    apiGet<CustomerBrand[]>(`/customers/${selectedId}/brands${detailQueryString}`).then(setBrands);
+    apiGet<CustomerProduct[]>(`/customers/${selectedId}/products${detailQueryString}`).then(
       setProducts,
     );
-    apiGet<CustomerCollections>(`/customers/${selectedId}/collections${queryString}`).then(
+    apiGet<CustomerCollections>(`/customers/${selectedId}/collections${detailQueryString}`).then(
       setCollections,
     );
-  }, [selectedId, queryString]);
+  }, [selectedId, detailQueryString]);
 
   const columns = useMemo<ColumnDef<Customer>[]>(
     () => [

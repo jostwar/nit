@@ -12,5 +12,8 @@ export function parseDate(value?: string, fallback?: Date): Date {
 export function parseRange(from?: string, to?: string, days = 30) {
   const end = parseDate(to, new Date());
   const start = parseDate(from, new Date(end.getTime() - days * 24 * 60 * 60 * 1000));
+  if (start.getTime() > end.getTime()) {
+    return { from: end, to: start };
+  }
   return { from: start, to: end };
 }

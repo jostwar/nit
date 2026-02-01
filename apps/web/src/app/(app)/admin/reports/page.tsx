@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,12 +41,39 @@ type DashboardSummary = {
 
 export default function AdminReportsPage() {
   const today = new Date().toISOString().slice(0, 10);
-  const [from, setFrom] = useState("2026-01-01");
-  const [to, setTo] = useState(today);
-  const [compareFrom, setCompareFrom] = useState("2025-01-01");
-  const [compareTo, setCompareTo] = useState("2025-02-01");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const yearStart = `${today.slice(0, 4)}-01-01`;
+  const lastYear = String(Number(today.slice(0, 4)) - 1);
+  const initial = useMemo(
+    () => ({
+      from: searchParams.get("from") ?? yearStart,
+      to: searchParams.get("to") ?? today,
+      compareFrom: searchParams.get("compareFrom") ?? `${lastYear}-01-01`,
+      compareTo: searchParams.get("compareTo") ?? `${lastYear}-${today.slice(5)}`,
+    }),
+    [searchParams, today, yearStart, lastYear],
+  );
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
+  const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
+  const [compareTo, setCompareTo] = useState(initial.compareTo);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFrom(initial.from);
+    setTo(initial.to);
+    setCompareFrom(initial.compareFrom);
+    setCompareTo(initial.compareTo);
+  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo]);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }, [searchParams]);
 
   const periodLabel = useMemo(() => {
     const format = new Intl.DateTimeFormat("es-CO", {
@@ -61,25 +89,32 @@ export default function AdminReportsPage() {
     return `${format.format(fromDate)} - ${format.format(toDate)}`;
   }, [compareFrom, compareTo]);
 
-  const applyReport = async () => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({
-        from,
-        to,
-        compareFrom,
-        compareTo,
-      }).toString();
-      const data = await apiGet<DashboardSummary>(`/dashboard/summary?${query}`);
-      setSummary(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    applyReport();
-  }, []);
+    setLoading(true);
+    setError(null);
+    apiGet<DashboardSummary>(`/dashboard/summary${queryString}`)
+      .then(setSummary)
+      .catch(() => setError("No se pudieron cargar los reportes."))
+      .finally(() => setLoading(false));
+  }, [queryString]);
+
+  const applyReport = (overrides?: {
+    from?: string;
+    to?: string;
+    compareFrom?: string;
+    compareTo?: string;
+  }) => {
+    const nextFrom = overrides?.from ?? from;
+    const nextTo = overrides?.to ?? to;
+    const nextCompareFrom = overrides?.compareFrom ?? compareFrom;
+    const nextCompareTo = overrides?.compareTo ?? compareTo;
+    const params = new URLSearchParams();
+    if (nextFrom) params.set("from", nextFrom);
+    if (nextTo) params.set("to", nextTo);
+    if (nextCompareFrom) params.set("compareFrom", nextCompareFrom);
+    if (nextCompareTo) params.set("compareTo", nextCompareTo);
+    router.replace(`?${params.toString()}`);
+  };
 
   const marginPercent =
     summary && summary.current.totalSales > 0
@@ -95,7 +130,11 @@ export default function AdminReportsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button
-            onClick={() => setFrom("2026-01-01")}
+            onClick={() => {
+              setFrom(yearStart);
+              setTo(today);
+              applyReport({ from: yearStart, to: today });
+            }}
             className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
           >
             Este Año
@@ -124,7 +163,10 @@ export default function AdminReportsPage() {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
-            <Button className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
+            <Button
+              onClick={applyReport}
+              className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            >
               Filtros
             </Button>
             <div className="text-xs text-slate-500">
@@ -159,6 +201,7 @@ export default function AdminReportsPage() {
           </div>
         </CardContent>
       </Card>
+      {error ? <div className="text-sm text-rose-500">{error}</div> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -201,7 +244,7 @@ export default function AdminReportsPage() {
             <CardTitle>Evolución de Ventas y Transacciones</CardTitle>
           </CardHeader>
           <CardContent className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
               <LineChart data={summary?.series ?? []}>
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
