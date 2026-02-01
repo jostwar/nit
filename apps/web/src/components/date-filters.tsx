@@ -22,8 +22,25 @@ export function DateFilters() {
   const [to, setTo] = useState(initial.to);
   const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
   const [compareTo, setCompareTo] = useState(initial.compareTo);
+  const [compareEnabled, setCompareEnabled] = useState(
+    Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
+  );
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const updateQuery = (enableCompare: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("from", from);
+    params.set("to", to);
+    if (enableCompare) {
+      params.set("compareFrom", compareFrom);
+      params.set("compareTo", compareTo);
+    } else {
+      params.delete("compareFrom");
+      params.delete("compareTo");
+    }
+    router.replace(`?${params.toString()}`);
+  };
 
   const applyFilters = async () => {
     setSyncing(true);
@@ -38,14 +55,14 @@ export function DateFilters() {
     } catch {
       setError("No se pudo sincronizar el rango seleccionado.");
     } finally {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("from", from);
-      params.set("to", to);
-      params.set("compareFrom", compareFrom);
-      params.set("compareTo", compareTo);
-      router.replace(`?${params.toString()}`);
+      updateQuery(compareEnabled);
       setSyncing(false);
     }
+  };
+
+  const applyCompare = () => {
+    setCompareEnabled(true);
+    updateQuery(true);
   };
 
   return (
@@ -68,6 +85,9 @@ export function DateFilters() {
           className="rounded-md border border-slate-200 px-2 py-1 text-xs"
         />
       </label>
+      <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
+        {syncing ? "Sincronizando..." : "Consultar"}
+      </Button>
       <span className="text-slate-400">Comparar</span>
       <label className="flex items-center gap-2">
         Desde
@@ -87,8 +107,8 @@ export function DateFilters() {
           className="rounded-md border border-slate-200 px-2 py-1 text-xs"
         />
       </label>
-      <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
-        {syncing ? "Sincronizando..." : "Aplicar"}
+      <Button onClick={applyCompare} className="h-8 px-3 text-xs" variant="outline">
+        Comparar
       </Button>
       {error ? <span className="text-xs text-rose-500">{error}</span> : null}
     </div>

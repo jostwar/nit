@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/sidebar";
 import { DateFilters } from "@/components/date-filters";
 import { AuthGate } from "@/components/auth-gate";
+import { UserMenu } from "@/components/user-menu";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,7 +16,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 Insights de ventas y cartera por cliente
               </p>
             </div>
-            <DateFilters />
+            <div className="flex items-center gap-4">
+              <DateFilters />
+              <UserMenu />
+            </div>
           </header>
           <main className="flex-1 px-8 py-6">{children}</main>
         </div>

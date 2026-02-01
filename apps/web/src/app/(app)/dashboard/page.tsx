@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table";
+import { ColumnDef } from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
 import { formatCop } from "@/lib/utils";
 import {
   LineChart,
@@ -38,8 +41,25 @@ type DashboardSummary = {
   }>;
 };
 
+type CustomerRow = {
+  id: string;
+  nit: string;
+  name: string;
+  totalSales: number;
+};
+
+type CustomerTask = {
+  id: string;
+  nit: string;
+  name: string;
+  totalSales: number;
+  changePercent: number;
+  actionLabel: string;
+};
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [tasks, setTasks] = useState<CustomerTask[]>([]);
   const searchParams = useSearchParams();
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -55,11 +75,89 @@ export default function DashboardPage() {
     return qs ? `?${qs}` : "";
   }, [searchParams]);
 
+  const compareRange = useMemo(() => {
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    const compareFrom = searchParams.get("compareFrom");
+    const compareTo = searchParams.get("compareTo");
+    if (compareFrom && compareTo) {
+      return { compareFrom, compareTo };
+    }
+    if (!from || !to) {
+      return { compareFrom: undefined, compareTo: undefined };
+    }
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      return { compareFrom: undefined, compareTo: undefined };
+    }
+    const diff = toDate.getTime() - fromDate.getTime();
+    const prevTo = new Date(fromDate.getTime());
+    const prevFrom = new Date(fromDate.getTime() - diff);
+    return {
+      compareFrom: prevFrom.toISOString().slice(0, 10),
+      compareTo: prevTo.toISOString().slice(0, 10),
+    };
+  }, [searchParams]);
+
   useEffect(() => {
     apiGet<DashboardSummary>(`/dashboard/summary${query}`)
       .then(setSummary)
       .catch(() => setSummary(null));
   }, [query]);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const params = new URLSearchParams();
+        const from = searchParams.get("from");
+        const to = searchParams.get("to");
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+        const current = await apiGet<CustomerRow[]>(`/customers?${params.toString()}`);
+
+        const compareParams = new URLSearchParams();
+        if (compareRange.compareFrom) compareParams.set("from", compareRange.compareFrom);
+        if (compareRange.compareTo) compareParams.set("to", compareRange.compareTo);
+        const compare =
+          compareRange.compareFrom && compareRange.compareTo
+            ? await apiGet<CustomerRow[]>(`/customers?${compareParams.toString()}`)
+            : [];
+
+        const compareMap = new Map(compare.map((row) => [row.id, row.totalSales]));
+        const actionFor = (change: number, prev: number, curr: number) => {
+          if (prev === 0 && curr > 0) return "🚀 Crecimiento acelerado → Potenciar cuenta";
+          if (prev === 0 && curr === 0) return "➖ Estable bajo → Aumentar ticket";
+          if (change <= -40) return "🔻 Caída fuerte → Recuperar urgente";
+          if (change <= -20) return "🔻 Caída moderada → Reactivar compras";
+          if (change <= -5) return "⚠️ Riesgo inactivo → Contactar cliente";
+          if (change < 5) return "➖ Estable bajo → Aumentar ticket";
+          if (change < 15) return "➖ Estable medio → Ampliar mix";
+          if (change < 30) return "➖ Estable alto → Escalar cuenta";
+          if (change < 60) return "📈 Crecimiento leve → Estimular compra";
+          if (change < 100) return "📈 Crecimiento sostenido → Fidelizar cliente";
+          return "🚀 Crecimiento acelerado → Potenciar cuenta";
+        };
+
+        const rows: CustomerTask[] = current.map((row) => {
+          const prev = compareMap.get(row.id) ?? 0;
+          const change = prev > 0 ? ((row.totalSales - prev) / prev) * 100 : 0;
+          return {
+            id: row.id,
+            nit: row.nit,
+            name: row.name,
+            totalSales: row.totalSales,
+            changePercent: Number(change.toFixed(1)),
+            actionLabel: actionFor(change, prev, row.totalSales),
+          };
+        });
+        setTasks(rows);
+      } catch {
+        setTasks([]);
+      }
+    };
+    loadTasks();
+  }, [searchParams, compareRange]);
 
   const cards = [
     { label: "Ventas totales", value: summary?.current.totalSales ?? 0, currency: true },
@@ -77,6 +175,38 @@ export default function DashboardPage() {
     { label: "Facturas", value: summary?.current.totalInvoices ?? 0 },
     { label: "Unidades", value: summary?.current.totalUnits ?? 0 },
   ];
+
+  const taskColumns = useMemo<ColumnDef<CustomerTask>[]>(
+    () => [
+      { header: "Cliente", accessorKey: "name" },
+      {
+        header: "Ventas",
+        accessorKey: "totalSales",
+        cell: ({ row }) => formatCop(row.original.totalSales),
+      },
+      {
+        header: "Comparación % vs mes anterior",
+        accessorKey: "changePercent",
+        cell: ({ row }) => `${row.original.changePercent.toFixed(1)}%`,
+      },
+      { header: "Acción", accessorKey: "actionLabel" },
+      {
+        header: "",
+        cell: ({ row }) => (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = `/customers?search=${row.original.nit}`;
+            }}
+          >
+            Ver
+          </Button>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,6 +296,15 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tareas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable columns={taskColumns} data={tasks} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
