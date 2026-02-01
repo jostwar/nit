@@ -36,23 +36,31 @@ export class FomplusSourceApiClient implements SourceApiClient {
     to: string,
     options?: { cedula?: string; vendor?: string },
   ): Promise<SourceInvoice[]> {
-    const params = {
-      strPar_Empresa: this.config.database || tenantExternalId,
-      datPar_FecIni: new Date(from).toISOString(),
-      datPar_FecFin: new Date(to).toISOString(),
-      objPar_Objeto: this.config.token,
-      ...(options?.cedula ? { strPar_Cedula: options.cedula } : {}),
-    };
-    const xml = await this.getWithSoapFallback(
-      `${this.config.ventasBaseUrl}/srvAPI.asmx/GenerarInfoVentas`,
-      `${this.config.ventasBaseUrl}/srvAPI.asmx`,
-      'http://tempuri.org/GenerarInfoVentas',
-      'GenerarInfoVentas',
-      params,
-    );
-    const records = this.extractRecords(xml);
+    const normalizedCedula = options?.cedula ? this.normalizeId(options.cedula) : '';
+    const chunkDays = Number(process.env.SOURCE_VENTAS_CHUNK_DAYS ?? 7);
+    const ranges = this.splitDateRange(from, to, Number.isFinite(chunkDays) ? chunkDays : 7);
+    const payload: FlatRecord[] = [];
+    for (const range of ranges) {
+      const params = {
+        strPar_Empresa: this.config.database || tenantExternalId,
+        strPar_Nit: normalizedCedula || undefined,
+        strPar_Cedula: normalizedCedula || undefined,
+        datPar_FecIni: this.formatDateOnly(range.from),
+        datPar_FecFin: this.formatDateOnly(range.to),
+        objPar_Objeto: this.config.token,
+      };
+      const xml = await this.getWithSoapFallback(
+        `${this.config.ventasBaseUrl}/srvAPI.asmx/GenerarInfoVentas`,
+        `${this.config.ventasBaseUrl}/srvAPI.asmx`,
+        'http://tempuri.org/GenerarInfoVentas',
+        'GenerarInfoVentas',
+        params,
+      );
+      const records = this.extractRecords(xml);
+      payload.push(...records);
+    }
     const brandMap = await this.fetchInventoryBrands(tenantExternalId);
-    return this.mapInvoices(records, from, brandMap);
+    return this.mapInvoices(payload, from, brandMap);
   }
 
   async fetchPayments(
@@ -113,6 +121,40 @@ export class FomplusSourceApiClient implements SourceApiClient {
       throw new Error(`Fomplus API error: ${raw}`);
     }
     return raw;
+  }
+
+  private normalizeId(value?: string) {
+    if (!value) return '';
+    return value.replace(/[^\d]/g, '');
+  }
+
+  private formatDateOnly(value: string | Date) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return new Date().toISOString().slice(0, 10);
+    }
+    return date.toISOString().slice(0, 10);
+  }
+
+  private splitDateRange(from: string, to: string, chunkDays = 7) {
+    const start = new Date(from);
+    const end = new Date(to);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return [];
+    }
+    const ranges: Array<{ from: Date; to: Date }> = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      const rangeStart = new Date(cursor);
+      const rangeEnd = new Date(cursor);
+      rangeEnd.setDate(rangeEnd.getDate() + Math.max(0, chunkDays - 1));
+      if (rangeEnd > end) {
+        rangeEnd.setTime(end.getTime());
+      }
+      ranges.push({ from: rangeStart, to: rangeEnd });
+      cursor.setDate(cursor.getDate() + Math.max(1, chunkDays));
+    }
+    return ranges;
   }
 
   private async getWithSoapFallback(
