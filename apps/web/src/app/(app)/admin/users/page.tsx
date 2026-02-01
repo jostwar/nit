@@ -50,9 +50,14 @@ export default function AdminUsersPage() {
       {
         header: "Acciones",
         cell: () => (
-          <Button className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50">
-            Guardar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50">
+              Editar
+            </Button>
+            <Button className="border border-rose-200 bg-rose-50 text-xs text-rose-700 hover:bg-rose-100">
+              Eliminar
+            </Button>
+          </div>
         ),
       },
     ],

@@ -178,7 +178,18 @@ export default function DashboardPage() {
 
   const taskColumns = useMemo<ColumnDef<CustomerTask>[]>(
     () => [
-      { header: "Cliente", accessorKey: "name" },
+      {
+        header: "Cliente",
+        cell: ({ row }) => {
+          const name = row.original.name?.trim();
+          const nit = row.original.nit?.trim();
+          if (!name) return "Cliente sin nombre";
+          if (/^\d+$/.test(name)) return "Cliente sin nombre";
+          if (nit && name === nit) return "Cliente sin nombre";
+          if (/^cliente\s+\d+/i.test(name)) return "Cliente sin nombre";
+          return name;
+        },
+      },
       {
         header: "Ventas",
         accessorKey: "totalSales",
