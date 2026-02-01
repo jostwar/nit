@@ -12,6 +12,14 @@ export class AiController {
   chat(@TenantId() tenantId: string, @Body() dto: AiChatDto) {
     const from = parseDate(dto.from);
     const to = parseDate(dto.to);
-    return this.aiService.answer(tenantId, dto.question, from, to, dto.optionalCustomerId);
+    return this.aiService.answer(
+      tenantId,
+      dto.question,
+      from,
+      to,
+      dto.optionalCustomerId,
+      dto.optionalCity,
+      dto.optionalVendor,
+    );
   }
 }

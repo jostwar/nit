@@ -10,6 +10,8 @@ import { formatCop } from "@/lib/utils";
 
 export default function AiPage() {
   const [question, setQuestion] = useState("");
+  const [city, setCity] = useState("");
+  const [vendor, setVendor] = useState("");
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
@@ -89,6 +91,8 @@ export default function AiPage() {
         question: question.trim(),
         from: period.from,
         to: period.to,
+        optionalCity: city.trim() || undefined,
+        optionalVendor: vendor.trim() || undefined,
       });
       setResponse(result);
     } catch {
@@ -116,6 +120,20 @@ export default function AiPage() {
             placeholder="Ej: ¿Cuáles son los clientes con mayor caída?"
             className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
           />
+          <div className="grid gap-2 md:grid-cols-2">
+            <input
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              placeholder="Ciudad (opcional)"
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+            />
+            <input
+              value={vendor}
+              onChange={(event) => setVendor(event.target.value)}
+              placeholder="Vendedor (opcional)"
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+            />
+          </div>
           <div className="text-xs text-slate-500">
             Puedes filtrar por ciudad o vendedor: "mejor cliente ciudad Barranquilla",
             "top clientes vendedor 66004".

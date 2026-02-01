@@ -18,9 +18,14 @@ export class AiService {
     from: Date,
     to: Date,
     optionalCustomerId?: string,
+    optionalCity?: string,
+    optionalVendor?: string,
   ): Promise<AiResponse> {
     const q = question.toLowerCase();
-    const filters = this.extractFilters(question);
+    const filters = this.mergeFilters(this.extractFilters(question), {
+      city: optionalCity,
+      vendor: optionalVendor,
+    });
 
     if (q.includes('dso') || q.includes('cartera')) {
       return this.dsoHigh(tenantId, from, to);
@@ -47,6 +52,16 @@ export class AiService {
     return {
       city: cityMatch ? cityMatch[1].trim() : undefined,
       vendor: vendorMatch ? vendorMatch[1].trim() : undefined,
+    };
+  }
+
+  private mergeFilters(
+    parsed: { city?: string; vendor?: string },
+    explicit: { city?: string; vendor?: string },
+  ) {
+    return {
+      city: explicit.city?.trim() || parsed.city,
+      vendor: explicit.vendor?.trim() || parsed.vendor,
     };
   }
 

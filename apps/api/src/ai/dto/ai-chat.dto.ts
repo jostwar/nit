@@ -13,4 +13,12 @@ export class AiChatDto {
   @IsOptional()
   @IsString()
   optionalCustomerId?: string;
+
+  @IsOptional()
+  @IsString()
+  optionalCity?: string;
+
+  @IsOptional()
+  @IsString()
+  optionalVendor?: string;
 }
