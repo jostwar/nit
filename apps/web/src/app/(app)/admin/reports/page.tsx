@@ -246,7 +246,20 @@ export default function AdminReportsPage() {
           <CardContent className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
               <LineChart data={summary?.series ?? []}>
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => {
+                    const date =
+                      typeof value === "string" || typeof value === "number"
+                        ? new Date(value)
+                        : value instanceof Date
+                          ? value
+                          : null;
+                    if (!date || Number.isNaN(date.getTime())) return String(value);
+                    return date.toISOString().slice(5, 10).replace("-", "/");
+                  }}
+                />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} />

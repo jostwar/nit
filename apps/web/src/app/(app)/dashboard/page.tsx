@@ -247,9 +247,16 @@ export default function DashboardPage() {
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 10 }}
-                  tickFormatter={(value) =>
-                    typeof value === "string" ? value.slice(5).replace("-", "/") : value
-                  }
+                  tickFormatter={(value) => {
+                    const date =
+                      typeof value === "string" || typeof value === "number"
+                        ? new Date(value)
+                        : value instanceof Date
+                          ? value
+                          : null;
+                    if (!date || Number.isNaN(date.getTime())) return String(value);
+                    return date.toISOString().slice(5, 10).replace("-", "/");
+                  }}
                 />
                 <YAxis
                   tick={{ fontSize: 10 }}
@@ -281,9 +288,16 @@ export default function DashboardPage() {
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 10 }}
-                  tickFormatter={(value) =>
-                    typeof value === "string" ? value.slice(5).replace("-", "/") : value
-                  }
+                  tickFormatter={(value) => {
+                    const date =
+                      typeof value === "string" || typeof value === "number"
+                        ? new Date(value)
+                        : value instanceof Date
+                          ? value
+                          : null;
+                    if (!date || Number.isNaN(date.getTime())) return String(value);
+                    return date.toISOString().slice(5, 10).replace("-", "/");
+                  }}
                 />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip
