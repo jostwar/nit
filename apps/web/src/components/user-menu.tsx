@@ -69,15 +69,21 @@ export function UserMenu() {
           <div className="border-t border-slate-100" />
           <button
             type="button"
-            disabled
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-400"
+            onClick={() => {
+              setOpen(false);
+              router.push("/admin/users");
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
           >
             Agregar nuevo usuario
           </button>
           <button
             type="button"
-            disabled
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-400"
+            onClick={() => {
+              setOpen(false);
+              router.push("/admin/filters");
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
           >
             Configuraciones
           </button>
