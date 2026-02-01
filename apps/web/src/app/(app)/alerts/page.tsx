@@ -44,8 +44,6 @@ export default function AlertsPage() {
 
   const displayCustomerName = (name?: string | null) => {
     if (!name) return "Cliente sin nombre";
-    if (/^\d+$/.test(name)) return "Cliente sin nombre";
-    if (/^cliente\s+\d+/i.test(name)) return "Cliente sin nombre";
     return name;
   };
 
