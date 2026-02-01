@@ -31,11 +31,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
   };
 
   async fetchInvoices(tenantExternalId: string, from: string, to: string): Promise<SourceInvoice[]> {
-    const xml = await this.getXml(`${this.config.ventasBaseUrl}/srvAPI.asmx/GenerarInfoVentas`, {
-      strPar_Empresa: this.config.database || tenantExternalId,
-      datPar_FecIni: from,
-      datPar_FecFin: to,
-      objPar_Objeto: this.config.token,
+    const xml = await this.getXml(`${this.config.ventasBaseUrl}/srvAPI.asmx/DetalleFacturasPedido`, {
+      strPar_BaseDatos: this.config.database || tenantExternalId,
+      strPar_Token: this.config.token,
+      datPar_FechaIni: from,
+      datPar_FechaFin: to,
+      strPar_Vended: this.config.vendor ?? '',
     });
     const records = this.extractRecords(xml);
     const brandMap = await this.fetchInventoryBrands(tenantExternalId);
@@ -43,12 +44,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
   }
 
   async fetchPayments(tenantExternalId: string, _from: string, to: string): Promise<SourcePayment[]> {
-    const xml = await this.getXml(`${this.config.carteraBaseUrl}/srvCxcPed.asmx/EstadoDeCuentaCartera`, {
-      strPar_Basedatos: this.config.database || tenantExternalId,
+    const xml = await this.getXml(`${this.config.carteraBaseUrl}/srvCxcPed.asmx/EstadoCuentasCartera`, {
+      strPar_BaseDatos: this.config.database || tenantExternalId,
       strPar_Token: this.config.token,
-      strPar_Vended: this.config.vendor ?? '',
       datPar_Fecha: to,
       strPar_Cedula: '',
+      strPar_Vended: this.config.vendor ?? '',
     });
     const records = this.extractRecords(xml);
     return this.mapPayments(records, to);
@@ -61,7 +62,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     vendor?: string,
   ): Promise<SourceCustomer[]> {
     const xml = await this.getXml(`${this.config.carteraBaseUrl}/srvCxcPed.asmx/ListadoClientes`, {
-      strPar_Basedatos: this.config.database || tenantExternalId,
+      strPar_BaseDatos: this.config.database || tenantExternalId,
       strPar_Token: this.config.token,
       strPar_Vended: vendor ?? this.config.vendor ?? '',
       intPar_Filas: pageSize,
