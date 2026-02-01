@@ -31,25 +31,35 @@ export class FomplusSourceApiClient implements SourceApiClient {
   };
 
   async fetchInvoices(tenantExternalId: string, from: string, to: string): Promise<SourceInvoice[]> {
-    const xml = await this.getXml(`${this.config.ventasBaseUrl}/srvAPI.asmx/GenerarInfoVentas`, {
-      strPar_Empresa: this.config.database || tenantExternalId,
-      datPar_FecIni: from,
-      datPar_FecFin: to,
-      objPar_Objeto: this.config.token,
-    });
+    const xml = await this.postSoap(
+      `${this.config.ventasBaseUrl}/srvAPI.asmx`,
+      'http://tempuri.org/GenerarInfoVentas',
+      'GenerarInfoVentas',
+      {
+        strPar_Empresa: this.config.database || tenantExternalId,
+        datPar_FecIni: new Date(from).toISOString(),
+        datPar_FecFin: new Date(to).toISOString(),
+        objPar_Objeto: this.config.token,
+      },
+    );
     const records = this.extractRecords(xml);
     const brandMap = await this.fetchInventoryBrands(tenantExternalId);
     return this.mapInvoices(records, from, brandMap);
   }
 
   async fetchPayments(tenantExternalId: string, _from: string, to: string): Promise<SourcePayment[]> {
-    const xml = await this.getXml(`${this.config.carteraBaseUrl}/srvCxcPed.asmx/EstadoDeCuentaCartera`, {
-      strPar_Basedatos: this.config.database || tenantExternalId,
-      strPar_Token: this.config.token,
-      strPar_Vended: this.config.vendor ?? '',
-      datPar_Fecha: to,
-      strPar_Cedula: '',
-    });
+    const xml = await this.postSoap(
+      `${this.config.carteraBaseUrl}/srvCxcPed.asmx`,
+      'http://tempuri.org/EstadoDeCuentaCartera',
+      'EstadoDeCuentaCartera',
+      {
+        strPar_Basedatos: this.config.database || tenantExternalId,
+        strPar_Token: this.config.token,
+        datPar_Fecha: new Date(to).toISOString(),
+        strPar_Cedula: '',
+        strPar_Vended: this.config.vendor ?? '',
+      },
+    );
     const records = this.extractRecords(xml);
     return this.mapPayments(records, to);
   }
@@ -60,13 +70,18 @@ export class FomplusSourceApiClient implements SourceApiClient {
     pageSize: number,
     vendor?: string,
   ): Promise<SourceCustomer[]> {
-    const xml = await this.getXml(`${this.config.carteraBaseUrl}/srvCxcPed.asmx/ListadoClientes`, {
-      strPar_Basedatos: this.config.database || tenantExternalId,
-      strPar_Token: this.config.token,
-      strPar_Vended: vendor ?? this.config.vendor ?? '',
-      intPar_Filas: pageSize,
-      intPar_Pagina: page,
-    });
+    const xml = await this.postSoap(
+      `${this.config.carteraBaseUrl}/srvCxcPed.asmx`,
+      'http://tempuri.org/ListadoClientes',
+      'ListadoClientes',
+      {
+        strPar_Basedatos: this.config.database || tenantExternalId,
+        strPar_Token: this.config.token,
+        strPar_Vended: vendor ?? this.config.vendor ?? '',
+        intPar_Filas: pageSize,
+        intPar_Pagina: page,
+      },
+    );
     const records = this.extractRecords(xml);
     return this.mapCustomers(records);
   }
@@ -81,6 +96,32 @@ export class FomplusSourceApiClient implements SourceApiClient {
       throw new Error(`Fomplus API error: ${raw}`);
     }
     return raw;
+  }
+
+  private async postSoap(
+    url: string,
+    action: string,
+    method: string,
+    params: Record<string, string | number>,
+  ) {
+    const body = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <${method} xmlns="http://tempuri.org/">
+      ${Object.entries(params)
+        .map(([key, value]) => `<${key}>${value}</${key}>`)
+        .join('')}
+    </${method}>
+  </soap:Body>
+</soap:Envelope>`;
+    const response = await axios.post(url, body, {
+      headers: {
+        'Content-Type': 'text/xml; charset=utf-8',
+        SOAPAction: `"${action}"`,
+      },
+      timeout: 30000,
+    });
+    return response.data;
   }
 
   private extractRecords(payload: string): FlatRecord[] {
