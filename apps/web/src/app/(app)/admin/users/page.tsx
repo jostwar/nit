@@ -50,7 +50,7 @@ export default function AdminUsersPage() {
       {
         header: "Acciones",
         cell: () => (
-          <Button variant="outline" size="sm">
+          <Button className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50">
             Guardar
           </Button>
         ),
