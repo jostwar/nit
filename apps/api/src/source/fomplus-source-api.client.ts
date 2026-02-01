@@ -116,7 +116,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
   private async getXml(url: string, params: Record<string, string | number>) {
     const response = await axios.get(url, {
       params,
-      timeout: 30000,
+      timeout: 0,
     });
     const raw = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
     if (raw.includes('System.InvalidOperationException')) {
@@ -205,7 +205,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         'Content-Type': 'text/xml; charset=utf-8',
         SOAPAction: `"${action}"`,
       },
-      timeout: 30000,
+      timeout: 0,
     });
     return response.data;
   }
