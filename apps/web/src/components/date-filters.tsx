@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { apiPost } from "@/lib/api";
 
 export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
@@ -45,7 +44,6 @@ export function DateFilters() {
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
   const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const updateQuery = (enableCompare: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -61,30 +59,10 @@ export function DateFilters() {
     router.replace(`?${params.toString()}`);
   };
 
-  const applyFilters = async () => {
+  const applyFilters = () => {
     setSyncing(true);
-    setError(null);
-    try {
-      await apiPost(
-        "/source/sync",
-        {
-          from,
-          to,
-          page: 1,
-          pageSize: 1000,
-        },
-        { timeoutMs: 20000 },
-      );
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        setError("La sincronización sigue en segundo plano. Revisa en unos minutos.");
-      } else {
-        setError("No se pudo sincronizar el rango seleccionado.");
-      }
-    } finally {
-      updateQuery(compareEnabled);
-      setSyncing(false);
-    }
+    updateQuery(compareEnabled);
+    setSyncing(false);
   };
 
   const applyCompare = () => {
@@ -143,7 +121,6 @@ export function DateFilters() {
       >
         Comparar
       </Button>
-      {error ? <span className="text-xs text-rose-500">{error}</span> : null}
     </div>
   );
 }
