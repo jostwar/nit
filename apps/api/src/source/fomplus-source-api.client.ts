@@ -72,7 +72,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const params = {
       strPar_Basedatos: this.config.database || tenantExternalId,
       strPar_Token: this.config.token,
-      datPar_Fecha: new Date(to).toISOString(),
+      datPar_Fecha: this.formatDateTime(to),
       strPar_Cedula: options?.cedula ?? '',
       strPar_Vended: options?.vendor ?? this.config.vendor ?? '',
     };
@@ -136,6 +136,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return date.toISOString().slice(0, 10);
   }
 
+  private formatDateTime(value: string | Date) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return new Date().toISOString().slice(0, 19).replace('T', ' ');
+    }
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  }
+
   private splitDateRange(from: string, to: string, chunkDays = 7) {
     const start = new Date(from);
     const end = new Date(to);
@@ -177,11 +185,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
     method: string,
     params: Record<string, string | number>,
   ) {
+    const filteredParams = Object.entries(params).filter(
+      ([, value]) => value !== undefined && value !== null && value !== '',
+    );
     const body = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <${method} xmlns="http://tempuri.org/">
-      ${Object.entries(params)
+      ${filteredParams
         .map(([key, value]) => `<${key}>${value}</${key}>`)
         .join('')}
     </${method}>
