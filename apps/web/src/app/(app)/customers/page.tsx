@@ -22,6 +22,7 @@ type CustomerOverview = {
     nit: string;
     name: string;
   };
+  lastPurchaseAt?: string | null;
   current: {
     totalSales: number;
     totalMargin: number;
@@ -61,6 +62,10 @@ export default function CustomersPage() {
   const [collections, setCollections] = useState<CustomerCollections | null>(null);
   const [tab, setTab] = useState<"resumen" | "marcas" | "productos" | "cartera">("resumen");
   const searchParams = useSearchParams();
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }),
+    [],
+  );
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     const from = searchParams.get("from");
@@ -74,6 +79,17 @@ export default function CustomersPage() {
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [searchParams]);
+  const toDate = useMemo(() => {
+    const to = searchParams.get("to");
+    const parsed = to ? new Date(to) : new Date();
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }, [searchParams]);
+  const lastPurchaseDate = overview?.lastPurchaseAt
+    ? new Date(overview.lastPurchaseAt)
+    : null;
+  const daysSinceLastPurchase = lastPurchaseDate
+    ? Math.max(0, Math.floor((toDate.getTime() - lastPurchaseDate.getTime()) / 86400000))
+    : null;
 
   useEffect(() => {
     apiGet<Customer[]>(`/customers?search=${encodeURIComponent(search)}${queryString}`).then(
@@ -202,6 +218,18 @@ export default function CustomersPage() {
                 <div className="text-xs text-slate-500">Unidades</div>
                 <div className="text-lg font-semibold text-slate-900">
                   {overview?.current?.totalUnits ?? 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Última compra</div>
+                <div className="text-lg font-semibold text-slate-900">
+                  {lastPurchaseDate ? dateFormatter.format(lastPurchaseDate) : "N/A"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Días desde última compra</div>
+                <div className="text-lg font-semibold text-slate-900">
+                  {daysSinceLastPurchase !== null ? daysSinceLastPurchase : "N/A"}
                 </div>
               </div>
             </CardContent>

@@ -7,6 +7,12 @@ export async function apiGet<T>(path: string): Promise<T> {
     cache: "no-store",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.localStorage.removeItem("accessToken");
+    window.localStorage.removeItem("refreshToken");
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
@@ -24,6 +30,12 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     },
     body: JSON.stringify(body),
   });
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.localStorage.removeItem("accessToken");
+    window.localStorage.removeItem("refreshToken");
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }

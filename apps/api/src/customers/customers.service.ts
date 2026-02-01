@@ -86,12 +86,18 @@ export class CustomersService {
       },
     });
 
+    const lastPurchase = await this.prisma.invoice.aggregate({
+      where: { tenantId, customerId, issuedAt: { lte: to } },
+      _max: { issuedAt: true },
+    });
+
     return {
       customer: {
         id: customer.id,
         nit: customer.nit,
         name: customer.name,
       },
+      lastPurchaseAt: lastPurchase._max.issuedAt,
       current: {
         totalSales: Number(current._sum.total ?? 0),
         totalMargin: Number(current._sum.margin ?? 0),
