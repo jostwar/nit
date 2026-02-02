@@ -83,9 +83,15 @@ export default function CustomersPage() {
     const params = new URLSearchParams();
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const city = searchParams.get("city");
+    const vendor = searchParams.get("vendor");
+    const brand = searchParams.get("brand");
     if (search.trim()) params.set("search", search.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
+    if (city) params.set("city", city);
+    if (vendor) params.set("vendor", vendor);
+    if (brand) params.set("brand", brand);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [search, searchParams]);

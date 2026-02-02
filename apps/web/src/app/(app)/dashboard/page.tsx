@@ -67,10 +67,16 @@ export default function DashboardPage() {
     const to = searchParams.get("to");
     const compareFrom = searchParams.get("compareFrom");
     const compareTo = searchParams.get("compareTo");
+    const city = searchParams.get("city");
+    const vendor = searchParams.get("vendor");
+    const brand = searchParams.get("brand");
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (compareFrom) params.set("compareFrom", compareFrom);
     if (compareTo) params.set("compareTo", compareTo);
+    if (city) params.set("city", city);
+    if (vendor) params.set("vendor", vendor);
+    if (brand) params.set("brand", brand);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [searchParams]);
@@ -112,13 +118,24 @@ export default function DashboardPage() {
         const params = new URLSearchParams();
         const from = searchParams.get("from");
         const to = searchParams.get("to");
+        const city = searchParams.get("city");
+        const vendor = searchParams.get("vendor");
+        const brand = searchParams.get("brand");
         if (from) params.set("from", from);
         if (to) params.set("to", to);
+        if (city) params.set("city", city);
+        if (vendor) params.set("vendor", vendor);
+        if (brand) params.set("brand", brand);
+        params.set("limit", "50");
         const current = await apiGet<CustomerRow[]>(`/customers?${params.toString()}`);
 
         const compareParams = new URLSearchParams();
         if (compareRange.compareFrom) compareParams.set("from", compareRange.compareFrom);
         if (compareRange.compareTo) compareParams.set("to", compareRange.compareTo);
+        if (city) compareParams.set("city", city);
+        if (vendor) compareParams.set("vendor", vendor);
+        if (brand) compareParams.set("brand", brand);
+        compareParams.set("limit", "50");
         const compare =
           compareRange.compareFrom && compareRange.compareTo
             ? await apiGet<CustomerRow[]>(`/customers?${compareParams.toString()}`)

@@ -299,9 +299,17 @@ export class FomplusSourceApiClient implements SourceApiClient {
         email: this.pick(record, ['cli_email', 'email', 'correo']),
         phone: this.pick(record, ['cli_telefo', 'cli_telcel', 'telefono', 'celular', 'movil']),
         address: this.pick(record, ['cli_direcc', 'direccion']),
-        city: this.pick(record, ['ciudad', 'municipio', 'nomciu']),
-        segment: this.pick(record, ['cli_nomsec', 'nomsec', 'sector']),
-        vendor: this.pick(record, ['cli_vended', 'vended', 'vendedor', 'cli_nomven', 'nomven']),
+        city: this.pick(record, [
+          'cli_nomciu',
+          'cli_ciudad',
+          'nomciu',
+          'nomciudad',
+          'ciudad',
+          'municipio',
+          'codciu',
+        ]),
+        segment: this.pick(record, ['cli_nomsec', 'cli_sector', 'nomsec', 'sector']),
+        vendor: this.pick(record, ['cli_nomven', 'nomven', 'vendedor', 'cli_vended', 'vended']),
       });
     }
     return customers;

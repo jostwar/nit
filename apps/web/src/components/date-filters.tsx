@@ -35,12 +35,18 @@ export function DateFilters() {
       to,
       compareFrom: searchParams.get("compareFrom") ?? compareDefaults.compareFrom,
       compareTo: searchParams.get("compareTo") ?? compareDefaults.compareTo,
+      city: searchParams.get("city") ?? "",
+      vendor: searchParams.get("vendor") ?? "",
+      brand: searchParams.get("brand") ?? "",
     };
   }, [searchParams, today]);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
   const [compareTo, setCompareTo] = useState(initial.compareTo);
+  const [city, setCity] = useState(initial.city);
+  const [vendor, setVendor] = useState(initial.vendor);
+  const [brand, setBrand] = useState(initial.brand);
   const [compareEnabled, setCompareEnabled] = useState(
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
@@ -64,6 +70,21 @@ export function DateFilters() {
     } else {
       params.delete("compareFrom");
       params.delete("compareTo");
+    }
+    if (city.trim()) {
+      params.set("city", city.trim());
+    } else {
+      params.delete("city");
+    }
+    if (vendor.trim()) {
+      params.set("vendor", vendor.trim());
+    } else {
+      params.delete("vendor");
+    }
+    if (brand.trim()) {
+      params.set("brand", brand.trim());
+    } else {
+      params.delete("brand");
     }
     router.replace(`?${params.toString()}`);
   };
@@ -106,56 +127,87 @@ export function DateFilters() {
   }, []);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-      <label className="flex items-center gap-2">
-        Desde
-        <input
-          type="date"
-          value={from}
-          onChange={(event) => setFrom(event.target.value)}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-        />
-      </label>
-      <label className="flex items-center gap-2">
-        Hasta
-        <input
-          type="date"
-          value={to}
-          onChange={(event) => setTo(event.target.value)}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-        />
-      </label>
-      <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
-        {syncing ? "Sincronizando..." : "Consultar"}
-      </Button>
-      <span className="text-slate-500">
-        {syncRunning ? "Sincronizando..." : lastSyncLabel}
-      </span>
-      <span className="text-slate-400">Comparar</span>
-      <label className="flex items-center gap-2">
-        Desde
-        <input
-          type="date"
-          value={compareFrom}
-          onChange={(event) => setCompareFrom(event.target.value)}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-        />
-      </label>
-      <label className="flex items-center gap-2">
-        Hasta
-        <input
-          type="date"
-          value={compareTo}
-          onChange={(event) => setCompareTo(event.target.value)}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-        />
-      </label>
-      <Button
-        onClick={applyCompare}
-        className="h-8 px-3 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-      >
-        Comparar
-      </Button>
+    <div className="flex flex-col gap-3 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2">
+          Desde
+          <input
+            type="date"
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          Hasta
+          <input
+            type="date"
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          Ciudad
+          <input
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+            placeholder="Ciudad"
+            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          Vendedor
+          <input
+            value={vendor}
+            onChange={(event) => setVendor(event.target.value)}
+            placeholder="Vendedor"
+            className="w-32 rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          Marca
+          <input
+            value={brand}
+            onChange={(event) => setBrand(event.target.value)}
+            placeholder="Marca"
+            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
+          {syncing ? "Sincronizando..." : "Consultar"}
+        </Button>
+        <span className="text-slate-500">
+          {syncRunning ? "Sincronizando..." : lastSyncLabel}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-slate-400">Comparar</span>
+        <label className="flex items-center gap-2">
+          Desde
+          <input
+            type="date"
+            value={compareFrom}
+            onChange={(event) => setCompareFrom(event.target.value)}
+            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          Hasta
+          <input
+            type="date"
+            value={compareTo}
+            onChange={(event) => setCompareTo(event.target.value)}
+            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <Button
+          onClick={applyCompare}
+          className="h-8 px-3 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+        >
+          Comparar
+        </Button>
+      </div>
     </div>
   );
 }

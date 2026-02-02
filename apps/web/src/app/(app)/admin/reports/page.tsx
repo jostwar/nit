@@ -108,7 +108,7 @@ export default function AdminReportsPage() {
     const nextTo = overrides?.to ?? to;
     const nextCompareFrom = overrides?.compareFrom ?? compareFrom;
     const nextCompareTo = overrides?.compareTo ?? compareTo;
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     if (nextFrom) params.set("from", nextFrom);
     if (nextTo) params.set("to", nextTo);
     if (nextCompareFrom) params.set("compareFrom", nextCompareFrom);

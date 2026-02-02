@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
+
   private sanitizeName(name?: string | null, nit?: string | null) {
     if (!name) return 'Cliente sin nombre';
     const trimmed = name.trim();
@@ -15,46 +17,149 @@ export class CustomersService {
     return trimmed;
   }
 
-  async searchCustomers(tenantId: string, search?: string, from?: Date, to?: Date) {
-    const customers = await this.prisma.customer.findMany({
-      where: {
-        tenantId,
-        OR: search
-          ? [
-              { nit: { contains: search, mode: 'insensitive' } },
-              { name: { contains: search, mode: 'insensitive' } },
-            ]
-          : undefined,
-      },
-      orderBy: { name: 'asc' },
-    });
+  private async getCached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>) {
+    const now = Date.now();
+    const cached = this.cache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.value as T;
+    }
+    const value = await fetcher();
+    if (this.cache.size > 1000) {
+      this.cache.clear();
+    }
+    this.cache.set(key, { expiresAt: now + ttlMs, value });
+    return value;
+  }
 
-    const results = await Promise.all(
-      customers.map(async (customer) => {
-        const metrics = await this.prisma.invoice.aggregate({
+  async searchCustomers(
+    tenantId: string,
+    search?: string,
+    from?: Date,
+    to?: Date,
+    page = 1,
+    pageSize = 1000,
+    city?: string,
+    vendor?: string,
+    brand?: string,
+  ) {
+    const trimmedCity = city?.trim();
+    const trimmedVendor = vendor?.trim();
+    const trimmedBrand = brand?.trim();
+    const key = [
+      tenantId,
+      search ?? '',
+      from?.toISOString() ?? '',
+      to?.toISOString() ?? '',
+      page,
+      pageSize,
+      trimmedCity ?? '',
+      trimmedVendor ?? '',
+      trimmedBrand ?? '',
+    ].join('|');
+
+    return this.getCached(key, 30000, async () => {
+      let scopedCustomerIds: string[] | null = null;
+      if (trimmedCity || trimmedVendor) {
+        const scopedCustomers = await this.prisma.customer.findMany({
           where: {
             tenantId,
-            customerId: customer.id,
-            issuedAt: { gte: from, lte: to },
+            ...(trimmedCity ? { city: { contains: trimmedCity, mode: 'insensitive' } } : {}),
+            ...(trimmedVendor
+              ? { vendor: { contains: trimmedVendor, mode: 'insensitive' } }
+              : {}),
           },
-          _sum: { total: true, margin: true, units: true },
-          _count: { _all: true },
+          select: { id: true },
+          take: 20000,
         });
+        scopedCustomerIds = scopedCustomers.map((customer) => customer.id);
+        if (scopedCustomerIds.length === 0) return [];
+      }
+
+      let brandCustomerIds: string[] | null = null;
+      if (trimmedBrand) {
+        const brandRows = await this.prisma.invoice.groupBy({
+          by: ['customerId'],
+          where: {
+            tenantId,
+            issuedAt: { gte: from, lte: to },
+            items: { some: { brand: { contains: trimmedBrand, mode: 'insensitive' } } },
+            ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
+          },
+        });
+        brandCustomerIds = brandRows.map((row) => row.customerId);
+        if (brandCustomerIds.length === 0) return [];
+      }
+
+      const customers = await this.prisma.customer.findMany({
+        where: {
+          tenantId,
+          ...(brandCustomerIds ? { id: { in: brandCustomerIds } } : {}),
+          ...(trimmedCity ? { city: { contains: trimmedCity, mode: 'insensitive' } } : {}),
+          ...(trimmedVendor
+            ? { vendor: { contains: trimmedVendor, mode: 'insensitive' } }
+            : {}),
+          OR: search
+            ? [
+                { nit: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search, mode: 'insensitive' } },
+              ]
+            : undefined,
+        },
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+
+      if (customers.length === 0) {
+        return [];
+      }
+
+      const metrics = await this.prisma.invoice.groupBy({
+        by: ['customerId'],
+        where: {
+          tenantId,
+          customerId: { in: customers.map((customer) => customer.id) },
+          issuedAt: { gte: from, lte: to },
+          ...(trimmedBrand
+            ? { items: { some: { brand: { contains: trimmedBrand, mode: 'insensitive' } } } }
+            : {}),
+        },
+        _sum: { total: true, margin: true, units: true },
+        _count: { _all: true },
+      });
+
+      const metricsMap = new Map(
+        metrics.map((row) => [
+          row.customerId,
+          {
+            totalSales: Number(row._sum.total ?? 0),
+            totalMargin: Number(row._sum.margin ?? 0),
+            totalUnits: Number(row._sum.units ?? 0),
+            totalInvoices: row._count._all,
+          },
+        ]),
+      );
+
+      return customers.map((customer) => {
+        const totals = metricsMap.get(customer.id) ?? {
+          totalSales: 0,
+          totalMargin: 0,
+          totalUnits: 0,
+          totalInvoices: 0,
+        };
         return {
           id: customer.id,
           nit: customer.nit,
           name: this.sanitizeName(customer.name, customer.nit),
           segment: customer.segment,
           city: customer.city,
-          totalSales: Number(metrics._sum.total ?? 0),
-          totalMargin: Number(metrics._sum.margin ?? 0),
-          totalUnits: Number(metrics._sum.units ?? 0),
-          totalInvoices: metrics._count._all,
+          totalSales: totals.totalSales,
+          totalMargin: totals.totalMargin,
+          totalUnits: totals.totalUnits,
+          totalInvoices: totals.totalInvoices,
         };
-      }),
-    );
-
-    return results;
+      });
+    });
   }
 
   async getOverview(

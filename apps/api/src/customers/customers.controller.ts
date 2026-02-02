@@ -13,9 +13,35 @@ export class CustomersController {
     @Query('search') search?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('limit') limit?: string,
+    @Query('city') city?: string,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
   ) {
     const range = parseRange(from, to);
-    return this.customersService.searchCustomers(tenantId, search, range.from, range.to);
+    const parsedPage = page ? parseInt(page, 10) : NaN;
+    const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
+    const parsedLimit = limit ? parseInt(limit, 10) : NaN;
+    const safePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    const safePageSize = Number.isFinite(parsedPageSize)
+      ? parsedPageSize
+      : Number.isFinite(parsedLimit)
+        ? parsedLimit
+        : 1000;
+    const clampedPageSize = Math.max(1, Math.min(1000, safePageSize));
+    return this.customersService.searchCustomers(
+      tenantId,
+      search,
+      range.from,
+      range.to,
+      safePage,
+      clampedPageSize,
+      city,
+      vendor,
+      brand,
+    );
   }
 
   @Get(':id/overview')
