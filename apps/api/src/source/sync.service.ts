@@ -90,40 +90,27 @@ export class SyncService {
     const usePerCustomer =
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
-    const invoices = usePerCustomer
-      ? []
-      : await this.sourceApi.fetchInvoices(tenantExternalId, from, to);
-    if (!usePerCustomer && invoices.length === 0) {
-      return { synced: 0 };
-    }
     let synced = 0;
-    const customerList = usePerCustomer
-      ? await this.prisma.customer.findMany({
-          where: { tenantId },
-          select: { id: true, nit: true, vendor: true },
-        })
-      : [];
-    const invoiceBatches = usePerCustomer
-      ? await Promise.all(
-          customerList.map(async (customer) => {
-            const records = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
-              cedula: customer.nit,
-              vendor: customer.vendor ?? '',
-            });
-            return records.map((record) => ({
-              ...record,
-              customerNit: record.customerNit || customer.nit,
-            }));
-          }),
-        )
-      : [invoices];
-    const flattened = invoiceBatches.flat();
-    if (usePerCustomer && flattened.length === 0) {
-      return { synced: 0 };
-    }
-    for (const invoice of flattened) {
+    const processInvoice = async (invoice: {
+      externalId: string;
+      customerNit: string;
+      customerName?: string;
+      issuedAt: string;
+      total: number;
+      margin: number;
+      units: number;
+      items: Array<{
+        productName: string;
+        brand: string;
+        category: string;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+        margin: number;
+      }>;
+    }) => {
       const normalizedNit = this.normalizeNit(invoice.customerNit) || invoice.customerNit;
-      if (!normalizedNit || !invoice.externalId) continue;
+      if (!normalizedNit || !invoice.externalId) return 0;
       const existingCustomer = await this.prisma.customer.findFirst({
         where: { tenantId, nit: normalizedNit },
       });
@@ -183,7 +170,35 @@ export class SyncService {
           })),
         });
       }
-      synced += 1;
+      return 1;
+    };
+
+    if (!usePerCustomer) {
+      const invoices = await this.sourceApi.fetchInvoices(tenantExternalId, from, to);
+      if (invoices.length === 0) {
+        return { synced: 0 };
+      }
+      for (const invoice of invoices) {
+        synced += await processInvoice(invoice);
+      }
+      return { synced };
+    }
+
+    const customerList = await this.prisma.customer.findMany({
+      where: { tenantId },
+      select: { id: true, nit: true, vendor: true },
+    });
+    for (const customer of customerList) {
+      const records = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
+        cedula: customer.nit,
+        vendor: customer.vendor ?? '',
+      });
+      for (const record of records) {
+        synced += await processInvoice({
+          ...record,
+          customerNit: record.customerNit || customer.nit,
+        });
+      }
     }
     return { synced };
   }
@@ -192,46 +207,24 @@ export class SyncService {
     const usePerCustomer =
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
-    const payments = usePerCustomer
-      ? []
-      : await this.sourceApi.fetchPayments(tenantExternalId, from, to);
-    if (!usePerCustomer && payments.length === 0) {
-      return { synced: 0 };
-    }
     const creditMap = new Map<
       string,
       { balance: number; overdue: number; overdueDaysSum: number; overdueCount: number }
     >();
     let synced = 0;
-
-    const customerList = usePerCustomer
-      ? await this.prisma.customer.findMany({
-          where: { tenantId },
-          select: { id: true, nit: true, vendor: true },
-        })
-      : [];
-    const paymentBatches = usePerCustomer
-      ? await Promise.all(
-          customerList.map(async (customer) => {
-            const records = await this.sourceApi.fetchPayments(tenantExternalId, from, to, {
-              cedula: customer.nit,
-              vendor: customer.vendor ?? '',
-            });
-            return records.map((record) => ({
-              ...record,
-              customerNit: record.customerNit || customer.nit,
-            }));
-          }),
-        )
-      : [payments];
-    const flattened = paymentBatches.flat();
-    if (usePerCustomer && flattened.length === 0) {
-      return { synced: 0 };
-    }
-
-    for (const payment of flattened) {
+    const processPayment = async (payment: {
+      externalId: string;
+      customerNit: string;
+      customerName?: string;
+      invoiceExternalId?: string;
+      paidAt: string;
+      amount: number;
+      balance?: number;
+      dueAt?: string;
+      overdueDays?: number;
+    }) => {
       const normalizedNit = this.normalizeNit(payment.customerNit) || payment.customerNit;
-      if (!normalizedNit) continue;
+      if (!normalizedNit) return 0;
       const existingCustomer = await this.prisma.customer.findFirst({
         where: { tenantId, nit: normalizedNit },
       });
@@ -296,7 +289,35 @@ export class SyncService {
               amount: payment.amount,
             },
           });
-          synced += 1;
+          return 1;
+        }
+      }
+      return 0;
+    };
+
+    if (!usePerCustomer) {
+      const payments = await this.sourceApi.fetchPayments(tenantExternalId, from, to);
+      if (payments.length === 0) {
+        return { synced: 0 };
+      }
+      for (const payment of payments) {
+        synced += await processPayment(payment);
+      }
+    } else {
+      const customerList = await this.prisma.customer.findMany({
+        where: { tenantId },
+        select: { id: true, nit: true, vendor: true },
+      });
+      for (const customer of customerList) {
+        const records = await this.sourceApi.fetchPayments(tenantExternalId, from, to, {
+          cedula: customer.nit,
+          vendor: customer.vendor ?? '',
+        });
+        for (const record of records) {
+          synced += await processPayment({
+            ...record,
+            customerNit: record.customerNit || customer.nit,
+          });
         }
       }
     }
