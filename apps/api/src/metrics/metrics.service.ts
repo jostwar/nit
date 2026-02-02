@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -85,20 +86,32 @@ export class MetricsService {
       }
 
       const trimmedBrand = filters?.brand?.trim();
-      const currentWhere = {
+      const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
         ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
         ...(trimmedBrand
-          ? { items: { some: { brand: { contains: trimmedBrand, mode: 'insensitive' } } } }
+          ? {
+              items: {
+                some: {
+                  brand: { contains: trimmedBrand, mode: Prisma.QueryMode.insensitive },
+                },
+              },
+            }
           : {}),
       };
-      const compareWhere = {
+      const compareWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: compareFrom, lte: compareTo },
         ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
         ...(trimmedBrand
-          ? { items: { some: { brand: { contains: trimmedBrand, mode: 'insensitive' } } } }
+          ? {
+              items: {
+                some: {
+                  brand: { contains: trimmedBrand, mode: Prisma.QueryMode.insensitive },
+                },
+              },
+            }
           : {}),
       };
 
@@ -118,14 +131,12 @@ export class MetricsService {
         select: { customerId: true },
       });
 
-      let series: Array<{
+      let seriesRows: Array<{
         date: Date;
-        _sum: {
-          totalSales: number;
-          totalInvoices: number;
-          totalUnits: number;
-          totalMargin: number;
-        };
+        totalSales: number;
+        totalInvoices: number;
+        totalUnits: number;
+        totalMargin: number;
       }> = [];
       if (trimmedBrand) {
         const invoices = await this.prisma.invoice.findMany({
@@ -150,19 +161,17 @@ export class MetricsService {
           currentEntry.totalInvoices += 1;
           seriesMap.set(key, currentEntry);
         });
-        series = Array.from(seriesMap.entries())
+        seriesRows = Array.from(seriesMap.entries())
           .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
           .map(([date, totals]) => ({
             date: new Date(date),
-            _sum: {
-              totalSales: totals.totalSales,
-              totalInvoices: totals.totalInvoices,
-              totalUnits: totals.totalUnits,
-              totalMargin: totals.totalMargin,
-            },
+            totalSales: totals.totalSales,
+            totalInvoices: totals.totalInvoices,
+            totalUnits: totals.totalUnits,
+            totalMargin: totals.totalMargin,
           }));
       } else {
-        series = await this.prisma.metricsDaily.groupBy({
+        const series = await this.prisma.metricsDaily.groupBy({
           by: ['date'],
           where: {
             tenantId,
@@ -177,33 +186,41 @@ export class MetricsService {
           },
           orderBy: { date: 'asc' },
         });
-      }
-
-      return {
-        current: {
-          totalSales: Number(current._sum.total ?? 0),
-          totalMargin: Number(current._sum.margin ?? 0),
-          totalUnits: Number(current._sum.units ?? 0),
-          totalInvoices: current._count._all,
-          uniqueCustomers: distinctCustomers.length,
-          avgTicket:
-            current._count._all > 0
-              ? Number(current._sum.total ?? 0) / current._count._all
-              : 0,
-        },
-        compare: {
-          totalSales: Number(compare._sum.total ?? 0),
-          totalMargin: Number(compare._sum.margin ?? 0),
-          totalUnits: Number(compare._sum.units ?? 0),
-          totalInvoices: compare._count._all,
-        },
-        series: series.map((row) => ({
+        seriesRows = series.map((row) => ({
           date: row.date,
           totalSales: Number(row._sum.totalSales ?? 0),
           totalInvoices: Number(row._sum.totalInvoices ?? 0),
           totalUnits: Number(row._sum.totalUnits ?? 0),
           totalMargin: Number(row._sum.totalMargin ?? 0),
-        })),
+        }));
+      }
+
+      const currentSum = current._sum ?? {};
+      const currentCount =
+        typeof current._count === 'object' && current._count ? current._count : { _all: 0 };
+      const compareSum = compare._sum ?? {};
+      const compareCount =
+        typeof compare._count === 'object' && compare._count ? compare._count : { _all: 0 };
+
+      return {
+        current: {
+          totalSales: Number(currentSum.total ?? 0),
+          totalMargin: Number(currentSum.margin ?? 0),
+          totalUnits: Number(currentSum.units ?? 0),
+          totalInvoices: currentCount._all ?? 0,
+          uniqueCustomers: distinctCustomers.length,
+          avgTicket:
+            (currentCount._all ?? 0) > 0
+              ? Number(currentSum.total ?? 0) / (currentCount._all ?? 0)
+              : 0,
+        },
+        compare: {
+          totalSales: Number(compareSum.total ?? 0),
+          totalMargin: Number(compareSum.margin ?? 0),
+          totalUnits: Number(compareSum.units ?? 0),
+          totalInvoices: compareCount._all ?? 0,
+        },
+        series: seriesRows,
       };
     });
   }
@@ -242,17 +259,26 @@ export class MetricsService {
           issuedAt: { gte: from, lte: to },
           ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
           ...(trimmedBrand
-            ? { items: { some: { brand: { contains: trimmedBrand, mode: 'insensitive' } } } }
+            ? {
+                items: {
+                  some: {
+                    brand: { contains: trimmedBrand, mode: Prisma.QueryMode.insensitive },
+                  },
+                },
+              }
             : {}),
         },
         _sum: { total: true, margin: true, units: true },
         _count: { _all: true },
       });
+      const totalsSum = totals._sum ?? {};
+      const totalsCount =
+        typeof totals._count === 'object' && totals._count ? totals._count : { _all: 0 };
       return {
-        totalSales: Number(totals._sum.total ?? 0),
-        totalMargin: Number(totals._sum.margin ?? 0),
-        totalUnits: Number(totals._sum.units ?? 0),
-        totalInvoices: totals._count._all,
+        totalSales: Number(totalsSum.total ?? 0),
+        totalMargin: Number(totalsSum.margin ?? 0),
+        totalUnits: Number(totalsSum.units ?? 0),
+        totalInvoices: totalsCount._all ?? 0,
       };
     });
   }
