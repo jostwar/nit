@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { apiGet } from "@/lib/api";
 
 export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
@@ -44,6 +45,14 @@ export function DateFilters() {
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [syncRunning, setSyncRunning] = useState(false);
+  const lastSyncLabel = useMemo(() => {
+    if (!lastSyncedAt) return "Última sincronización: pendiente";
+    const parsed = new Date(lastSyncedAt);
+    if (Number.isNaN(parsed.getTime())) return "Última sincronización: pendiente";
+    return `Última sincronización: ${parsed.toLocaleString("es-CO")}`;
+  }, [lastSyncedAt]);
 
   const updateQuery = (enableCompare: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -73,6 +82,29 @@ export function DateFilters() {
     updateQuery(true);
   };
 
+  useEffect(() => {
+    let mounted = true;
+    const fetchStatus = async () => {
+      try {
+        const status = await apiGet<{ running: boolean; lastSyncedAt: string | null }>(
+          "/source/sync/status",
+        );
+        if (!mounted) return;
+        setSyncRunning(status.running);
+        setLastSyncedAt(status.lastSyncedAt);
+      } catch {
+        if (!mounted) return;
+        setSyncRunning(false);
+      }
+    };
+    fetchStatus();
+    const interval = window.setInterval(fetchStatus, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
       <label className="flex items-center gap-2">
@@ -96,6 +128,9 @@ export function DateFilters() {
       <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
         {syncing ? "Sincronizando..." : "Consultar"}
       </Button>
+      <span className="text-slate-500">
+        {syncRunning ? "Sincronizando..." : lastSyncLabel}
+      </span>
       <span className="text-slate-400">Comparar</span>
       <label className="flex items-center gap-2">
         Desde

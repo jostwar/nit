@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Logger, Post } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SyncService } from './sync.service';
@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class SourceController {
   private readonly logger = new Logger(SourceController.name);
   private readonly runningTenants = new Set<string>();
+  private readonly lastSyncByTenant = new Map<string, string>();
 
   constructor(
     private readonly syncService: SyncService,
@@ -112,6 +113,7 @@ export class SourceController {
         this.logger.log(
           `Sync completed for ${user.tenantId}: customers=${customers.synced}, invoices=${invoicesSynced}, payments=${paymentsSynced}, errors=${errors.length}`,
         );
+        this.lastSyncByTenant.set(user.tenantId, new Date().toISOString());
       } catch (error) {
         this.logger.error(
           `Sync failed for ${user.tenantId}: ${(error as Error).message ?? 'Unknown error'}`,
@@ -123,5 +125,14 @@ export class SourceController {
     });
 
     return { status: 'started', from, to, page, pageSize };
+  }
+
+  @Get('sync/status')
+  @Roles('ADMIN')
+  getSyncStatus(@CurrentUser() user: { tenantId: string }) {
+    return {
+      running: this.runningTenants.has(user.tenantId),
+      lastSyncedAt: this.lastSyncByTenant.get(user.tenantId) ?? null,
+    };
   }
 }
