@@ -104,6 +104,7 @@ model Invoice {
 
   @@index([tenantId])
   @@index([customerId])
+  @@index([tenantId, issuedAt])
 }
 
 model InvoiceItem {
