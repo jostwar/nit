@@ -9,7 +9,6 @@ import { PrismaService } from '../prisma/prisma.service';
 export class SourceController {
   private readonly logger = new Logger(SourceController.name);
   private readonly runningTenants = new Set<string>();
-  private readonly lastSyncByTenant = new Map<string, string>();
 
   constructor(
     private readonly syncService: SyncService,
@@ -113,7 +112,10 @@ export class SourceController {
         this.logger.log(
           `Sync completed for ${user.tenantId}: customers=${customers.synced}, invoices=${invoicesSynced}, payments=${paymentsSynced}, errors=${errors.length}`,
         );
-        this.lastSyncByTenant.set(user.tenantId, new Date().toISOString());
+        await this.prisma.tenant.update({
+          where: { id: user.tenantId },
+          data: { lastSyncAt: new Date() },
+        });
       } catch (error) {
         this.logger.error(
           `Sync failed for ${user.tenantId}: ${(error as Error).message ?? 'Unknown error'}`,
@@ -129,10 +131,14 @@ export class SourceController {
 
   @Get('sync/status')
   @Roles('ADMIN')
-  getSyncStatus(@CurrentUser() user: { tenantId: string }) {
+  async getSyncStatus(@CurrentUser() user: { tenantId: string }) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { lastSyncAt: true },
+    });
     return {
       running: this.runningTenants.has(user.tenantId),
-      lastSyncedAt: this.lastSyncByTenant.get(user.tenantId) ?? null,
+      lastSyncedAt: tenant?.lastSyncAt?.toISOString() ?? null,
     };
   }
 }

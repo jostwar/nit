@@ -58,6 +58,10 @@ export class SourceScheduler {
           await this.syncService.syncInvoices(tenant.id, tenant.id, today, today);
           await this.syncService.syncPayments(tenant.id, tenant.id, today, today);
         }
+        await this.prisma.tenant.update({
+          where: { id: tenant.id },
+          data: { lastSyncAt: new Date() },
+        });
       }
       this.lastCustomerSyncDay = today;
       if (shouldBackfill) {

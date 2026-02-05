@@ -1,12 +1,27 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
-export async function apiGet<T>(path: string): Promise<T> {
+export async function apiGet<T>(
+  path: string,
+  options?: { timeoutMs?: number },
+): Promise<T> {
   const token =
     typeof window !== "undefined" ? window.localStorage.getItem("accessToken") : null;
-  const response = await fetch(`${API_URL}${path}`, {
-    cache: "no-store",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutMs = options?.timeoutMs;
+  const timeoutId =
+    typeof timeoutMs === "number" ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  }
   if (response.status === 401 && typeof window !== "undefined") {
     window.localStorage.removeItem("accessToken");
     window.localStorage.removeItem("refreshToken");

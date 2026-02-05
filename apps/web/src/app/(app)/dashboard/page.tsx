@@ -57,9 +57,13 @@ type CustomerTask = {
   actionLabel: string;
 };
 
+const DASHBOARD_LOADING_END = "dashboard-loading-end";
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [tasks, setTasks] = useState<CustomerTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -107,9 +111,24 @@ export default function DashboardPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    apiGet<DashboardSummary>(`/dashboard/summary${query}`)
-      .then(setSummary)
-      .catch(() => setSummary(null));
+    setLoadError(null);
+    setLoading(true);
+    apiGet<DashboardSummary>(`/dashboard/summary${query}`, { timeoutMs: 30000 })
+      .then((data) => {
+        setSummary(data);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        setSummary(null);
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        setLoadError(isAbort ? "La consulta tardó demasiado. Prueba un rango de fechas más corto." : (err instanceof Error ? err.message : "Error al cargar"));
+      })
+      .finally(() => {
+        setLoading(false);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent(DASHBOARD_LOADING_END));
+        }
+      });
   }, [query]);
 
   useEffect(() => {
@@ -236,6 +255,16 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {loading && (
+        <div className="rounded-lg border border-slate-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          Cargando datos…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {loadError}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
           <Card key={card.label}>

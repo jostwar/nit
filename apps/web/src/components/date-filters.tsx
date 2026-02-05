@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
@@ -53,6 +53,7 @@ export function DateFilters() {
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncRunning, setSyncRunning] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const lastSyncLabel = useMemo(() => {
     if (!lastSyncedAt) return "Última sincronización: pendiente";
     const parsed = new Date(lastSyncedAt);
@@ -92,7 +93,12 @@ export function DateFilters() {
   const applyFilters = () => {
     setSyncing(true);
     updateQuery(compareEnabled);
-    setSyncing(false);
+    const onDone = () => setSyncing(false);
+    const fallback = window.setTimeout(onDone, 15000);
+    window.addEventListener("dashboard-loading-end", () => {
+      window.clearTimeout(fallback);
+      onDone();
+    }, { once: true });
   };
 
   const applyCompare = () => {
@@ -101,6 +107,20 @@ export function DateFilters() {
     setCompareTo(compareDefaults.compareTo);
     setCompareEnabled(true);
     updateQuery(true);
+  };
+
+  const runSyncNow = async () => {
+    setSyncError(null);
+    setSyncRunning(true);
+    try {
+      const res = await apiPost<{ status: string }>("/source/sync", { from, to }, { timeoutMs: 60000 });
+      if (res.status === "running") {
+        // ya hay un sync en curso, el polling actualizará
+      }
+    } catch (err) {
+      setSyncRunning(false);
+      setSyncError(err instanceof Error ? err.message : "Error al sincronizar");
+    }
   };
 
   useEffect(() => {
@@ -113,6 +133,7 @@ export function DateFilters() {
         if (!mounted) return;
         setSyncRunning(status.running);
         setLastSyncedAt(status.lastSyncedAt);
+        setSyncError(null);
       } catch {
         if (!mounted) return;
         setSyncRunning(false);
@@ -175,11 +196,20 @@ export function DateFilters() {
           />
         </label>
         <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
-          {syncing ? "Sincronizando..." : "Consultar"}
+          {syncing ? "Cargando…" : "Consultar"}
+        </Button>
+        <Button
+          type="button"
+          onClick={runSyncNow}
+          disabled={syncRunning}
+          className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          {syncRunning ? "Sincronizando..." : "Sincronizar ahora"}
         </Button>
         <span className="text-slate-500">
           {syncRunning ? "Sincronizando..." : lastSyncLabel}
         </span>
+        {syncError && <span className="text-red-600 text-xs">{syncError}</span>}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-slate-400">Comparar</span>

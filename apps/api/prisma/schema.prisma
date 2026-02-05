@@ -25,9 +25,10 @@ enum AlertStatus {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  name        String
+  lastSyncAt  DateTime?
+  createdAt   DateTime  @default(now())
 
   users      User[]
   customers  Customer[]
