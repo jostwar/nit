@@ -23,10 +23,11 @@ export function DateFilters() {
       compareTo: prevTo.toISOString().slice(0, 10),
     };
   };
+  const defaultFrom = useMemo(
+    () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    [],
+  );
   const initial = useMemo(() => {
-    const defaultFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
     const from = searchParams.get("from") ?? defaultFrom;
     const to = searchParams.get("to") ?? today;
     const compareDefaults = computeCompareRange(from, to);
@@ -39,7 +40,7 @@ export function DateFilters() {
       vendor: searchParams.get("vendor") ?? "",
       brand: searchParams.get("brand") ?? "",
     };
-  }, [searchParams, today]);
+  }, [searchParams, today, defaultFrom]);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
@@ -47,6 +48,17 @@ export function DateFilters() {
   const [city, setCity] = useState(initial.city);
   const [vendor, setVendor] = useState(initial.vendor);
   const [brand, setBrand] = useState(initial.brand);
+
+  // Mantener filtros en sync con la URL (p. ej. al volver atrás o al cargar con query)
+  useEffect(() => {
+    setFrom(initial.from);
+    setTo(initial.to);
+    setCompareFrom(initial.compareFrom);
+    setCompareTo(initial.compareTo);
+    setCity(initial.city);
+    setVendor(initial.vendor);
+    setBrand(initial.brand);
+  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.city, initial.vendor, initial.brand]);
   const [compareEnabled, setCompareEnabled] = useState(
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
@@ -123,14 +135,29 @@ export function DateFilters() {
     }
   };
 
+  // Si la URL no tiene from/to, escribir defaults para que el dashboard cargue con un rango claro
+  useEffect(() => {
+    if (!searchParams.get("from") && !searchParams.get("to")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("from", defaultFrom);
+      params.set("to", today);
+      router.replace(`?${params.toString()}`);
+    }
+  }, [defaultFrom, today, router, searchParams]);
+
   useEffect(() => {
     let mounted = true;
+    let wasRunning = false;
     const fetchStatus = async () => {
       try {
         const status = await apiGet<{ running: boolean; lastSyncedAt: string | null }>(
           "/source/sync/status",
         );
         if (!mounted) return;
+        if (wasRunning && !status.running) {
+          window.dispatchEvent(new CustomEvent("sync-completed"));
+        }
+        wasRunning = status.running;
         setSyncRunning(status.running);
         setLastSyncedAt(status.lastSyncedAt);
         setSyncError(null);
@@ -140,7 +167,7 @@ export function DateFilters() {
       }
     };
     fetchStatus();
-    const interval = window.setInterval(fetchStatus, 30000);
+    const interval = window.setInterval(fetchStatus, 3000);
     return () => {
       mounted = false;
       window.clearInterval(interval);

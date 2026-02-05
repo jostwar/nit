@@ -64,7 +64,14 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<CustomerTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const onSyncCompleted = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("sync-completed", onSyncCompleted);
+    return () => window.removeEventListener("sync-completed", onSyncCompleted);
+  }, []);
   const query = useMemo(() => {
     const params = new URLSearchParams();
     const from = searchParams.get("from");
@@ -129,7 +136,7 @@ export default function DashboardPage() {
           window.dispatchEvent(new CustomEvent(DASHBOARD_LOADING_END));
         }
       });
-  }, [query]);
+  }, [query, refreshKey]);
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -193,7 +200,7 @@ export default function DashboardPage() {
       }
     };
     loadTasks();
-  }, [searchParams, compareRange]);
+  }, [searchParams, compareRange, refreshKey]);
 
   const cards = [
     { label: "Ventas totales", value: summary?.current.totalSales ?? 0, currency: true },
@@ -264,6 +271,22 @@ export default function DashboardPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {loadError}
         </div>
+      )}
+      {!loading && summary && searchParams.get("from") && searchParams.get("to") && (
+        <p className="text-xs text-slate-500">
+          Datos del rango:{" "}
+          {new Date(searchParams.get("from")!).toLocaleDateString("es-CO", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}{" "}
+          –{" "}
+          {new Date(searchParams.get("to")!).toLocaleDateString("es-CO", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
       )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
