@@ -34,6 +34,8 @@ export class SourceController {
     const pageSize = dto.pageSize ?? 1000;
 
     this.runningTenants.add(user.tenantId);
+    this.logger.log(`[sync] Iniciando para tenant ${user.tenantId} | rango ${from} → ${to}`);
+
     setImmediate(async () => {
       try {
         const customers = await this.syncService.syncCustomers(
@@ -42,6 +44,8 @@ export class SourceController {
           page,
           pageSize,
         );
+        this.logger.log(`[sync] Clientes sincronizados: ${customers.synced}`);
+
         const fromDate = new Date(from);
         const toDate = new Date(to);
         const safeFrom = Number.isNaN(fromDate.getTime()) ? new Date(today) : fromDate;
@@ -59,6 +63,8 @@ export class SourceController {
           const day = cursor.toISOString().slice(0, 10);
           const dayStart = new Date(`${day}T00:00:00.000Z`);
           const dayEnd = new Date(`${day}T23:59:59.999Z`);
+          let dayInvoices = 0;
+          let dayPayments = 0;
           try {
             const existingInvoice = await this.prisma.invoice.findFirst({
               where: {
@@ -74,14 +80,13 @@ export class SourceController {
                 day,
                 day,
               );
+              dayInvoices = result.synced;
               invoicesSynced += result.synced;
             }
           } catch (error) {
-            errors.push({
-              date: day,
-              stage: 'invoices',
-              message: (error as Error).message ?? 'Error sincronizando ventas',
-            });
+            const msg = (error as Error).message ?? 'Error sincronizando ventas';
+            errors.push({ date: day, stage: 'invoices', message: msg });
+            this.logger.warn(`[sync] ${day} ventas: ${msg}`);
           }
           try {
             const existingPayment = await this.prisma.payment.findFirst({
@@ -98,19 +103,21 @@ export class SourceController {
                 day,
                 day,
               );
+              dayPayments = result.synced;
               paymentsSynced += result.synced;
             }
           } catch (error) {
-            errors.push({
-              date: day,
-              stage: 'payments',
-              message: (error as Error).message ?? 'Error sincronizando cartera',
-            });
+            const msg = (error as Error).message ?? 'Error sincronizando cartera';
+            errors.push({ date: day, stage: 'payments', message: msg });
+            this.logger.warn(`[sync] ${day} cartera: ${msg}`);
+          }
+          if (dayInvoices > 0 || dayPayments > 0) {
+            this.logger.log(`[sync]   ${day}  ventas=${dayInvoices}  cartera=${dayPayments}`);
           }
         }
 
         this.logger.log(
-          `Sync completed for ${user.tenantId}: customers=${customers.synced}, invoices=${invoicesSynced}, payments=${paymentsSynced}, errors=${errors.length}`,
+          `[sync] Listo ${user.tenantId}: clientes=${customers.synced}, ventas=${invoicesSynced}, cartera=${paymentsSynced}, errores=${errors.length}`,
         );
         await this.prisma.tenant.update({
           where: { id: user.tenantId },

@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16
@@ -11,6 +9,12 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nitiq -d nitiq"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   api:
     build:
@@ -35,7 +39,8 @@ services:
       SOURCE_API_INVENTARIO_BASE_URL: ${SOURCE_API_INVENTARIO_BASE_URL:-}
       SOURCE_SYNC_ENABLED: ${SOURCE_SYNC_ENABLED:-true}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "4000:4000"
 
