@@ -39,6 +39,7 @@ export function DateFilters() {
       city: searchParams.get("city") ?? "",
       vendor: searchParams.get("vendor") ?? "",
       brand: searchParams.get("brand") ?? "",
+      class: searchParams.get("class") ?? "",
     };
   }, [searchParams, today, defaultFrom]);
   const [from, setFrom] = useState(initial.from);
@@ -48,6 +49,7 @@ export function DateFilters() {
   const [city, setCity] = useState(initial.city);
   const [vendor, setVendor] = useState(initial.vendor);
   const [brand, setBrand] = useState(initial.brand);
+  const [classFilter, setClassFilter] = useState(initial.class);
 
   // Mantener filtros en sync con la URL (p. ej. al volver atrás o al cargar con query)
   useEffect(() => {
@@ -58,7 +60,8 @@ export function DateFilters() {
     setCity(initial.city);
     setVendor(initial.vendor);
     setBrand(initial.brand);
-  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.city, initial.vendor, initial.brand]);
+    setClassFilter(initial.class);
+  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.city, initial.vendor, initial.brand, initial.class]);
   const [compareEnabled, setCompareEnabled] = useState(
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
@@ -82,6 +85,7 @@ export function DateFilters() {
     cities: string[];
     vendors: string[];
     brands: string[];
+    classes: string[];
   } | null>(null);
   const lastSyncLabel = useMemo(() => {
     if (!lastSyncedAt) return "Última sincronización: pendiente";
@@ -123,6 +127,11 @@ export function DateFilters() {
     } else {
       params.delete("brand");
     }
+    if (classFilter.trim()) {
+      params.set("class", classFilter.trim());
+    } else {
+      params.delete("class");
+    }
     router.replace(`?${params.toString()}`);
   };
 
@@ -159,6 +168,8 @@ export function DateFilters() {
     else params.delete("vendor");
     if (brand.trim()) params.set("brand", brand.trim());
     else params.delete("brand");
+    if (classFilter.trim()) params.set("class", classFilter.trim());
+    else params.delete("class");
     router.replace(`?${params.toString()}`);
   };
 
@@ -211,7 +222,7 @@ export function DateFilters() {
 
   useEffect(() => {
     Promise.all([
-      apiGet<{ cities: string[]; vendors: string[]; brands: string[] }>("/dashboard/filter-options"),
+      apiGet<{ cities: string[]; vendors: string[]; brands: string[]; classes: string[] }>("/dashboard/filter-options"),
       apiGet<{ brands: string[] }>("/source/inventory-brands").catch(() => ({ brands: [] })),
     ])
       .then(([opts, brandsRes]) =>
@@ -219,9 +230,10 @@ export function DateFilters() {
           cities: opts.cities ?? [],
           vendors: opts.vendors ?? [],
           brands: (opts.brands ?? []).length > 0 ? opts.brands ?? [] : (brandsRes.brands ?? []),
+          classes: opts.classes ?? [],
         }),
       )
-      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [] }));
+      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [] }));
   }, []);
 
   useEffect(() => {
@@ -331,6 +343,21 @@ export function DateFilters() {
             {(filterOptions?.brands ?? []).map((b) => (
               <option key={b} value={b}>
                 {b}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Clase
+          <select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            className="min-w-[7rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+          >
+            <option value="">Todas</option>
+            {(filterOptions?.classes ?? []).map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>

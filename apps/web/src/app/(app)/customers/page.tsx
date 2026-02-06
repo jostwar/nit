@@ -257,22 +257,29 @@ export default function CustomersPage() {
         )}
 
         {tab === "marcas" && (
-          <DataTable
-            columns={[
-              { header: "Nombre marca", accessorKey: "brand" },
-              {
-                header: "Actual (COP)",
-                accessorKey: "currentTotal",
-                cell: ({ row }) => formatCop(row.original.currentTotal),
-              },
-              {
-                header: "Comparado (COP)",
-                accessorKey: "compareTotal",
-                cell: ({ row }) => formatCop(row.original.compareTotal),
-              },
-            ]}
-            data={brands}
-          />
+          <div className="space-y-2">
+            {brands.length > 0 && brands.every((b) => (b.brand || "").trim() === "Sin marca") && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                Si solo aparece &quot;Sin marca&quot;, las marcas se enriquecen desde inventario y el mapeo (load-mappings). Ejecuta una sincronización y asegúrate de tener <code className="text-amber-800">brand-mapping.json</code> cargado.
+              </p>
+            )}
+            <DataTable
+              columns={[
+                { header: "NOMBRE MARCA", accessorKey: "brand" },
+                {
+                  header: "ACTUAL (COP)",
+                  accessorKey: "currentTotal",
+                  cell: ({ row }) => formatCop(row.original.currentTotal),
+                },
+                {
+                  header: "COMPARADO (COP)",
+                  accessorKey: "compareTotal",
+                  cell: ({ row }) => formatCop(row.original.compareTotal),
+                },
+              ]}
+              data={brands}
+            />
+          </div>
         )}
 
         {tab === "productos" && (

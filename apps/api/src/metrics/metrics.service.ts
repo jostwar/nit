@@ -40,6 +40,81 @@ export class MetricsService {
     return customers.map((customer) => customer.id);
   }
 
+  /** Valores de marca a considerar (nombre o código) para filtrar por nombre seleccionado. */
+  private async getBrandMatchValues(tenantId: string, brandFilter: string): Promise<string[]> {
+    const trimmed = brandFilter?.trim();
+    if (!trimmed) return [];
+    const rows = await this.prisma.productBrand.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { name: { contains: trimmed, mode: 'insensitive' } },
+          { code: { contains: trimmed, mode: 'insensitive' } },
+        ],
+      },
+      select: { code: true, name: true },
+    });
+    const values = new Set<string>([trimmed]);
+    rows.forEach((r) => {
+      if (r.code?.trim()) values.add(r.code.trim());
+      if (r.name?.trim()) values.add(r.name.trim());
+    });
+    return Array.from(values);
+  }
+
+  /** Códigos de clase que coinciden con el nombre (filtro por clase). */
+  private async getClassMatchCodes(tenantId: string, classFilter: string): Promise<string[]> {
+    const trimmed = classFilter?.trim();
+    if (!trimmed) return [];
+    const rows = await this.prisma.productClass.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { name: { contains: trimmed, mode: 'insensitive' } },
+          { code: { contains: trimmed, mode: 'insensitive' } },
+        ],
+      },
+      select: { code: true },
+    });
+    return rows.map((r) => r.code.trim()).filter(Boolean);
+  }
+
+  /** Condición Prisma para filtro por clase. */
+  private async classFilterWhere(
+    tenantId: string,
+    classFilter: string | undefined,
+  ): Promise<Prisma.InvoiceWhereInput> {
+    const codes = classFilter?.trim()
+      ? await this.getClassMatchCodes(tenantId, classFilter.trim())
+      : [];
+    if (codes.length === 0) return {};
+    return {
+      items: {
+        some: { classCode: { in: codes } },
+      },
+    };
+  }
+
+  /** Condición Prisma para filtro por marca (nombre o código). */
+  private async brandFilterWhere(
+    tenantId: string,
+    brandFilter: string | undefined,
+  ): Promise<Prisma.InvoiceWhereInput> {
+    const trimmed = brandFilter?.trim();
+    if (!trimmed) return {};
+    const values = await this.getBrandMatchValues(tenantId, trimmed);
+    return {
+      items: {
+        some: {
+          OR: [
+            ...(values.length > 0 ? [{ brand: { in: values } }] : []),
+            { brand: { contains: trimmed, mode: Prisma.QueryMode.insensitive } },
+          ],
+        },
+      },
+    };
+  }
+
   /** Where para filtro ciudad: Customer.city O Invoice.city (NOMSEC, etc.). */
   private cityFilterWhere(
     scopedCustomerIds: string[] | null,
@@ -67,7 +142,7 @@ export class MetricsService {
     to: Date,
     compareFrom: Date,
     compareTo: Date,
-    filters?: { city?: string; vendor?: string; brand?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
   ) {
     const key = [
       tenantId,
@@ -78,44 +153,34 @@ export class MetricsService {
       filters?.city?.trim() ?? '',
       filters?.vendor?.trim() ?? '',
       filters?.brand?.trim() ?? '',
+      filters?.class?.trim() ?? '',
     ].join('|');
 
     return this.getCached(key, 30000, async () => {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
         city: filters?.city,
       });
-      const trimmedBrand = filters?.brand?.trim();
       const trimmedVendor = filters?.vendor?.trim();
+      const trimmedBrand = filters?.brand?.trim();
       const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
+      const brandWhere = await this.brandFilterWhere(tenantId, filters?.brand);
+      const classWhere = await this.classFilterWhere(tenantId, filters?.class);
+      const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
       const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
         ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
-        ...(trimmedBrand
-          ? {
-              items: {
-                some: {
-                  brand: { contains: trimmedBrand, mode: Prisma.QueryMode.insensitive },
-                },
-              },
-            }
-          : {}),
+        ...brandWhere,
+        ...classWhere,
       };
       const compareWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: compareFrom, lte: compareTo },
         ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
-        ...(trimmedBrand
-          ? {
-              items: {
-                some: {
-                  brand: { contains: trimmedBrand, mode: Prisma.QueryMode.insensitive },
-                },
-              },
-            }
-          : {}),
+        ...brandWhere,
+        ...classWhere,
       };
 
       // Serie por día: siempre desde Invoice para que sum(serie) = total (misma fuente)
@@ -133,6 +198,10 @@ export class MetricsService {
           : Prisma.sql``;
         if (trimmedBrand) {
           const brandPattern = `%${trimmedBrand}%`;
+          const brandJoinCond =
+            brandValues.length > 0
+              ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${brandPattern})`
+              : Prisma.sql` AND it.brand ILIKE ${brandPattern}`;
           const rows = await this.prisma.$queryRaw<
             Array<{
               date: Date;
@@ -151,7 +220,7 @@ export class MetricsService {
                     COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
                     SUM(i."signedMargin")::text as "totalMargin"
                   FROM "Invoice" i
-                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
+                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}
@@ -167,7 +236,7 @@ export class MetricsService {
                     COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
                     SUM(i."signedMargin")::text as "totalMargin"
                   FROM "Invoice" i
-                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
+                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}${vendorAnd}
@@ -285,7 +354,14 @@ export class MetricsService {
   async getFilterOptions(tenantId: string) {
     const key = `filterOptions:${tenantId}`;
     return this.getCached(key, 60000, async () => {
-      const [citiesFromCustomer, citiesFromInvoice, vendors, brandFromTable, brandsFromItems] =
+      const [
+        citiesFromCustomer,
+        citiesFromInvoice,
+        vendors,
+        brandFromTable,
+        brandsFromItems,
+        classesFromTable,
+      ] =
         await Promise.all([
           this.prisma.customer
             .groupBy({
@@ -339,13 +415,21 @@ export class MetricsService {
               .filter((b): b is string => b != null && b.trim() !== '')
               .sort((a, b) => a.localeCompare(b, 'es')),
           ),
+          this.prisma.productClass
+            .findMany({
+              where: { tenantId },
+              select: { name: true },
+              orderBy: { name: 'asc' },
+            })
+            .then((rows) => rows.map((r) => r.name).filter((n) => n?.trim())),
         ]);
       const cities = [
         ...new Set([...citiesFromCustomer, ...citiesFromInvoice]),
       ].sort((a, b) => a.localeCompare(b, 'es'));
       const brands =
         brandFromTable.length > 0 ? brandFromTable : [...new Set(brandsFromItems)];
-      return { cities, vendors, brands };
+      const classes = [...new Set(classesFromTable)].sort((a, b) => a.localeCompare(b, 'es'));
+      return { cities, vendors, brands, classes };
     });
   }
 
@@ -362,29 +446,24 @@ export class MetricsService {
       filters?.city?.trim() ?? '',
       filters?.vendor?.trim() ?? '',
       filters?.brand?.trim() ?? '',
+      filters?.class?.trim() ?? '',
     ].join('|');
     return this.getCached(key, 30000, async () => {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
         city: filters?.city,
       });
-      const trimmedBrand = filters?.brand?.trim();
       const trimmedVendor = filters?.vendor?.trim();
       const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
+      const brandWhere = await this.brandFilterWhere(tenantId, filters?.brand);
+      const classWhere = await this.classFilterWhere(tenantId, filters?.class);
       const totals = await this.prisma.invoice.aggregate({
         where: {
           tenantId,
           issuedAt: { gte: from, lte: to },
           ...cityWhere,
           ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
-          ...(trimmedBrand
-            ? {
-                items: {
-                  some: {
-                    brand: { contains: trimmedBrand, mode: Prisma.QueryMode.insensitive },
-                  },
-                },
-              }
-            : {}),
+          ...brandWhere,
+          ...classWhere,
         },
         _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
         _count: { _all: true },
@@ -405,16 +484,25 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
     const trimmedVendor = filters?.vendor?.trim();
     const trimmedBrand = filters?.brand?.trim();
+    const trimmedClass = filters?.class?.trim();
+    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
+    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
+    const classCond =
+      classCodes.length > 0
+        ? Prisma.sql` AND it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))})`
+        : Prisma.empty;
     const brandCond =
       trimmedBrand ?
-        Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}` :
+        (brandValues.length > 0
+          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
+          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`) :
         Prisma.empty;
     const vendorCond =
       trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
@@ -439,7 +527,7 @@ export class MetricsService {
         AND it."classCode" IS NOT NULL
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
-        ${cityCond}${vendorCond}${brandCond}
+        ${cityCond}${vendorCond}${brandCond}${classCond}
       GROUP BY it."classCode"
       ORDER BY SUM(it.total * i."saleSign") DESC
     `);

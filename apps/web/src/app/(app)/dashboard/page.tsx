@@ -84,6 +84,7 @@ export default function DashboardPage() {
     const city = searchParams.get("city");
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
+    const classFilter = searchParams.get("class");
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (compareFrom) params.set("compareFrom", compareFrom);
@@ -91,6 +92,7 @@ export default function DashboardPage() {
     if (city) params.set("city", city);
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
+    if (classFilter) params.set("class", classFilter);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [searchParams]);
@@ -154,11 +156,13 @@ export default function DashboardPage() {
         const city = searchParams.get("city");
         const vendor = searchParams.get("vendor");
         const brand = searchParams.get("brand");
+        const classFilter = searchParams.get("class");
         if (from) params.set("from", from);
         if (to) params.set("to", to);
         if (city) params.set("city", city);
         if (vendor) params.set("vendor", vendor);
         if (brand) params.set("brand", brand);
+        if (classFilter) params.set("class", classFilter);
         params.set("limit", "50");
         const current = await apiGet<CustomerRow[]>(`/customers?${params.toString()}`);
 
@@ -168,6 +172,7 @@ export default function DashboardPage() {
         if (city) compareParams.set("city", city);
         if (vendor) compareParams.set("vendor", vendor);
         if (brand) compareParams.set("brand", brand);
+        if (classFilter) compareParams.set("class", classFilter);
         compareParams.set("limit", "50");
         const compare =
           compareRange.compareFrom && compareRange.compareTo
