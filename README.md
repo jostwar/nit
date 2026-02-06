@@ -36,6 +36,19 @@ docker compose exec api pnpm db:migrate
 docker compose exec api pnpm db:seed
 ```
 
+## Deploy y verificación
+
+Después de un deploy, haz clic en tu email (menú usuario) → verás **Build: abc123** (commit git). Si ves **Build: ?** o un valor viejo, el deploy no aplicó.
+
+**Deploy manual en el servidor:**
+```bash
+cd ~/nit
+git pull
+bash deploy.sh
+```
+
+**Si la web no actualiza:** Verifica que BUILD_ID cambió. Si Nginx cachea, prueba `proxy_cache off` o borra caché.
+
 ## AWS Lightsail (deploy con Docker Compose + Nginx + SSL)
 1. Crear instancia en Lightsail (Ubuntu 22.04).
 2. Instalar Docker y Compose:

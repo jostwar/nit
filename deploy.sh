@@ -5,10 +5,12 @@ set -e
 cd "$(dirname "$0")"
 echo ">>> git pull"
 git pull
+export BUILD_ID=$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)
+echo ">>> BUILD_ID=$BUILD_ID"
 echo ">>> docker-compose down"
 sudo docker-compose down --remove-orphans
 echo ">>> docker-compose build --no-cache (puede tardar varios minutos)"
-sudo docker-compose build --no-cache web api
+sudo BUILD_ID=$BUILD_ID docker-compose build --no-cache web api
 echo ">>> docker-compose up -d"
 sudo docker-compose up -d
 echo ">>> prisma migrate"
