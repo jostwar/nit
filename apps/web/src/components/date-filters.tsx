@@ -66,12 +66,24 @@ export function DateFilters() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncRunning, setSyncRunning] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [dataCoverage, setDataCoverage] = useState<{
+    earliestDate: string | null;
+    latestDate: string | null;
+    totalInvoices: number;
+  } | null>(null);
   const lastSyncLabel = useMemo(() => {
     if (!lastSyncedAt) return "Última sincronización: pendiente";
     const parsed = new Date(lastSyncedAt);
     if (Number.isNaN(parsed.getTime())) return "Última sincronización: pendiente";
     return `Última sincronización: ${parsed.toLocaleString("es-CO")}`;
   }, [lastSyncedAt]);
+  const coverageLabel = useMemo(() => {
+    if (!dataCoverage) return null;
+    if (dataCoverage.totalInvoices === 0) return "Sin datos de ventas";
+    const fmt = (d: string) =>
+      new Date(d).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+    return `Datos: ${dataCoverage.earliestDate ? fmt(dataCoverage.earliestDate) : "?"} – ${dataCoverage.latestDate ? fmt(dataCoverage.latestDate) : "?"} (${dataCoverage.totalInvoices.toLocaleString("es-CO")} facturas)`;
+  }, [dataCoverage]);
 
   const updateQuery = (enableCompare: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -151,9 +163,11 @@ export function DateFilters() {
     let wasRunning = false;
     const fetchStatus = async () => {
       try {
-        const status = await apiGet<{ running: boolean; lastSyncedAt: string | null }>(
-          "/source/sync/status",
-        );
+        const status = await apiGet<{
+          running: boolean;
+          lastSyncedAt: string | null;
+          dataCoverage?: { earliestDate: string | null; latestDate: string | null; totalInvoices: number };
+        }>("/source/sync/status");
         if (!mounted) return;
         if (wasRunning && !status.running) {
           window.dispatchEvent(new CustomEvent("sync-completed"));
@@ -161,6 +175,7 @@ export function DateFilters() {
         wasRunning = status.running;
         setSyncRunning(status.running);
         setLastSyncedAt(status.lastSyncedAt);
+        if (status.dataCoverage) setDataCoverage(status.dataCoverage);
         setSyncError(null);
       } catch {
         if (!mounted) return;
@@ -238,6 +253,11 @@ export function DateFilters() {
         <span className="text-slate-500">
           {syncRunning ? "Sincronizando..." : lastSyncLabel}
         </span>
+        {coverageLabel && (
+          <span className="text-slate-400" title="Rango de facturas disponibles en el sistema">
+            {coverageLabel}
+          </span>
+        )}
         {syncError && <span className="text-red-600 text-xs">{syncError}</span>}
       </div>
       <div className="flex flex-wrap items-center gap-3">

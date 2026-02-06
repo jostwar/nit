@@ -139,13 +139,28 @@ export class SourceController {
   @Get('sync/status')
   @Roles('ADMIN')
   async getSyncStatus(@CurrentUser() user: { tenantId: string }) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: user.tenantId },
-      select: { lastSyncAt: true },
-    });
+    const [tenant, minMax] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: user.tenantId },
+        select: { lastSyncAt: true },
+      }),
+      this.prisma.invoice.aggregate({
+        where: { tenantId: user.tenantId },
+        _min: { issuedAt: true },
+        _max: { issuedAt: true },
+        _count: { _all: true },
+      }),
+    ]);
+    const minDate = minMax._min?.issuedAt;
+    const maxDate = minMax._max?.issuedAt;
     return {
       running: this.runningTenants.has(user.tenantId),
       lastSyncedAt: tenant?.lastSyncAt?.toISOString() ?? null,
+      dataCoverage: {
+        earliestDate: minDate?.toISOString().slice(0, 10) ?? null,
+        latestDate: maxDate?.toISOString().slice(0, 10) ?? null,
+        totalInvoices: minMax._count?._all ?? 0,
+      },
     };
   }
 }
