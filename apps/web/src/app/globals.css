@@ -31,6 +31,13 @@ select {
   color: #0f172a;
 }
 
+/* Asegurar que los select muestren el ícono desplegable nativo */
+select {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: #94a3b8;

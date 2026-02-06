@@ -227,7 +227,7 @@ export function DateFilters() {
           <select
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs bg-white"
+            className="min-w-[7rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
           >
             <option value="">Todas</option>
             {(filterOptions?.cities ?? []).map((c) => (
@@ -242,7 +242,7 @@ export function DateFilters() {
           <select
             value={vendor}
             onChange={(e) => setVendor(e.target.value)}
-            className="w-32 rounded-md border border-slate-200 px-2 py-1 text-xs bg-white"
+            className="min-w-[8rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
           >
             <option value="">Todos</option>
             {(filterOptions?.vendors ?? []).map((v) => (
@@ -257,7 +257,7 @@ export function DateFilters() {
           <select
             value={brand}
             onChange={(e) => setBrand(e.target.value)}
-            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs bg-white"
+            className="min-w-[7rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
           >
             <option value="">Todas</option>
             {(filterOptions?.brands ?? []).map((b) => (
