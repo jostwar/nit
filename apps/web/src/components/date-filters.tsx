@@ -65,6 +65,7 @@ export function DateFilters() {
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncRunning, setSyncRunning] = useState(false);
+  const [syncLongRunningHint, setSyncLongRunningHint] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [dataCoverage, setDataCoverage] = useState<{
     earliestDate: string | null;
@@ -190,6 +191,15 @@ export function DateFilters() {
       .then(setFilterOptions)
       .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [] }));
   }, []);
+
+  useEffect(() => {
+    if (!syncRunning) {
+      setSyncLongRunningHint(false);
+      return;
+    }
+    const t = window.setTimeout(() => setSyncLongRunningHint(true), 25_000);
+    return () => window.clearTimeout(t);
+  }, [syncRunning]);
 
   useEffect(() => {
     let mounted = true;
@@ -324,6 +334,11 @@ export function DateFilters() {
             ? "Sincronizando… (puede tardar varios min; al terminar se actualiza solo)"
             : lastSyncLabel}
         </span>
+        {syncLongRunningHint && (
+          <span className="text-amber-700 text-xs font-medium">
+            La carga se ejecuta en el servidor. Puedes cerrar la pestaña; al terminar, recarga para ver los datos.
+          </span>
+        )}
         <span className="text-slate-400 text-xs">
           Primera vez: «Cargar datos históricos». Luego el sistema actualiza solo el día cada hora.
         </span>

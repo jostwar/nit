@@ -86,8 +86,15 @@ export class SyncService {
     return false;
   }
 
-  async syncInvoices(tenantId: string, tenantExternalId: string, from: string, to: string) {
+  async syncInvoices(
+    tenantId: string,
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    opts?: { fullRange?: boolean },
+  ) {
     const usePerCustomer =
+      !opts?.fullRange &&
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
     let synced = 0;
@@ -203,8 +210,15 @@ export class SyncService {
     return { synced };
   }
 
-  async syncPayments(tenantId: string, tenantExternalId: string, from: string, to: string) {
+  async syncPayments(
+    tenantId: string,
+    tenantExternalId: string,
+    from: string,
+    to: string,
+    opts?: { fullRange?: boolean },
+  ) {
     const usePerCustomer =
+      !opts?.fullRange &&
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
     const creditMap = new Map<

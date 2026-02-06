@@ -89,6 +89,7 @@ export class SourceController {
         const errors: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> = [];
 
         const iterate = byMonth ? monthChunks(safeFrom, safeTo) : dayChunks(safeFrom, safeTo);
+        const fullRange = byMonth;
         for (const [rangeFrom, rangeTo] of iterate) {
           const label = `${rangeFrom} → ${rangeTo}`;
           let countInvoices = 0;
@@ -99,6 +100,7 @@ export class SourceController {
               tenantExternalId,
               rangeFrom,
               rangeTo,
+              { fullRange },
             );
             countInvoices = result.synced;
             invoicesSynced += result.synced;
@@ -113,6 +115,7 @@ export class SourceController {
               tenantExternalId,
               rangeFrom,
               rangeTo,
+              { fullRange },
             );
             countPayments = result.synced;
             paymentsSynced += result.synced;
