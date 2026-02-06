@@ -318,7 +318,10 @@ export class MetricsService {
             by: ['brand'],
             where: {
               tenantId,
-              brand: { not: null, notIn: ['', 'Sin marca'] },
+              AND: [
+                { brand: { not: null } },
+                { brand: { notIn: ['', 'Sin marca'] } },
+              ],
             },
           })
           .then((rows) =>
