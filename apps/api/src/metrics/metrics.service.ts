@@ -283,7 +283,7 @@ export class MetricsService {
   async getFilterOptions(tenantId: string) {
     const key = `filterOptions:${tenantId}`;
     return this.getCached(key, 60000, async () => {
-      const [cities, vendors, brandRows] = await Promise.all([
+      const [cities, vendors, brandFromTable, brandsFromItems] = await Promise.all([
         this.prisma.customer
           .groupBy({
             by: ['city'],
@@ -313,8 +313,24 @@ export class MetricsService {
             orderBy: { name: 'asc' },
           })
           .then((rows) => rows.map((r) => r.name).filter((n) => n?.trim())),
+        this.prisma.invoiceItem
+          .groupBy({
+            by: ['brand'],
+            where: {
+              tenantId,
+              brand: { not: null, notIn: ['', 'Sin marca'] },
+            },
+          })
+          .then((rows) =>
+            rows
+              .map((r) => r.brand)
+              .filter((b): b is string => b != null && b.trim() !== '')
+              .sort((a, b) => a.localeCompare(b, 'es')),
+          ),
       ]);
-      return { cities, vendors, brands: brandRows };
+      const brands =
+        brandFromTable.length > 0 ? brandFromTable : [...new Set(brandsFromItems)];
+      return { cities, vendors, brands };
     });
   }
 

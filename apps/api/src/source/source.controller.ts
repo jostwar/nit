@@ -36,10 +36,18 @@ function* monthChunks(
   }
 }
 
+type SyncProgress = {
+  percent: number;
+  stage: string;
+  current: number;
+  total: number;
+};
+
 @Controller('source')
 export class SourceController {
   private readonly logger = new Logger(SourceController.name);
   private readonly runningTenants = new Set<string>();
+  private readonly syncProgress = new Map<string, SyncProgress>();
 
   constructor(
     private readonly syncService: SyncService,
@@ -66,6 +74,7 @@ export class SourceController {
     const pageSize = dto.pageSize ?? 1000;
 
     this.runningTenants.add(user.tenantId);
+    this.syncProgress.set(user.tenantId, { percent: 0, stage: 'Clientes', current: 0, total: 1 });
     this.logger.log(`[sync] Iniciando para tenant ${user.tenantId} | rango ${from} → ${to}`);
 
     setImmediate(async () => {
@@ -97,9 +106,18 @@ export class SourceController {
         let paymentsSynced = 0;
         const errors: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> = [];
 
-        const iterate = byMonth ? monthChunks(safeFrom, safeTo) : dayChunks(safeFrom, safeTo);
+        const chunks = [...(byMonth ? monthChunks(safeFrom, safeTo) : dayChunks(safeFrom, safeTo))];
+        const totalChunks = chunks.length;
+        this.syncProgress.set(user.tenantId, {
+          percent: 5,
+          stage: 'Ventas y cartera',
+          current: 0,
+          total: totalChunks,
+        });
         const fullRange = byMonth;
-        for (const [rangeFrom, rangeTo] of iterate) {
+        let chunkIndex = 0;
+        for (const [rangeFrom, rangeTo] of chunks) {
+          chunkIndex++;
           const label = `${rangeFrom} → ${rangeTo}`;
           let countInvoices = 0;
           let countPayments = 0;
@@ -133,6 +151,12 @@ export class SourceController {
             errors.push({ date: label, stage: 'payments', message: msg });
             this.logger.warn(`[sync] ${label} cartera: ${msg}`);
           }
+          this.syncProgress.set(user.tenantId, {
+            percent: 5 + Math.round((95 * chunkIndex) / totalChunks),
+            stage: label,
+            current: chunkIndex,
+            total: totalChunks,
+          });
           if (countInvoices > 0 || countPayments > 0) {
             this.logger.log(`[sync]   ${label}  ventas=${countInvoices}  cartera=${countPayments}`);
           }
@@ -152,6 +176,7 @@ export class SourceController {
         );
       } finally {
         this.runningTenants.delete(user.tenantId);
+        this.syncProgress.delete(user.tenantId);
       }
     });
 
@@ -175,14 +200,24 @@ export class SourceController {
     ]);
     const minDate = minMax._min?.issuedAt;
     const maxDate = minMax._max?.issuedAt;
+    const running = this.runningTenants.has(user.tenantId);
+    const progress = running ? this.syncProgress.get(user.tenantId) ?? null : null;
     return {
-      running: this.runningTenants.has(user.tenantId),
+      running,
       lastSyncedAt: tenant?.lastSyncAt?.toISOString() ?? null,
       dataCoverage: {
         earliestDate: minDate?.toISOString().slice(0, 10) ?? null,
         latestDate: maxDate?.toISOString().slice(0, 10) ?? null,
         totalInvoices: minMax._count?._all ?? 0,
       },
+      progress: progress
+        ? {
+            percent: progress.percent,
+            stage: progress.stage,
+            current: progress.current,
+            total: progress.total,
+          }
+        : null,
     };
   }
 

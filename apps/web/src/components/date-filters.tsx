@@ -65,6 +65,12 @@ export function DateFilters() {
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncRunning, setSyncRunning] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{
+    percent: number;
+    stage: string;
+    current: number;
+    total: number;
+  } | null>(null);
   const [syncLongRunningHint, setSyncLongRunningHint] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [dataCoverage, setDataCoverage] = useState<{
@@ -219,6 +225,7 @@ export function DateFilters() {
           running: boolean;
           lastSyncedAt: string | null;
           dataCoverage?: { earliestDate: string | null; latestDate: string | null; totalInvoices: number };
+          progress?: { percent: number; stage: string; current: number; total: number } | null;
         }>("/source/sync/status");
         if (!mounted) return;
         if (wasRunning && !status.running) {
@@ -226,6 +233,7 @@ export function DateFilters() {
         }
         wasRunning = status.running;
         setSyncRunning(status.running);
+        setSyncProgress(status.progress ?? null);
         setLastSyncedAt(status.lastSyncedAt);
         if (status.dataCoverage) setDataCoverage(status.dataCoverage);
         setSyncError(null);
@@ -243,15 +251,17 @@ export function DateFilters() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-3 text-xs text-slate-600">
+    <div className="flex flex-col gap-4 text-xs text-slate-600">
+      {/* Filtros: período y consulta */}
       <div className="flex flex-wrap items-center gap-3">
+        <span className="font-medium text-slate-700">Período</span>
         <label className="flex items-center gap-2">
           Desde
           <input
             type="date"
             value={from}
             onChange={(event) => setFrom(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
         </label>
         <label className="flex items-center gap-2">
@@ -260,7 +270,7 @@ export function DateFilters() {
             type="date"
             value={to}
             onChange={(event) => setTo(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
         </label>
         <label className="flex items-center gap-2">
@@ -308,65 +318,97 @@ export function DateFilters() {
             ))}
           </select>
         </label>
-        <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
+        <Button onClick={applyFilters} className="h-8 px-4 text-xs" disabled={syncing}>
           {syncing ? "Cargando…" : "Consultar"}
         </Button>
-        <Button
-          type="button"
-          onClick={() => runSyncNow("today")}
-          disabled={syncRunning}
-          className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-          title="Actualizar solo el día actual (se ejecuta también cada hora en el servidor)"
-        >
-          {syncRunning ? "Sincronizando…" : "Actualizar hoy"}
-        </Button>
-        <Button
-          type="button"
-          onClick={() => runSyncNow("historical")}
-          disabled={syncRunning}
-          className="h-8 px-3 text-xs bg-slate-700 hover:bg-slate-800 text-white"
-          title="Cargar ventas y cartera desde 2024 hasta hoy. Solo hace falta una vez; luego se actualiza el día cada hora."
-        >
-          Cargar datos históricos
-        </Button>
-        <Button
-          type="button"
-          onClick={() => runSyncNow("range")}
-          disabled={syncRunning}
-          className="h-8 px-3 text-xs border border-slate-300 text-slate-600 bg-white hover:bg-slate-50"
-          title="Sincronizar el rango Desde–Hasta (por mes si es largo)"
-        >
-          Sincronizar rango
-        </Button>
-        <span className="text-slate-500">
-          {syncRunning
-            ? "Sincronizando… (puede tardar varios min; al terminar se actualiza solo)"
-            : lastSyncLabel}
-        </span>
+      </div>
+
+      {/* Sincronización */}
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-slate-700">Sincronización</span>
+          <Button
+            type="button"
+            onClick={() => runSyncNow("today")}
+            disabled={syncRunning}
+            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            title="Actualizar solo el día actual"
+          >
+            {syncRunning ? "Sincronizando…" : "Actualizar hoy"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => runSyncNow("historical")}
+            disabled={syncRunning}
+            className="h-8 px-3 text-xs bg-slate-700 hover:bg-slate-800 text-white"
+            title="Cargar ventas y cartera desde 2024 hasta hoy"
+          >
+            Cargar datos históricos
+          </Button>
+          <Button
+            type="button"
+            onClick={() => runSyncNow("range")}
+            disabled={syncRunning}
+            className="h-8 px-3 text-xs border border-slate-300 text-slate-600 bg-white hover:bg-slate-50"
+            title="Sincronizar el rango Desde–Hasta"
+          >
+            Sincronizar rango
+          </Button>
+        </div>
+        {syncRunning && syncProgress && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-600">{syncProgress.stage}</span>
+              <span className="font-medium text-slate-700">{syncProgress.percent}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-emerald-600 transition-all duration-300"
+                style={{ width: `${Math.min(100, syncProgress.percent)}%` }}
+              />
+            </div>
+            {syncProgress.total > 0 && (
+              <span className="text-slate-500">
+                Bloque {syncProgress.current} de {syncProgress.total}
+              </span>
+            )}
+          </div>
+        )}
+        {syncRunning && !syncProgress && (
+          <span className="text-slate-500">Sincronizando… (preparando)</span>
+        )}
+        {!syncRunning && <span className="text-slate-500">{lastSyncLabel}</span>}
+        {syncRunning && (
+          <span className="text-slate-500 text-xs">
+            Puede tardar varios minutos. Al terminar se actualiza solo.
+          </span>
+        )}
         {syncLongRunningHint && (
           <span className="text-amber-700 text-xs font-medium">
             La carga se ejecuta en el servidor. Puedes cerrar la pestaña; al terminar, recarga para ver los datos.
           </span>
         )}
-        <span className="text-slate-400 text-xs">
-          Primera vez: «Cargar datos históricos». Luego el sistema actualiza solo el día cada hora.
-        </span>
-        {coverageLabel && (
-          <span className="text-slate-400" title="Rango de facturas disponibles en el sistema">
+        {coverageLabel && !syncRunning && (
+          <span className="text-slate-400" title="Rango de facturas disponibles">
             {coverageLabel}
           </span>
         )}
         {syncError && <span className="text-red-600 text-xs">{syncError}</span>}
+        <span className="text-slate-400 text-xs">
+          Primera vez: «Cargar datos históricos». Luego el sistema actualiza solo el día cada hora.
+        </span>
       </div>
+
+      {/* Comparar */}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-slate-400">Comparar</span>
+        <span className="font-medium text-slate-700">Comparar</span>
         <label className="flex items-center gap-2">
           Desde
           <input
             type="date"
             value={compareFrom}
             onChange={(event) => setCompareFrom(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
         </label>
         <label className="flex items-center gap-2">
@@ -375,7 +417,7 @@ export function DateFilters() {
             type="date"
             value={compareTo}
             onChange={(event) => setCompareTo(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
         </label>
         <Button

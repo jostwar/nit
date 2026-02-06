@@ -409,6 +409,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
           'ciudad',
           'municipio',
           'departamento',
+          'nom_departamento',
+          'region',
+          'ciudade',
+          'ciudaddestino',
+          'ciudad_destino',
+          'destino',
+          'codciudad',
+          'nombre_ciudad',
         ]) ?? undefined;
       const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
