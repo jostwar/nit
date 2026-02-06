@@ -90,6 +90,10 @@ async function main() {
           total: new Prisma.Decimal(total),
           margin: new Prisma.Decimal(margin),
           units,
+          saleSign: 1,
+          signedTotal: new Prisma.Decimal(total),
+          signedMargin: new Prisma.Decimal(margin),
+          signedUnits: units,
         },
       });
 
@@ -139,7 +143,7 @@ async function main() {
           customerId: customer.id,
           issuedAt: { gte: date, lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
         },
-        _sum: { total: true, margin: true, units: true },
+        _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
         _count: { _all: true },
       });
       await prisma.metricsDaily.upsert({
@@ -150,13 +154,13 @@ async function main() {
           tenantId: tenant.id,
           customerId: customer.id,
           date,
-          totalSales: daily._sum.total ?? 0,
+          totalSales: daily._sum.signedTotal ?? 0,
           totalInvoices: daily._count._all,
-          totalUnits: daily._sum.units ?? 0,
-          totalMargin: daily._sum.margin ?? 0,
+          totalUnits: daily._sum.signedUnits ?? 0,
+          totalMargin: daily._sum.signedMargin ?? 0,
           avgTicket:
             daily._count._all > 0
-              ? Number(daily._sum.total ?? 0) / daily._count._all
+              ? Number(daily._sum.signedTotal ?? 0) / daily._count._all
               : 0,
           lastPurchaseAt: daily._count._all > 0 ? date : null,
         },

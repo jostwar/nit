@@ -114,6 +114,7 @@ export class SyncService {
         productName: string;
         brand: string;
         category: string;
+        classCode?: string;
         quantity: number;
         unitPrice: number;
         total: number;
