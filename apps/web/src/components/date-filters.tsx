@@ -36,7 +36,6 @@ export function DateFilters() {
       to,
       compareFrom: searchParams.get("compareFrom") ?? compareDefaults.compareFrom,
       compareTo: searchParams.get("compareTo") ?? compareDefaults.compareTo,
-      city: searchParams.get("city") ?? "",
       vendor: searchParams.get("vendor") ?? "",
       brand: searchParams.get("brand") ?? "",
       class: searchParams.get("class") ?? "",
@@ -46,7 +45,6 @@ export function DateFilters() {
   const [to, setTo] = useState(initial.to);
   const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
   const [compareTo, setCompareTo] = useState(initial.compareTo);
-  const [city, setCity] = useState(initial.city);
   const [vendor, setVendor] = useState(initial.vendor);
   const [brand, setBrand] = useState(initial.brand);
   const [classFilter, setClassFilter] = useState(initial.class);
@@ -57,11 +55,10 @@ export function DateFilters() {
     setTo(initial.to);
     setCompareFrom(initial.compareFrom);
     setCompareTo(initial.compareTo);
-    setCity(initial.city);
     setVendor(initial.vendor);
     setBrand(initial.brand);
     setClassFilter(initial.class);
-  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.city, initial.vendor, initial.brand, initial.class]);
+  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.vendor, initial.brand, initial.class]);
   const [compareEnabled, setCompareEnabled] = useState(
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
@@ -112,11 +109,6 @@ export function DateFilters() {
       params.delete("compareFrom");
       params.delete("compareTo");
     }
-    if (city.trim()) {
-      params.set("city", city.trim());
-    } else {
-      params.delete("city");
-    }
     if (vendor.trim()) {
       params.set("vendor", vendor.trim());
     } else {
@@ -162,8 +154,6 @@ export function DateFilters() {
     params.set("to", to);
     params.set("compareFrom", cf);
     params.set("compareTo", ct);
-    if (city.trim()) params.set("city", city.trim());
-    else params.delete("city");
     if (vendor.trim()) params.set("vendor", vendor.trim());
     else params.delete("vendor");
     if (brand.trim()) params.set("brand", brand.trim());
@@ -182,7 +172,7 @@ export function DateFilters() {
       mode === "today" ? today : mode === "historical" ? historicalFrom : from;
     const toParam = mode === "today" || mode === "historical" ? today : to;
     const safetyMs =
-      mode === "historical" || mode === "range" ? 900_000 : 120_000; // 15 min histórico/rango, 2 min hoy
+      mode === "historical" || mode === "range" ? 900_000 : 300_000; // 15 min histórico/rango, 5 min hoy
     const safetyTimer = window.setTimeout(() => {
       setSyncRunning((prev) => (prev ? false : prev));
     }, safetyMs);
@@ -301,21 +291,6 @@ export function DateFilters() {
             onChange={(event) => setTo(event.target.value)}
             className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
-        </label>
-        <label className="flex items-center gap-2">
-          Ciudad
-          <select
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="min-w-[7rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
-          >
-            <option value="">Todas</option>
-            {(filterOptions?.cities ?? []).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </label>
         <label className="flex items-center gap-2">
           Vendedor

@@ -390,15 +390,37 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const productName =
         this.pick(record, ['nomref', 'producto', 'nombreproducto', 'articulo', 'descripcion']) ??
         'Total';
+      const ventasBrandKeys = (
+        process.env.SOURCE_VENTAS_BRAND_FIELDS ?? 'MARCA,nommar,nommarca,marca,brand,codmar'
+      )
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const ventasClassKeys = (
+        process.env.SOURCE_VENTAS_CLASS_FIELDS ?? 'CLASE,clase,codclase,class,codcla'
+      )
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const brandFromRecord = this.pick(
+        record,
+        ventasBrandKeys.length > 0 ? ventasBrandKeys : ['MARCA', 'marca', 'brand'],
+      );
+      const classFromRecord = this.pick(
+        record,
+        ventasClassKeys.length > 0 ? ventasClassKeys : ['CLASE', 'clase', 'codclase'],
+      );
       const mappedBrand =
         productRef && brandMap.has(productRef) ? brandMap.get(productRef) : undefined;
       const brand =
+        brandFromRecord ??
         mappedBrand ??
         (productRef ? 'Sin marca' : null) ??
-        this.pick(record, ['MARCA', 'nommar', 'nommarca', 'marca', 'brand']) ??
         'Sin marca';
       const classCode =
-        productRef && classMap.has(productRef) ? classMap.get(productRef) ?? undefined : undefined;
+        (classFromRecord ? String(classFromRecord).trim() : undefined) ||
+        (productRef ? classMap.get(productRef) : undefined) ||
+        undefined;
       const category =
         this.pick(record, ['nomsec', 'categoria', 'linea', 'grupo', 'codsec']) ?? 'Sin categoría';
       const unitPrice = this.toNumber(
@@ -552,10 +574,10 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return payments;
   }
 
-  /** Normaliza referencia para cruce inventario/ventas (trim; mismo criterio en ambos APIs). */
+  /** Normaliza referencia para cruce inventario/ventas (trim + mayúsculas; mismo criterio en ambos APIs). */
   private normalizeRef(ref: string | undefined): string {
     if (!ref || typeof ref !== 'string') return '';
-    return ref.trim();
+    return ref.trim().toUpperCase();
   }
 
   private pick(record: FlatRecord, keys: string[]): string | undefined {

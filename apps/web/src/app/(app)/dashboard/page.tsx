@@ -81,7 +81,6 @@ export default function DashboardPage() {
     const to = searchParams.get("to");
     const compareFrom = searchParams.get("compareFrom");
     const compareTo = searchParams.get("compareTo");
-    const city = searchParams.get("city");
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
@@ -89,7 +88,6 @@ export default function DashboardPage() {
     if (to) params.set("to", to);
     if (compareFrom) params.set("compareFrom", compareFrom);
     if (compareTo) params.set("compareTo", compareTo);
-    if (city) params.set("city", city);
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
@@ -153,13 +151,11 @@ export default function DashboardPage() {
         const params = new URLSearchParams();
         const from = searchParams.get("from");
         const to = searchParams.get("to");
-        const city = searchParams.get("city");
         const vendor = searchParams.get("vendor");
         const brand = searchParams.get("brand");
         const classFilter = searchParams.get("class");
         if (from) params.set("from", from);
         if (to) params.set("to", to);
-        if (city) params.set("city", city);
         if (vendor) params.set("vendor", vendor);
         if (brand) params.set("brand", brand);
         if (classFilter) params.set("class", classFilter);
@@ -169,7 +165,6 @@ export default function DashboardPage() {
         const compareParams = new URLSearchParams();
         if (compareRange.compareFrom) compareParams.set("from", compareRange.compareFrom);
         if (compareRange.compareTo) compareParams.set("to", compareRange.compareTo);
-        if (city) compareParams.set("city", city);
         if (vendor) compareParams.set("vendor", vendor);
         if (brand) compareParams.set("brand", brand);
         if (classFilter) compareParams.set("class", classFilter);

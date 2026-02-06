@@ -114,7 +114,8 @@ export class SourceController {
           current: 0,
           total: totalChunks,
         });
-        const fullRange = byMonth;
+        // Un solo día (ej. "Actualizar hoy"): una sola llamada de ventas, sin iterar por cliente.
+        const fullRange = byMonth || from === to;
         let chunkIndex = 0;
         for (const [rangeFrom, rangeTo] of chunks) {
           chunkIndex++;
