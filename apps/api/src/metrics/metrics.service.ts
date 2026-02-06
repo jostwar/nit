@@ -115,6 +115,7 @@ export class MetricsService {
           : {}),
       };
 
+      // Serie por día: siempre desde Invoice para que sum(serie) = total (misma fuente)
       const seriesPromise: Promise<
         Array<{
           date: Date;
@@ -123,84 +124,108 @@ export class MetricsService {
           totalUnits: number;
           totalMargin: number;
         }>
-      > = trimmedBrand
-        ? (async () => {
-            const brandPattern = `%${trimmedBrand}%`;
-            const rows = await this.prisma.$queryRaw<
-              Array<{
-                date: Date;
-                totalSales: string;
-                totalInvoices: bigint;
-                totalUnits: string;
-                totalMargin: string;
-              }>
-            >(
-              scopedCustomerIds?.length
-                ? Prisma.sql`
-                    SELECT
-                      date(i."issuedAt") as "date",
-                      SUM(i.total)::text as "totalSales",
-                      COUNT(*)::bigint as "totalInvoices",
-                      COALESCE(SUM(i.units), 0)::text as "totalUnits",
-                      SUM(i.margin)::text as "totalMargin"
-                    FROM "Invoice" i
-                    INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
-                    WHERE i."tenantId" = ${tenantId}
-                      AND i."issuedAt" >= ${from}
-                      AND i."issuedAt" <= ${to}
-                      AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})
-                    GROUP BY date(i."issuedAt")
-                    ORDER BY 1
-                  `
-                : Prisma.sql`
-                    SELECT
-                      date(i."issuedAt") as "date",
-                      SUM(i.total)::text as "totalSales",
-                      COUNT(*)::bigint as "totalInvoices",
-                      COALESCE(SUM(i.units), 0)::text as "totalUnits",
-                      SUM(i.margin)::text as "totalMargin"
-                    FROM "Invoice" i
-                    INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
-                    WHERE i."tenantId" = ${tenantId}
-                      AND i."issuedAt" >= ${from}
-                      AND i."issuedAt" <= ${to}
-                    GROUP BY date(i."issuedAt")
-                    ORDER BY 1
-                  `,
-            );
-            return rows.map((r) => ({
-              date: new Date(r.date),
-              totalSales: Number(r.totalSales ?? 0),
-              totalInvoices: Number(r.totalInvoices ?? 0),
-              totalUnits: Number(r.totalUnits ?? 0),
-              totalMargin: Number(r.totalMargin ?? 0),
-            }));
-          })()
-        : this.prisma.metricsDaily
-            .groupBy({
-              by: ['date'],
-              where: {
-                tenantId,
-                date: { gte: from, lte: to },
-                ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
-              },
-              _sum: {
-                totalSales: true,
-                totalInvoices: true,
-                totalUnits: true,
-                totalMargin: true,
-              },
-              orderBy: { date: 'asc' },
-            })
-            .then((series) =>
-              series.map((row) => ({
-                date: row.date,
-                totalSales: Number(row._sum.totalSales ?? 0),
-                totalInvoices: Number(row._sum.totalInvoices ?? 0),
-                totalUnits: Number(row._sum.totalUnits ?? 0),
-                totalMargin: Number(row._sum.totalMargin ?? 0),
-              })),
-            );
+      > = (async () => {
+        if (trimmedBrand) {
+          const brandPattern = `%${trimmedBrand}%`;
+          const rows = await this.prisma.$queryRaw<
+            Array<{
+              date: Date;
+              totalSales: string;
+              totalInvoices: bigint;
+              totalUnits: string;
+              totalMargin: string;
+            }>
+          >(
+            scopedCustomerIds?.length
+              ? Prisma.sql`
+                  SELECT
+                    date(i."issuedAt") as "date",
+                    SUM(i.total)::text as "totalSales",
+                    COUNT(*)::bigint as "totalInvoices",
+                    COALESCE(SUM(i.units), 0)::text as "totalUnits",
+                    SUM(i.margin)::text as "totalMargin"
+                  FROM "Invoice" i
+                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
+                  WHERE i."tenantId" = ${tenantId}
+                    AND i."issuedAt" >= ${from}
+                    AND i."issuedAt" <= ${to}
+                    AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})
+                  GROUP BY date(i."issuedAt")
+                  ORDER BY 1
+                `
+              : Prisma.sql`
+                  SELECT
+                    date(i."issuedAt") as "date",
+                    SUM(i.total)::text as "totalSales",
+                    COUNT(*)::bigint as "totalInvoices",
+                    COALESCE(SUM(i.units), 0)::text as "totalUnits",
+                    SUM(i.margin)::text as "totalMargin"
+                  FROM "Invoice" i
+                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
+                  WHERE i."tenantId" = ${tenantId}
+                    AND i."issuedAt" >= ${from}
+                    AND i."issuedAt" <= ${to}
+                  GROUP BY date(i."issuedAt")
+                  ORDER BY 1
+                `,
+          );
+          return rows.map((r) => ({
+            date: new Date(r.date),
+            totalSales: Number(r.totalSales ?? 0),
+            totalInvoices: Number(r.totalInvoices ?? 0),
+            totalUnits: Number(r.totalUnits ?? 0),
+            totalMargin: Number(r.totalMargin ?? 0),
+          }));
+        }
+        // Sin marca: agregar Invoice por día (misma fuente que totales)
+        const rows = await this.prisma.$queryRaw<
+          Array<{
+            date: Date;
+            totalSales: string;
+            totalInvoices: bigint;
+            totalUnits: string;
+            totalMargin: string;
+          }>
+        >(
+          scopedCustomerIds?.length
+            ? Prisma.sql`
+                SELECT
+                  date(i."issuedAt") as "date",
+                  SUM(i.total)::text as "totalSales",
+                  COUNT(*)::bigint as "totalInvoices",
+                  COALESCE(SUM(i.units), 0)::text as "totalUnits",
+                  SUM(i.margin)::text as "totalMargin"
+                FROM "Invoice" i
+                WHERE i."tenantId" = ${tenantId}
+                  AND i."issuedAt" >= ${from}
+                  AND i."issuedAt" <= ${to}
+                  AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})
+                GROUP BY date(i."issuedAt")
+                ORDER BY 1
+              `
+            : Prisma.sql`
+                SELECT
+                  date(i."issuedAt") as "date",
+                  SUM(i.total)::text as "totalSales",
+                  COUNT(*)::bigint as "totalInvoices",
+                  COALESCE(SUM(i.units), 0)::text as "totalUnits",
+                  SUM(i.margin)::text as "totalMargin"
+                FROM "Invoice" i
+                WHERE i."tenantId" = ${tenantId}
+                  AND i."issuedAt" >= ${from}
+                  AND i."issuedAt" <= ${to}
+                GROUP BY date(i."issuedAt")
+                ORDER BY 1
+              `,
+        );
+        return rows.map((r) => ({
+          date: new Date(r.date),
+          totalSales: Number(r.totalSales ?? 0),
+          totalInvoices: Number(r.totalInvoices ?? 0),
+          totalUnits: Number(r.totalUnits ?? 0),
+          totalMargin: Number(r.totalMargin ?? 0),
+        }));
+      })();
 
       const [current, compare, distinctCustomers, seriesRows] = await Promise.all([
         this.prisma.invoice.aggregate({
