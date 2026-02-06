@@ -24,7 +24,10 @@ export class DashboardController {
     @Query('brand') brand?: string,
   ) {
     const current = parseRange(from, to);
-    const compare = parseRange(compareFrom, compareTo);
+    const hasCompare = compareFrom != null && compareTo != null && compareFrom !== '' && compareTo !== '';
+    const compare = hasCompare
+      ? parseRange(compareFrom, compareTo)
+      : { from: current.from, to: current.to };
     return this.metricsService.getDashboardSummary(
       tenantId,
       current.from,

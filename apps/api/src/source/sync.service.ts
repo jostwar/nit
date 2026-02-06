@@ -158,6 +158,7 @@ export class SyncService {
       const signedUnits = unitsRounded * sign;
       const documentType = invoice.documentType?.trim() || null;
       const saleSign = sign;
+      const city = invoice.city?.trim() || null;
       const saved = existing
         ? await this.prisma.invoice.update({
             where: { id: existing.id },
@@ -167,6 +168,7 @@ export class SyncService {
               margin: invoice.margin,
               units: unitsRounded,
               vendor,
+              city,
               documentType,
               saleSign,
               signedTotal,
@@ -184,6 +186,7 @@ export class SyncService {
               margin: invoice.margin,
               units: unitsRounded,
               vendor,
+              city,
               documentType,
               saleSign,
               signedTotal,

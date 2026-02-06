@@ -50,20 +50,25 @@ export default function AdminReportsPage() {
     return qs ? `?${qs}` : "";
   }, [searchParams]);
 
+  const from = searchParams.get("from") ?? "";
+  const to = searchParams.get("to") ?? "";
   const compareFrom = searchParams.get("compareFrom") ?? "";
   const compareTo = searchParams.get("compareTo") ?? "";
-  const periodLabel = useMemo(() => {
-    if (!compareFrom || !compareTo) return null;
-    const format = new Intl.DateTimeFormat("es-CO", {
+  const formatRange = (f: string, t: string) => {
+    if (!f || !t) return null;
+    const fmt = new Intl.DateTimeFormat("es-CO", {
       year: "numeric",
       month: "short",
       day: "2-digit",
     });
-    const fromDate = new Date(compareFrom);
-    const toDate = new Date(compareTo);
+    const fromDate = new Date(f);
+    const toDate = new Date(t);
     if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return null;
-    return `${format.format(fromDate)} – ${format.format(toDate)}`;
-  }, [compareFrom, compareTo]);
+    return `${fmt.format(fromDate)} – ${fmt.format(toDate)}`;
+  };
+  const mainPeriodLabel = formatRange(from, to);
+  const comparePeriodLabel = compareFrom && compareTo ? formatRange(compareFrom, compareTo) : null;
+  const isCompareActive = Boolean(comparePeriodLabel);
 
   useEffect(() => {
     setLoading(true);
@@ -78,6 +83,16 @@ export default function AdminReportsPage() {
     summary && summary.current.totalSales > 0
       ? (summary.current.totalMargin / summary.current.totalSales) * 100
       : 0;
+  const compareMarginPercent =
+    summary && summary.compare.totalSales > 0
+      ? (summary.compare.totalMargin / summary.compare.totalSales) * 100
+      : 0;
+  const compareAvgTicket =
+    summary && summary.compare.totalInvoices > 0
+      ? summary.compare.totalSales / summary.compare.totalInvoices
+      : 0;
+  const variation = (current: number, compare: number) =>
+    compare === 0 ? (current === 0 ? 0 : null) : ((current - compare) / compare) * 100;
 
   return (
     <div className="space-y-8">
@@ -85,50 +100,135 @@ export default function AdminReportsPage() {
         <h2 className="text-2xl font-semibold text-slate-900">Reportes de Ventas</h2>
         <p className="text-sm text-slate-500">Tablero Analítico de Ventas</p>
         <p className="mt-1 text-xs text-slate-500">
-          Usa el filtro superior (Período, Ciudad, Vendedor, Marca) y Comparar para definir rangos.
+          Período principal define el rango de las métricas. Opcional: define &quot;Periodo a comparar&quot; y pulsa &quot;Aplicar comparación&quot; para ver ambos y la variación.
         </p>
-        {periodLabel && (
-          <p className="mt-1 text-xs text-slate-500">
-            Periodo comparado: <span className="font-medium text-slate-700">{periodLabel}</span>
-          </p>
-        )}
+        <div className="mt-2 flex flex-wrap gap-4 text-xs">
+          {mainPeriodLabel && (
+            <span className="text-slate-600">
+              <span className="font-medium text-slate-700">Periodo principal:</span> {mainPeriodLabel}
+            </span>
+          )}
+          {isCompareActive && comparePeriodLabel && (
+            <span className="text-slate-600">
+              <span className="font-medium text-slate-700">Periodo a comparar:</span> {comparePeriodLabel}
+            </span>
+          )}
+        </div>
       </div>
       {error ? <div className="text-sm text-rose-500">{error}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ventas Totales</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold text-slate-900">
-            {formatCop(summary?.current.totalSales ?? 0)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Margen Bruto</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold text-slate-900">
-            {marginPercent.toFixed(1)}%
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Ticket Promedio</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold text-slate-900">
-            {formatCop(summary?.current.avgTicket ?? 0)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Clientes Únicos</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold text-slate-900">
-            {(summary?.current.uniqueCustomers ?? 0).toLocaleString("es-CO")}
-          </CardContent>
-        </Card>
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-slate-700">Periodo principal</h3>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ventas Totales</CardTitle>
+            </CardHeader>
+            <CardContent className="text-lg font-semibold text-slate-900">
+              {formatCop(summary?.current.totalSales ?? 0)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Margen Bruto</CardTitle>
+            </CardHeader>
+            <CardContent className="text-lg font-semibold text-slate-900">
+              {marginPercent.toFixed(1)}%
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ticket Promedio</CardTitle>
+            </CardHeader>
+            <CardContent className="text-lg font-semibold text-slate-900">
+              {formatCop(summary?.current.avgTicket ?? 0)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Clientes Únicos</CardTitle>
+            </CardHeader>
+            <CardContent className="text-lg font-semibold text-slate-900">
+              {(summary?.current.uniqueCustomers ?? 0).toLocaleString("es-CO")}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {isCompareActive && summary && (
+        <div>
+          <h3 className="mb-3 text-sm font-medium text-slate-700">Periodo a comparar</h3>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card className="border-slate-200 bg-slate-50/50">
+              <CardHeader>
+                <CardTitle>Ventas Totales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold text-slate-900">
+                  {formatCop(summary.compare.totalSales)}
+                </div>
+                {variation(summary.current.totalSales, summary.compare.totalSales) != null && (
+                  <p className={`mt-1 text-xs ${variation(summary.current.totalSales, summary.compare.totalSales)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variation(summary.current.totalSales, summary.compare.totalSales)! >= 0 ? "+" : ""}
+                    {variation(summary.current.totalSales, summary.compare.totalSales)!.toFixed(1)}% vs periodo principal
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200 bg-slate-50/50">
+              <CardHeader>
+                <CardTitle>Margen Bruto</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold text-slate-900">
+                  {compareMarginPercent.toFixed(1)}%
+                </div>
+                {variation(marginPercent, compareMarginPercent) != null && (
+                  <p className={`mt-1 text-xs ${variation(marginPercent, compareMarginPercent)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variation(marginPercent, compareMarginPercent)! >= 0 ? "+" : ""}
+                    {variation(marginPercent, compareMarginPercent)!.toFixed(1)} pts vs periodo principal
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200 bg-slate-50/50">
+              <CardHeader>
+                <CardTitle>Ticket Promedio</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold text-slate-900">
+                  {formatCop(compareAvgTicket)}
+                </div>
+                {variation(summary.current.avgTicket, compareAvgTicket) != null && (
+                  <p className={`mt-1 text-xs ${variation(summary.current.avgTicket, compareAvgTicket)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variation(summary.current.avgTicket, compareAvgTicket)! >= 0 ? "+" : ""}
+                    {variation(summary.current.avgTicket, compareAvgTicket)!.toFixed(1)}% vs periodo principal
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200 bg-slate-50/50">
+              <CardHeader>
+                <CardTitle>Facturas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold text-slate-900">
+                  {summary.compare.totalInvoices.toLocaleString("es-CO")}
+                </div>
+                {variation(summary.current.totalInvoices, summary.compare.totalInvoices) != null && (
+                  <p className={`mt-1 text-xs ${variation(summary.current.totalInvoices, summary.compare.totalInvoices)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variation(summary.current.totalInvoices, summary.compare.totalInvoices)! >= 0 ? "+" : ""}
+                    {variation(summary.current.totalInvoices, summary.compare.totalInvoices)!.toFixed(1)}% vs periodo principal
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-slate-700">Evolución (periodo principal)</h3>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card className="h-[360px]">
@@ -178,6 +278,7 @@ export default function AdminReportsPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );

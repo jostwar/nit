@@ -40,6 +40,27 @@ export class MetricsService {
     return customers.map((customer) => customer.id);
   }
 
+  /** Where para filtro ciudad: Customer.city O Invoice.city (NOMSEC, etc.). */
+  private cityFilterWhere(
+    scopedCustomerIds: string[] | null,
+    cityFilter: string | undefined,
+  ): Prisma.InvoiceWhereInput {
+    const city = cityFilter?.trim();
+    if (!city) {
+      return scopedCustomerIds?.length
+        ? { customerId: { in: scopedCustomerIds } }
+        : {};
+    }
+    return {
+      OR: [
+        ...(scopedCustomerIds?.length
+          ? [{ customerId: { in: scopedCustomerIds } }]
+          : []),
+        { city: { contains: city, mode: Prisma.QueryMode.insensitive } },
+      ],
+    };
+  }
+
   async getDashboardSummary(
     tenantId: string,
     from: Date,
@@ -63,32 +84,13 @@ export class MetricsService {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
         city: filters?.city,
       });
-      if (scopedCustomerIds && scopedCustomerIds.length === 0) {
-        return {
-          current: {
-            totalSales: 0,
-            totalMargin: 0,
-            totalUnits: 0,
-            totalInvoices: 0,
-            uniqueCustomers: 0,
-            avgTicket: 0,
-          },
-          compare: {
-            totalSales: 0,
-            totalMargin: 0,
-            totalUnits: 0,
-            totalInvoices: 0,
-          },
-          series: [],
-        };
-      }
-
       const trimmedBrand = filters?.brand?.trim();
       const trimmedVendor = filters?.vendor?.trim();
+      const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
       const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
-        ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
+        ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
         ...(trimmedBrand
           ? {
@@ -103,7 +105,7 @@ export class MetricsService {
       const compareWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: compareFrom, lte: compareTo },
-        ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
+        ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
         ...(trimmedBrand
           ? {
@@ -283,18 +285,28 @@ export class MetricsService {
   async getFilterOptions(tenantId: string) {
     const key = `filterOptions:${tenantId}`;
     return this.getCached(key, 60000, async () => {
-      const [cities, vendors, brandFromTable, brandsFromItems] = await Promise.all([
-        this.prisma.customer
-          .groupBy({
-            by: ['city'],
-            where: { tenantId, city: { not: null } },
-          })
-          .then((rows) =>
-            rows
-              .map((r) => r.city)
-              .filter((c): c is string => c != null && c.trim() !== '')
-              .sort((a, b) => a.localeCompare(b, 'es')),
-          ),
+      const [citiesFromCustomer, citiesFromInvoice, vendors, brandFromTable, brandsFromItems] =
+        await Promise.all([
+          this.prisma.customer
+            .groupBy({
+              by: ['city'],
+              where: { tenantId, city: { not: null } },
+            })
+            .then((rows) =>
+              rows
+                .map((r) => r.city)
+                .filter((c): c is string => c != null && c.trim() !== ''),
+            ),
+          this.prisma.invoice
+            .groupBy({
+              by: ['city'],
+              where: { tenantId, city: { not: null } },
+            })
+            .then((rows) =>
+              rows
+                .map((r) => r.city)
+                .filter((c): c is string => c != null && c.trim() !== ''),
+            ),
         this.prisma.invoice
           .groupBy({
             by: ['vendor'],
@@ -327,7 +339,10 @@ export class MetricsService {
               .filter((b): b is string => b != null && b.trim() !== '')
               .sort((a, b) => a.localeCompare(b, 'es')),
           ),
-      ]);
+        ]);
+      const cities = [
+        ...new Set([...citiesFromCustomer, ...citiesFromInvoice]),
+      ].sort((a, b) => a.localeCompare(b, 'es'));
       const brands =
         brandFromTable.length > 0 ? brandFromTable : [...new Set(brandsFromItems)];
       return { cities, vendors, brands };
@@ -352,21 +367,14 @@ export class MetricsService {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
         city: filters?.city,
       });
-      if (scopedCustomerIds && scopedCustomerIds.length === 0) {
-        return {
-          totalSales: 0,
-          totalMargin: 0,
-          totalUnits: 0,
-          totalInvoices: 0,
-        };
-      }
       const trimmedBrand = filters?.brand?.trim();
       const trimmedVendor = filters?.vendor?.trim();
+      const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
       const totals = await this.prisma.invoice.aggregate({
         where: {
           tenantId,
           issuedAt: { gte: from, lte: to },
-          ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
+          ...cityWhere,
           ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
           ...(trimmedBrand
             ? {
@@ -410,8 +418,13 @@ export class MetricsService {
         Prisma.empty;
     const vendorCond =
       trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
-    const customerCond =
-      scopedCustomerIds?.length
+    const city = filters?.city?.trim();
+    const cityCond =
+      city ?
+        scopedCustomerIds?.length
+          ? Prisma.sql` AND (i."customerId" IN (${Prisma.join(scopedCustomerIds)}) OR i."city" ILIKE ${`%${city}%`})`
+          : Prisma.sql` AND i."city" ILIKE ${`%${city}%`}`
+      : scopedCustomerIds?.length
         ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
         : Prisma.empty;
     const rows = await this.prisma.$queryRaw<
@@ -426,7 +439,7 @@ export class MetricsService {
         AND it."classCode" IS NOT NULL
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
-        ${customerCond}${vendorCond}${brandCond}
+        ${cityCond}${vendorCond}${brandCond}
       GROUP BY it."classCode"
       ORDER BY SUM(it.total * i."saleSign") DESC
     `);

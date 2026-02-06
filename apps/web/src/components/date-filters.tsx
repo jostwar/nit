@@ -138,11 +138,28 @@ export function DateFilters() {
   };
 
   const applyCompare = () => {
-    const compareDefaults = computeCompareRange(from, to);
-    setCompareFrom(compareDefaults.compareFrom);
-    setCompareTo(compareDefaults.compareTo);
+    let cf = compareFrom.trim();
+    let ct = compareTo.trim();
+    if (!cf || !ct) {
+      const compareDefaults = computeCompareRange(from, to);
+      cf = compareDefaults.compareFrom;
+      ct = compareDefaults.compareTo;
+      setCompareFrom(cf);
+      setCompareTo(ct);
+    }
     setCompareEnabled(true);
-    updateQuery(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("from", from);
+    params.set("to", to);
+    params.set("compareFrom", cf);
+    params.set("compareTo", ct);
+    if (city.trim()) params.set("city", city.trim());
+    else params.delete("city");
+    if (vendor.trim()) params.set("vendor", vendor.trim());
+    else params.delete("vendor");
+    if (brand.trim()) params.set("brand", brand.trim());
+    else params.delete("brand");
+    router.replace(`?${params.toString()}`);
   };
 
   const historicalFrom = "2024-01-01";
@@ -252,9 +269,9 @@ export function DateFilters() {
 
   return (
     <div className="flex flex-col gap-4 text-xs text-slate-600">
-      {/* Filtros: período y consulta */}
+      {/* Filtros: período principal y consulta */}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="font-medium text-slate-700">Período</span>
+        <span className="font-medium text-slate-700">Período principal</span>
         <label className="flex items-center gap-2">
           Desde
           <input
@@ -399,9 +416,10 @@ export function DateFilters() {
         </span>
       </div>
 
-      {/* Comparar */}
+      {/* Periodo a comparar (opcional) */}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="font-medium text-slate-700">Comparar</span>
+        <span className="font-medium text-slate-700">Periodo a comparar</span>
+        <span className="text-slate-500">(opcional: otro rango para ver variación)</span>
         <label className="flex items-center gap-2">
           Desde
           <input
@@ -424,7 +442,7 @@ export function DateFilters() {
           onClick={applyCompare}
           className="h-8 px-3 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
         >
-          Comparar
+          Aplicar comparación
         </Button>
       </div>
     </div>

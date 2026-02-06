@@ -404,26 +404,16 @@ export class FomplusSourceApiClient implements SourceApiClient {
 
       const nomven =
         this.pick(record, ['nomven', 'nomvendedor', 'vendedor', 'cli_nomven', 'vended']) ?? undefined;
+      const cityKeys = (
+        process.env.SOURCE_VENTAS_CITY_FIELDS ??
+        'cli_nomciu,cli_ciudad,nomciu,nomciudad,ciudad,municipio,departamento,nom_departamento,region,ciudade,ciudaddestino,ciudad_destino,destino,codciudad,nombre_ciudad,NOMSEC,nomsec'
+      )
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
       const ciudad =
-        this.pick(record, [
-          'cli_nomciu',
-          'cli_ciudad',
-          'nomciu',
-          'nomciudad',
-          'ciudad',
-          'municipio',
-          'departamento',
-          'nom_departamento',
-          'region',
-          'ciudade',
-          'ciudaddestino',
-          'ciudad_destino',
-          'destino',
-          'codciudad',
-          'nombre_ciudad',
-          'NOMSEC',
-          'nomsec',
-        ]) ?? undefined;
+        this.pick(record, cityKeys.length > 0 ? cityKeys : ['ciudad', 'nomciu', 'NOMSEC']) ??
+        undefined;
       const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
       if (!existing) {

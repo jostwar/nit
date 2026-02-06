@@ -99,6 +99,7 @@ model Invoice {
   margin        Decimal  @db.Decimal(14, 2)
   units         Int
   vendor        String?  // NOMVEN de GenerarInfoVentas
+  city          String?  // ciudad/sector de la venta (NOMSEC, nomciu, etc.) para filtros
   // TIPOMOV: tipo documento (ej. 01, 13=SUMA; 04, 06, 15=RESTA). Ventas netas = sum(signedTotal)
   documentType  String?  // código TIPOMOV
   saleSign      Int      @default(1) // 1=SUMA VENTA, -1=RESTA VENTA

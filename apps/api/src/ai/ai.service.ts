@@ -80,6 +80,8 @@ export class AiService {
       if (
         q.includes('más vendió') ||
         q.includes('mas vendió') ||
+        q.includes('más ventas') ||
+        q.includes('mas ventas') ||
         q.includes('mejor vendedor') ||
         q.includes('top vendedor')
       ) {
