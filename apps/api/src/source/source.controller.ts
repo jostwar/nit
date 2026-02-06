@@ -5,6 +5,35 @@ import { SyncService } from './sync.service';
 import { SyncDto } from './dto/sync.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
+function* dayChunks(
+  from: Date,
+  to: Date,
+): Generator<[string, string]> {
+  const cursor = new Date(from);
+  while (cursor <= to) {
+    const day = cursor.toISOString().slice(0, 10);
+    yield [day, day];
+    cursor.setDate(cursor.getDate() + 1);
+  }
+}
+
+function* monthChunks(
+  from: Date,
+  to: Date,
+): Generator<[string, string]> {
+  const start = new Date(from.getFullYear(), from.getMonth(), 1);
+  const end = new Date(to.getFullYear(), to.getMonth(), 1);
+  for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+    const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const rangeFrom = monthStart < from ? from : monthStart;
+    const rangeTo = monthEnd > to ? to : monthEnd;
+    const fromStr = rangeFrom.toISOString().slice(0, 10);
+    const toStr = rangeTo.toISOString().slice(0, 10);
+    yield [fromStr, toStr];
+  }
+}
+
 @Controller('source')
 export class SourceController {
   private readonly logger = new Logger(SourceController.name);
@@ -51,48 +80,49 @@ export class SourceController {
         const safeFrom = Number.isNaN(fromDate.getTime()) ? new Date(today) : fromDate;
         const safeTo = Number.isNaN(toDate.getTime()) ? new Date(today) : toDate;
 
+        const rangeDays =
+          Math.ceil((safeTo.getTime() - safeFrom.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+        const byMonth = rangeDays > 31;
+
         let invoicesSynced = 0;
         let paymentsSynced = 0;
         const errors: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> = [];
 
-        for (
-          let cursor = new Date(safeFrom);
-          cursor <= safeTo;
-          cursor.setDate(cursor.getDate() + 1)
-        ) {
-          const day = cursor.toISOString().slice(0, 10);
-          let dayInvoices = 0;
-          let dayPayments = 0;
+        const iterate = byMonth ? monthChunks(safeFrom, safeTo) : dayChunks(safeFrom, safeTo);
+        for (const [rangeFrom, rangeTo] of iterate) {
+          const label = `${rangeFrom} → ${rangeTo}`;
+          let countInvoices = 0;
+          let countPayments = 0;
           try {
             const result = await this.syncService.syncInvoices(
               user.tenantId,
               tenantExternalId,
-              day,
-              day,
+              rangeFrom,
+              rangeTo,
             );
-            dayInvoices = result.synced;
+            countInvoices = result.synced;
             invoicesSynced += result.synced;
           } catch (error) {
             const msg = (error as Error).message ?? 'Error sincronizando ventas';
-            errors.push({ date: day, stage: 'invoices', message: msg });
-            this.logger.warn(`[sync] ${day} ventas: ${msg}`);
+            errors.push({ date: label, stage: 'invoices', message: msg });
+            this.logger.warn(`[sync] ${label} ventas: ${msg}`);
           }
           try {
             const result = await this.syncService.syncPayments(
               user.tenantId,
               tenantExternalId,
-              day,
-              day,
+              rangeFrom,
+              rangeTo,
             );
-            dayPayments = result.synced;
+            countPayments = result.synced;
             paymentsSynced += result.synced;
           } catch (error) {
             const msg = (error as Error).message ?? 'Error sincronizando cartera';
-            errors.push({ date: day, stage: 'payments', message: msg });
-            this.logger.warn(`[sync] ${day} cartera: ${msg}`);
+            errors.push({ date: label, stage: 'payments', message: msg });
+            this.logger.warn(`[sync] ${label} cartera: ${msg}`);
           }
-          if (dayInvoices > 0 || dayPayments > 0) {
-            this.logger.log(`[sync]   ${day}  ventas=${dayInvoices}  cartera=${dayPayments}`);
+          if (countInvoices > 0 || countPayments > 0) {
+            this.logger.log(`[sync]   ${label}  ventas=${countInvoices}  cartera=${countPayments}`);
           }
         }
 

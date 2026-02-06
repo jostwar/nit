@@ -138,15 +138,16 @@ export function DateFilters() {
     updateQuery(true);
   };
 
-  const runSyncNow = async (useRange = false) => {
+  const historicalFrom = "2024-01-01";
+
+  const runSyncNow = async (mode: "today" | "historical" | "range") => {
     setSyncError(null);
     setSyncRunning(true);
-    const fromParam = useRange ? from : today;
-    const toParam = useRange ? to : today;
-    const fromDate = new Date(fromParam);
-    const toDate = new Date(toParam);
-    const days = Math.max(0, Math.ceil((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)) + 1);
-    const safetyMs = useRange && days > 31 ? 600_000 : 120_000; // 10 min para rango largo, 2 min para "hoy"
+    const fromParam =
+      mode === "today" ? today : mode === "historical" ? historicalFrom : from;
+    const toParam = mode === "today" || mode === "historical" ? today : to;
+    const safetyMs =
+      mode === "historical" || mode === "range" ? 900_000 : 120_000; // 15 min histórico/rango, 2 min hoy
     const safetyTimer = window.setTimeout(() => {
       setSyncRunning((prev) => (prev ? false : prev));
     }, safetyMs);
@@ -293,19 +294,28 @@ export function DateFilters() {
         </Button>
         <Button
           type="button"
-          onClick={() => runSyncNow(false)}
+          onClick={() => runSyncNow("today")}
           disabled={syncRunning}
           className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-          title="Actualizar facturas del día actual desde el ERP"
+          title="Actualizar solo el día actual (se ejecuta también cada hora en el servidor)"
         >
           {syncRunning ? "Sincronizando…" : "Actualizar hoy"}
         </Button>
         <Button
           type="button"
-          onClick={() => runSyncNow(true)}
+          onClick={() => runSyncNow("historical")}
           disabled={syncRunning}
-          className="h-8 px-3 text-xs border border-emerald-600 text-emerald-700 bg-white hover:bg-emerald-50"
-          title="Sincronizar todo el rango (Desde–Hasta). Puede tardar varios minutos si el rango es largo."
+          className="h-8 px-3 text-xs bg-slate-700 hover:bg-slate-800 text-white"
+          title="Cargar ventas y cartera desde 2024 hasta hoy. Solo hace falta una vez; luego se actualiza el día cada hora."
+        >
+          Cargar datos históricos
+        </Button>
+        <Button
+          type="button"
+          onClick={() => runSyncNow("range")}
+          disabled={syncRunning}
+          className="h-8 px-3 text-xs border border-slate-300 text-slate-600 bg-white hover:bg-slate-50"
+          title="Sincronizar el rango Desde–Hasta (por mes si es largo)"
         >
           Sincronizar rango
         </Button>
@@ -313,6 +323,9 @@ export function DateFilters() {
           {syncRunning
             ? "Sincronizando… (puede tardar varios min; al terminar se actualiza solo)"
             : lastSyncLabel}
+        </span>
+        <span className="text-slate-400 text-xs">
+          Primera vez: «Cargar datos históricos». Luego el sistema actualiza solo el día cada hora.
         </span>
         {coverageLabel && (
           <span className="text-slate-400" title="Rango de facturas disponibles en el sistema">
