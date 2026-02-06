@@ -165,12 +165,16 @@ export default function CustomersPage() {
               <button
                 key={customer.id}
                 onClick={() => setSelectedId(customer.id)}
-                className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
-                  selectedId === customer.id ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white"
+                className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                  selectedId === customer.id
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"
                 }`}
               >
                 <div className="font-medium">{customer.name}</div>
-                <div className="text-xs opacity-70">{customer.nit}</div>
+                <div className={selectedId === customer.id ? "text-xs text-slate-200" : "text-xs text-slate-600"}>
+                  {customer.nit}
+                </div>
               </button>
             ))}
           </div>
