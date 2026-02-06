@@ -125,7 +125,8 @@ export function DateFilters() {
     setSyncError(null);
     setSyncRunning(true);
     try {
-      const res = await apiPost<{ status: string }>("/source/sync", { from, to }, { timeoutMs: 60000 });
+      // Solo sincroniza el día actual (cambios recientes). La data histórica la trae el scheduler.
+      const res = await apiPost<{ status: string }>("/source/sync", { from: today, to: today }, { timeoutMs: 60000 });
       if (res.status === "running") {
         // ya hay un sync en curso, el polling actualizará
       }
@@ -230,8 +231,9 @@ export function DateFilters() {
           onClick={runSyncNow}
           disabled={syncRunning}
           className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+          title="Actualizar facturas del día actual desde el ERP"
         >
-          {syncRunning ? "Sincronizando..." : "Sincronizar ahora"}
+          {syncRunning ? "Sincronizando..." : "Actualizar hoy"}
         </Button>
         <span className="text-slate-500">
           {syncRunning ? "Sincronizando..." : lastSyncLabel}
