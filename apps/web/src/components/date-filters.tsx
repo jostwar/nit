@@ -138,16 +138,37 @@ export function DateFilters() {
     updateQuery(true);
   };
 
-  const runSyncNow = async () => {
+  const runSyncNow = async (useRange = false) => {
     setSyncError(null);
     setSyncRunning(true);
+    const fromParam = useRange ? from : today;
+    const toParam = useRange ? to : today;
+    const fromDate = new Date(fromParam);
+    const toDate = new Date(toParam);
+    const days = Math.max(0, Math.ceil((toDate.getTime() - fromDate.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+    const safetyMs = useRange && days > 31 ? 600_000 : 120_000; // 10 min para rango largo, 2 min para "hoy"
+    const safetyTimer = window.setTimeout(() => {
+      setSyncRunning((prev) => (prev ? false : prev));
+    }, safetyMs);
+    const clearSafety = () => window.clearTimeout(safetyTimer);
     try {
-      // Solo sincroniza el día actual (cambios recientes). La data histórica la trae el scheduler.
-      const res = await apiPost<{ status: string }>("/source/sync", { from: today, to: today }, { timeoutMs: 60000 });
+      const res = await apiPost<{ status: string }>(
+        "/source/sync",
+        { from: fromParam, to: toParam },
+        { timeoutMs: 60000 },
+      );
       if (res.status === "running") {
-        // ya hay un sync en curso, el polling actualizará
+        // ya hay un sync en curso; el polling actualizará
       }
+      window.addEventListener(
+        "sync-completed",
+        () => {
+          clearSafety();
+        },
+        { once: true },
+      );
     } catch (err) {
+      clearSafety();
       setSyncRunning(false);
       setSyncError(err instanceof Error ? err.message : "Error al sincronizar");
     }
@@ -272,15 +293,26 @@ export function DateFilters() {
         </Button>
         <Button
           type="button"
-          onClick={runSyncNow}
+          onClick={() => runSyncNow(false)}
           disabled={syncRunning}
           className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
           title="Actualizar facturas del día actual desde el ERP"
         >
-          {syncRunning ? "Sincronizando..." : "Actualizar hoy"}
+          {syncRunning ? "Sincronizando…" : "Actualizar hoy"}
+        </Button>
+        <Button
+          type="button"
+          onClick={() => runSyncNow(true)}
+          disabled={syncRunning}
+          className="h-8 px-3 text-xs border border-emerald-600 text-emerald-700 bg-white hover:bg-emerald-50"
+          title="Sincronizar todo el rango (Desde–Hasta). Puede tardar varios minutos si el rango es largo."
+        >
+          Sincronizar rango
         </Button>
         <span className="text-slate-500">
-          {syncRunning ? "Sincronizando..." : lastSyncLabel}
+          {syncRunning
+            ? "Sincronizando… (puede tardar varios min; al terminar se actualiza solo)"
+            : lastSyncLabel}
         </span>
         {coverageLabel && (
           <span className="text-slate-400" title="Rango de facturas disponibles en el sistema">

@@ -21,9 +21,4 @@ jobs:
           script: |
             cd ~/nit
             git pull
-            export BUILD_ID=$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)
-            echo "BUILD_ID=$BUILD_ID"
-            sudo docker-compose down --remove-orphans
-            sudo BUILD_ID=$BUILD_ID docker-compose build --no-cache web api
-            sudo docker-compose up -d
-            sudo docker-compose exec -T api pnpm prisma migrate deploy
+            bash deploy.sh

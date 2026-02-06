@@ -61,51 +61,31 @@ export class SourceController {
           cursor.setDate(cursor.getDate() + 1)
         ) {
           const day = cursor.toISOString().slice(0, 10);
-          const dayStart = new Date(`${day}T00:00:00.000Z`);
-          const dayEnd = new Date(`${day}T23:59:59.999Z`);
           let dayInvoices = 0;
           let dayPayments = 0;
           try {
-            const existingInvoice = await this.prisma.invoice.findFirst({
-              where: {
-                tenantId: user.tenantId,
-                issuedAt: { gte: dayStart, lte: dayEnd },
-              },
-              select: { id: true },
-            });
-            if (!existingInvoice) {
-              const result = await this.syncService.syncInvoices(
-                user.tenantId,
-                tenantExternalId,
-                day,
-                day,
-              );
-              dayInvoices = result.synced;
-              invoicesSynced += result.synced;
-            }
+            const result = await this.syncService.syncInvoices(
+              user.tenantId,
+              tenantExternalId,
+              day,
+              day,
+            );
+            dayInvoices = result.synced;
+            invoicesSynced += result.synced;
           } catch (error) {
             const msg = (error as Error).message ?? 'Error sincronizando ventas';
             errors.push({ date: day, stage: 'invoices', message: msg });
             this.logger.warn(`[sync] ${day} ventas: ${msg}`);
           }
           try {
-            const existingPayment = await this.prisma.payment.findFirst({
-              where: {
-                tenantId: user.tenantId,
-                paidAt: { gte: dayStart, lte: dayEnd },
-              },
-              select: { id: true },
-            });
-            if (!existingPayment) {
-              const result = await this.syncService.syncPayments(
-                user.tenantId,
-                tenantExternalId,
-                day,
-                day,
-              );
-              dayPayments = result.synced;
-              paymentsSynced += result.synced;
-            }
+            const result = await this.syncService.syncPayments(
+              user.tenantId,
+              tenantExternalId,
+              day,
+              day,
+            );
+            dayPayments = result.synced;
+            paymentsSynced += result.synced;
           } catch (error) {
             const msg = (error as Error).message ?? 'Error sincronizando cartera';
             errors.push({ date: day, stage: 'payments', message: msg });
