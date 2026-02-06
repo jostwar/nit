@@ -437,7 +437,7 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
   ) {
     const key = [
       tenantId,

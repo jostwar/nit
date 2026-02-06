@@ -22,7 +22,7 @@ export class DashboardController {
     @Query('city') city?: string,
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
-    @Query('class') class?: string,
+    @Query('class') classFilter?: string,
   ) {
     const current = parseRange(from, to);
     const hasCompare = compareFrom != null && compareTo != null && compareFrom !== '' && compareTo !== '';
@@ -35,7 +35,7 @@ export class DashboardController {
       current.to,
       compare.from,
       compare.to,
-      { city, vendor, brand, class: class as string },
+      { city, vendor, brand, class: classFilter },
     );
   }
 
@@ -47,14 +47,14 @@ export class DashboardController {
     @Query('city') city?: string,
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
-    @Query('class') class?: string,
+    @Query('class') classFilter?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesTotal(tenantId, current.from, current.to, {
       city,
       vendor,
       brand,
-      class: class as string,
+      class: classFilter,
     });
   }
 
@@ -66,14 +66,14 @@ export class DashboardController {
     @Query('city') city?: string,
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
-    @Query('class') class?: string,
+    @Query('class') classFilter?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesByClass(tenantId, current.from, current.to, {
       city,
       vendor,
       brand,
-      class: class as string,
+      class: classFilter,
     });
   }
 }
