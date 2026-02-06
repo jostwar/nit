@@ -314,8 +314,10 @@ export class FomplusSourceApiClient implements SourceApiClient {
           'nom_departamento',
           'region',
           'ciudade',
+          'NOMSEC',
+          'nomsec',
         ]),
-        segment: this.pick(record, ['cli_nomsec', 'cli_sector', 'nomsec', 'sector']),
+        segment: this.pick(record, ['cli_nomsec', 'cli_sector', 'nomsec', 'sector', 'NOMSEC']),
         vendor: this.pick(record, ['cli_nomven', 'nomven', 'vendedor', 'cli_vended', 'vended']),
       });
     }
@@ -376,7 +378,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
         this.pick(record, ['cantid', 'cantidad', 'unidades', 'cant', 'qty']),
       );
       const productRef =
-        this.pick(record, ['refer', 'referencia', 'codigo', 'codref']) ?? '';
+        this.normalizeRef(
+          this.pick(record, ['refer', 'referencia', 'codigo', 'codref']),
+        ) || '';
       const productName =
         this.pick(record, ['nomref', 'producto', 'nombreproducto', 'articulo', 'descripcion']) ??
         'Total';
@@ -417,6 +421,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
           'destino',
           'codciudad',
           'nombre_ciudad',
+          'NOMSEC',
+          'nomsec',
         ]) ?? undefined;
       const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
@@ -438,6 +444,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
       }
       const target = grouped.get(key);
       if (!target) return;
+      if (ciudad?.trim() && !target.city?.trim()) target.city = ciudad;
       const resolvedQty = quantity ?? 0;
       const resolvedTotal = itemTotal ?? total ?? 0;
       target.items.push({
@@ -494,7 +501,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
         .map((k) => k.trim())
         .filter(Boolean);
       records.forEach((record) => {
-        const ref = this.pick(record, ['refer', 'referencia', 'codigo', 'codref']);
+        const ref = this.normalizeRef(
+          this.pick(record, ['refer', 'referencia', 'codigo', 'codref']),
+        );
         const brand = this.pick(record, brandKeys.length > 0 ? brandKeys : ['marca', 'brand']);
         const classCode = this.pick(record, classKeys.length > 0 ? classKeys : ['clase', 'codclase']);
         if (ref && brand) brandMap.set(ref, brand);
@@ -545,6 +554,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
       });
     }
     return payments;
+  }
+
+  /** Normaliza referencia para cruce inventario/ventas (trim; mismo criterio en ambos APIs). */
+  private normalizeRef(ref: string | undefined): string {
+    if (!ref || typeof ref !== 'string') return '';
+    return ref.trim();
   }
 
   private pick(record: FlatRecord, keys: string[]): string | undefined {

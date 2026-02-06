@@ -22,8 +22,8 @@ import * as fs from 'fs';
 
 const prisma = new PrismaClient();
 
-const ROOT = path.resolve(__dirname, '../..');
-const NIT_SCRIPTS = path.join(ROOT, '..', '..', 'scripts');
+// Desde apps/api/scripts o apps/api/dist/scripts subir al monorepo y entrar en scripts
+const NIT_SCRIPTS = path.resolve(__dirname, '../../../scripts');
 
 async function main() {
   const tenantName = process.env.TENANT_NAME ?? null;
