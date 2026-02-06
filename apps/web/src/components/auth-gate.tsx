@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getAccessToken } from "@/lib/api";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const token = window.localStorage.getItem("accessToken");
+    const token = getAccessToken();
     if (!token) {
       router.replace("/login");
       return;

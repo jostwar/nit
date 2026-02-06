@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { apiPost } from "@/lib/api";
+import { apiPost, setTokens, setSavedLoginEmail, getSavedLoginEmail, clearSavedLoginEmail } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const saved = getSavedLoginEmail();
+    if (saved) {
+      setEmail(saved);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -18,8 +27,9 @@ export default function LoginPage() {
         "/auth/login",
         { email, password },
       );
-      window.localStorage.setItem("accessToken", response.accessToken);
-      window.localStorage.setItem("refreshToken", response.refreshToken);
+      setTokens(response.accessToken, response.refreshToken, rememberMe);
+      if (rememberMe) setSavedLoginEmail(email);
+      else clearSavedLoginEmail();
       router.push("/dashboard");
     } finally {
       setLoading(false);
@@ -52,6 +62,15 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Recordarme (mantener sesión y recordar usuario)
+          </label>
           <Button className="w-full" onClick={handleLogin} disabled={loading}>
             {loading ? "Validando..." : "Entrar"}
           </Button>

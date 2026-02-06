@@ -47,7 +47,7 @@ export default function AiPage() {
                 return `${value.toFixed(1)}%`;
               }
               if (
-                ["sales", "total", "overdue", "amount", "margin", "ticket"].some((token) =>
+                ["sales", "total", "overdue", "amount", "margin", "ticket", "venta"].some((token) =>
                   key.toLowerCase().includes(token),
                 )
               ) {
@@ -117,7 +117,7 @@ export default function AiPage() {
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             rows={6}
-            placeholder="Ej: ¿Cuáles son los clientes con mayor caída?"
+            placeholder="Ej: ¿Marca más vendida? ¿Vendedor que más creció? ¿Producto más vendido? ¿Clientes con mayor caída?"
             className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
           />
           <div className="grid gap-2 md:grid-cols-2">
@@ -135,8 +135,7 @@ export default function AiPage() {
             />
           </div>
           <div className="text-xs text-slate-500">
-            Puedes filtrar por ciudad o vendedor: "mejor cliente ciudad Barranquilla",
-            "top clientes vendedor 66004".
+            Pregunta por lo que necesites: marcas (más/menos vendida, que más perdió), vendedores (que más creció, que más vendió), productos (más vendido), clientes (top, mayor caída), DSO/cartera, alertas. Filtra con ciudad o vendedor si quieres.
           </div>
           <Button onClick={sendQuestion} disabled={loading || !question}>
             {loading ? "Consultando..." : "Enviar"}

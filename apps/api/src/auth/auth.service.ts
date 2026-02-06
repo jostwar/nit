@@ -103,7 +103,7 @@ export class AuthService {
   }
 
   private async issueTokens(user: { id: string; tenantId: string; email: string; role: Role }) {
-    const accessTtl = this.config.get('JWT_ACCESS_TTL', '15m');
+    const accessTtl = this.config.get('JWT_ACCESS_TTL', '1h');
     const refreshTtl = this.config.get('JWT_REFRESH_TTL', '7d');
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, tenantId: user.tenantId, email: user.email, role: user.role },

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet, clearTokens } from "@/lib/api";
 
 type CurrentUser = {
   email: string;
@@ -40,8 +40,7 @@ export function UserMenu() {
   }, [user?.email]);
 
   const handleLogout = () => {
-    window.localStorage.removeItem("accessToken");
-    window.localStorage.removeItem("refreshToken");
+    clearTokens();
     router.replace("/login");
   };
 
