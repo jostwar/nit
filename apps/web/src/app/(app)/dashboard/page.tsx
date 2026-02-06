@@ -128,7 +128,11 @@ export default function DashboardPage() {
       .catch((err) => {
         setSummary(null);
         const isAbort = err instanceof Error && err.name === "AbortError";
-        setLoadError(isAbort ? "La consulta tardó demasiado. Prueba un rango de fechas más corto." : (err instanceof Error ? err.message : "Error al cargar"));
+        const isNetwork = err instanceof TypeError && err.message?.includes("fetch");
+        let msg = err instanceof Error ? err.message : "Error al cargar";
+        if (isAbort) msg = "La consulta tardó demasiado. Prueba un rango de fechas más corto.";
+        else if (isNetwork) msg = "No se pudo conectar a la API. Verifica que el servidor esté bien configurado (NEXT_PUBLIC_API_URL).";
+        setLoadError(msg);
       })
       .finally(() => {
         setLoading(false);
@@ -268,8 +272,13 @@ export default function DashboardPage() {
         </div>
       )}
       {loadError && !loading && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border-2 border-red-300 bg-red-50 px-4 py-4 text-sm font-medium text-red-800">
           {loadError}
+        </div>
+      )}
+      {!loading && !loadError && summary && (summary.current?.totalInvoices ?? 0) === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          No hay datos de ventas para este rango. Si acabas de configurar el sistema, usa &quot;Actualizar hoy&quot; para traer facturas del ERP.
         </div>
       )}
       {!loading && summary && searchParams.get("from") && searchParams.get("to") && (

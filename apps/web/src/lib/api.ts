@@ -1,4 +1,12 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+function getApiUrl(): string {
+  const env = process.env.NEXT_PUBLIC_API_URL;
+  if (env && env !== "http://localhost:4000/api") return env;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:4000/api`;
+  }
+  return "http://localhost:4000/api";
+}
+const API_URL = getApiUrl();
 
 export async function apiGet<T>(
   path: string,
