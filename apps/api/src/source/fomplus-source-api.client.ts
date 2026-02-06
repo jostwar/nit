@@ -342,8 +342,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
     classMap: Map<string, string> = new Map(),
   ): SourceInvoice[] {
     const grouped = new Map<string, SourceInvoice>();
+    const tipomovKeys = (
+      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'tipomov,tipmov,tipo_mov,tipodoc,codmov'
+    )
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
     records.forEach((record) => {
-      const tipomovRaw = this.pick(record, ['tipomov', 'tipmov', 'tipo_mov', 'tipodoc', 'codmov']);
+      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['tipomov', 'tipmov', 'tipodoc']);
       const documentType = tipomovRaw ? String(tipomovRaw).trim() : undefined;
       const saleSign = this.saleSignFromTipomov(documentType);
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
