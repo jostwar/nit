@@ -21,4 +21,6 @@ echo ">>> $COMPOSE up -d"
 sudo $COMPOSE up -d
 echo ">>> prisma migrate"
 sudo $COMPOSE exec -T api pnpm prisma migrate deploy
+echo ">>> load-mappings (clase/marca)"
+sudo $COMPOSE exec -T api pnpm run load-mappings || true
 echo ">>> Deploy completado. Refresca el navegador con Ctrl+Shift+R"

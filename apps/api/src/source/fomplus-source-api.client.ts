@@ -64,8 +64,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const records = this.extractRecords(xml);
       payload.push(...records);
     }
-    const brandMap = await this.fetchInventoryBrands(tenantExternalId);
-    return this.mapInvoices(payload, from, brandMap);
+    const { brandMap, classMap } = await this.fetchInventoryMaps(tenantExternalId);
+    return this.mapInvoices(payload, from, brandMap, classMap);
   }
 
   async fetchPayments(
@@ -310,6 +310,10 @@ export class FomplusSourceApiClient implements SourceApiClient {
           'ciudad',
           'municipio',
           'codciu',
+          'departamento',
+          'nom_departamento',
+          'region',
+          'ciudade',
         ]),
         segment: this.pick(record, ['cli_nomsec', 'cli_sector', 'nomsec', 'sector']),
         vendor: this.pick(record, ['cli_nomven', 'nomven', 'vendedor', 'cli_vended', 'vended']),
@@ -318,13 +322,28 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return customers;
   }
 
+  /** Códigos TIPOMOV que restan venta (devoluciones, notas crédito). Por defecto 04,06,15. */
+  private getTipomovRestaCodes(): Set<string> {
+    const raw = process.env.SOURCE_VENTAS_TIPOMOV_RESTA ?? '04,06,15';
+    return new Set(raw.split(',').map((c) => String(c).trim()).filter(Boolean));
+  }
+
+  private saleSignFromTipomov(tipomov: string | undefined): number {
+    if (!tipomov || !String(tipomov).trim()) return 1;
+    return this.getTipomovRestaCodes().has(String(tipomov).trim()) ? -1 : 1;
+  }
+
   private mapInvoices(
     records: FlatRecord[],
     fallbackDate: string,
     brandMap: Map<string, string>,
+    classMap: Map<string, string> = new Map(),
   ): SourceInvoice[] {
     const grouped = new Map<string, SourceInvoice>();
     records.forEach((record) => {
+      const tipomovRaw = this.pick(record, ['tipomov', 'tipmov', 'tipo_mov', 'tipodoc', 'codmov']);
+      const documentType = tipomovRaw ? String(tipomovRaw).trim() : undefined;
+      const saleSign = this.saleSignFromTipomov(documentType);
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
       const numdoc = this.pick(record, ['numdoc', 'numero', 'documento', 'docafe']) ?? '';
       const baseInvoiceId =
@@ -366,8 +385,10 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const brand =
         mappedBrand ??
         (productRef ? 'Sin marca' : null) ??
-        this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']) ??
+        this.pick(record, ['MARCA', 'nommar', 'nommarca', 'marca', 'brand']) ??
         'Sin marca';
+      const classCode =
+        productRef && classMap.has(productRef) ? classMap.get(productRef) ?? undefined : undefined;
       const category =
         this.pick(record, ['nomsec', 'categoria', 'linea', 'grupo', 'codsec']) ?? 'Sin categoría';
       const unitPrice = this.toNumber(
@@ -379,6 +400,16 @@ export class FomplusSourceApiClient implements SourceApiClient {
 
       const nomven =
         this.pick(record, ['nomven', 'nomvendedor', 'vendedor', 'cli_nomven', 'vended']) ?? undefined;
+      const ciudad =
+        this.pick(record, [
+          'cli_nomciu',
+          'cli_ciudad',
+          'nomciu',
+          'nomciudad',
+          'ciudad',
+          'municipio',
+          'departamento',
+        ]) ?? undefined;
       const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
       if (!existing) {
@@ -391,6 +422,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
           margin: 0,
           units: quantity ?? 0,
           vendor: nomven,
+          city: ciudad,
+          documentType,
+          saleSign,
           items: [],
         });
       }
@@ -402,6 +436,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         productName: productRef || productName,
         brand,
         category,
+        classCode,
         quantity: resolvedQty,
         unitPrice: unitPrice ?? (resolvedQty > 0 ? resolvedTotal / resolvedQty : 0),
         total: resolvedTotal,
@@ -414,36 +449,58 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
   }
 
-  private async fetchInventoryBrands(tenantExternalId: string): Promise<Map<string, string>> {
+  private async fetchInventoryMaps(
+    tenantExternalId: string,
+  ): Promise<{ brandMap: Map<string, string>; classMap: Map<string, string> }> {
+    const empty = { brandMap: new Map<string, string>(), classMap: new Map<string, string>() };
     if (!this.config.inventarioBaseUrl || !this.config.inventarioToken) {
-      return new Map();
+      return empty;
     }
     try {
+      const fecha = new Date().toISOString().slice(0, 10);
       const xml = await this.getXml(
         `${this.config.inventarioBaseUrl}/srvAPI.asmx/GenerarInformacionInventariosGet`,
         {
-          strPar_Empresa: this.config.database || tenantExternalId,
-          objPar_Objeto: this.config.inventarioToken,
+          strPar_Basedatos: this.config.database || tenantExternalId,
+          strPar_Token: this.config.inventarioToken,
+          datPar_Fecha: fecha,
+          strPar_Bodega: process.env.SOURCE_INVENTARIO_BODEGA ?? '0001',
+          bolPar_ConSaldo: process.env.SOURCE_INVENTARIO_CON_SALDO ?? 'False',
+          bolPar_Conlmg: process.env.SOURCE_INVENTARIO_CON_IMG ?? 'False',
+          bolPar_ConSer: process.env.SOURCE_INVENTARIO_CON_SER ?? 'False',
+          strError: '-',
+          intPar_Filas: Number(process.env.SOURCE_INVENTARIO_FILAS ?? 10000),
+          intPar_Pagina: 1,
+          intPar_LisPre: 0,
         },
       );
       const records = this.extractRecords(xml);
-      const map = new Map<string, string>();
+      const brandMap = new Map<string, string>();
+      const classMap = new Map<string, string>();
+      const brandKeys = (process.env.SOURCE_INVENTARIO_BRAND_FIELDS ?? 'MARCA,marca,nommar,nommarca,brand')
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const classKeys = (process.env.SOURCE_INVENTARIO_CLASS_FIELDS ?? 'CLASE,clase,codclase,class')
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
       records.forEach((record) => {
         const ref = this.pick(record, ['refer', 'referencia', 'codigo', 'codref']);
-        const brand = this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']);
-        if (ref && brand) {
-          map.set(ref, brand);
-        }
+        const brand = this.pick(record, brandKeys.length > 0 ? brandKeys : ['marca', 'brand']);
+        const classCode = this.pick(record, classKeys.length > 0 ? classKeys : ['clase', 'codclase']);
+        if (ref && brand) brandMap.set(ref, brand);
+        if (ref && classCode) classMap.set(ref, classCode);
       });
-      return map;
+      return { brandMap, classMap };
     } catch {
-      return new Map();
+      return empty;
     }
   }
 
   /** Marcas únicas desde inventario; cruce por referencia con ventas. */
   async getInventoryBrandNames(tenantExternalId: string): Promise<string[]> {
-    const brandMap = await this.fetchInventoryBrands(tenantExternalId);
+    const { brandMap } = await this.fetchInventoryMaps(tenantExternalId);
     const names = Array.from(new Set(brandMap.values())).filter((b) => b && b.trim() !== '');
     return names.sort((a, b) => a.localeCompare(b, 'es'));
   }

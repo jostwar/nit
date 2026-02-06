@@ -7,10 +7,16 @@ export type SourceInvoice = {
   margin: number;
   units: number;
   vendor?: string; // NOMVEN de GenerarInfoVentas
+  city?: string; // para enriquecer Customer si viene en la venta
+  /** Código TIPOMOV (ej. 01, 13=SUMA VENTA; 04, 06, 15=RESTA VENTA). */
+  documentType?: string;
+  /** 1 = SUMA VENTA, -1 = RESTA VENTA. Por defecto 1. */
+  saleSign?: number;
   items: Array<{
     productName: string;
     brand: string;
     category: string;
+    classCode?: string;
     quantity: number;
     unitPrice: number;
     total: number;

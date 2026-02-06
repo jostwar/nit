@@ -7,8 +7,10 @@ import { FomplusSourceApiClient } from './fomplus-source-api.client';
 import { SOURCE_API_CLIENT } from './source.constants';
 import { SourceController } from './source.controller';
 import { SourceScheduler } from './source.scheduler';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [SourceController],
   providers: [
     SyncService,

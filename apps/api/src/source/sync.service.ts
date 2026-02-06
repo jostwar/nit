@@ -91,7 +91,7 @@ export class SyncService {
     tenantExternalId: string,
     from: string,
     to: string,
-    opts?: { fullRange?: boolean },
+    opts?: { fullRange?: boolean; brandCodeToName?: Map<string, string> },
   ) {
     const usePerCustomer =
       !opts?.fullRange &&
@@ -106,6 +106,10 @@ export class SyncService {
       total: number;
       margin: number;
       units: number;
+      vendor?: string;
+      city?: string;
+      documentType?: string;
+      saleSign?: number;
       items: Array<{
         productName: string;
         brand: string;
@@ -130,6 +134,13 @@ export class SyncService {
               name: 'Cliente sin nombre',
             },
           });
+      const cityFromInvoice = invoice.city?.trim();
+      if (cityFromInvoice && !customer.city?.trim()) {
+        await this.prisma.customer.update({
+          where: { id: customer.id },
+          data: { city: cityFromInvoice },
+        });
+      }
       const issuedAt = new Date(invoice.issuedAt);
       const existing = await this.prisma.invoice.findFirst({
         where: {
@@ -139,6 +150,13 @@ export class SyncService {
         },
       });
       const vendor = invoice.vendor?.trim() || null;
+      const sign = invoice.saleSign === -1 ? -1 : 1;
+      const unitsRounded = Math.round(invoice.units);
+      const signedTotal = invoice.total * sign;
+      const signedMargin = invoice.margin * sign;
+      const signedUnits = unitsRounded * sign;
+      const documentType = invoice.documentType?.trim() || null;
+      const saleSign = sign;
       const saved = existing
         ? await this.prisma.invoice.update({
             where: { id: existing.id },
@@ -146,8 +164,13 @@ export class SyncService {
               issuedAt,
               total: invoice.total,
               margin: invoice.margin,
-              units: Math.round(invoice.units),
+              units: unitsRounded,
               vendor,
+              documentType,
+              saleSign,
+              signedTotal,
+              signedMargin,
+              signedUnits,
             },
           })
         : await this.prisma.invoice.create({
@@ -158,26 +181,37 @@ export class SyncService {
               issuedAt,
               total: invoice.total,
               margin: invoice.margin,
-              units: Math.round(invoice.units),
+              units: unitsRounded,
               vendor,
+              documentType,
+              saleSign,
+              signedTotal,
+              signedMargin,
+              signedUnits,
             },
           });
       await this.prisma.invoiceItem.deleteMany({
         where: { tenantId, invoiceId: saved.id },
       });
+      const brandCodeToName = opts?.brandCodeToName;
       if (invoice.items.length > 0) {
         await this.prisma.invoiceItem.createMany({
-          data: invoice.items.map((item) => ({
-            tenantId,
-            invoiceId: saved.id,
-            productName: item.productName,
-            brand: item.brand,
-            category: item.category,
-            quantity: Math.round(item.quantity),
-            unitPrice: item.unitPrice,
-            total: item.total,
-            margin: item.margin,
-          })),
+          data: invoice.items.map((item) => {
+            const brand =
+              brandCodeToName?.get(item.brand) ?? item.brand;
+            return {
+              tenantId,
+              invoiceId: saved.id,
+              productName: item.productName,
+              brand,
+              category: item.category,
+              classCode: item.classCode?.trim() || null,
+              quantity: Math.round(item.quantity),
+              unitPrice: item.unitPrice,
+              total: item.total,
+              margin: item.margin,
+            };
+          }),
         });
       }
       return 1;

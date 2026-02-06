@@ -62,6 +62,9 @@ const DASHBOARD_LOADING_END = "dashboard-loading-end";
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [tasks, setTasks] = useState<CustomerTask[]>([]);
+  const [salesByClass, setSalesByClass] = useState<
+    Array<{ classCode: string; className: string; totalSales: number; count: number }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -205,6 +208,14 @@ export default function DashboardPage() {
     };
     loadTasks();
   }, [searchParams, compareRange, refreshKey]);
+
+  useEffect(() => {
+    apiGet<Array<{ classCode: string; className: string; totalSales: number; count: number }>>(
+      `/dashboard/sales-by-class${query}`,
+    )
+      .then(setSalesByClass)
+      .catch(() => setSalesByClass([]));
+  }, [query, refreshKey]);
 
   const cards = [
     { label: "Ventas totales", value: summary?.current.totalSales ?? 0, currency: true },
@@ -397,6 +408,47 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Venta por clase</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {salesByClass.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No hay datos por clase para este rango. Carga el mapeo código→nombre en
+              &quot;Clase&quot; (admin) y vuelve a sincronizar.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-slate-600">
+                    <th className="py-2 pr-4 font-medium">Clase</th>
+                    <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                    <th className="py-2 pr-4 font-medium text-right">Líneas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesByClass.map((row) => (
+                    <tr key={row.classCode} className="border-b border-slate-100">
+                      <td className="py-2 pr-4 text-slate-800">
+                        {row.className || row.classCode || "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                        {formatCop(row.totalSales)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-slate-600">
+                        {row.count.toLocaleString("es-CO")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

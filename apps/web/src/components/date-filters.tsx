@@ -195,7 +195,7 @@ export function DateFilters() {
         setFilterOptions({
           cities: opts.cities ?? [],
           vendors: opts.vendors ?? [],
-          brands: (brandsRes.brands ?? []).length > 0 ? brandsRes.brands ?? [] : (opts.brands ?? []),
+          brands: (opts.brands ?? []).length > 0 ? opts.brands ?? [] : (brandsRes.brands ?? []),
         }),
       )
       .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [] }));

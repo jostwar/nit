@@ -51,4 +51,21 @@ export class DashboardController {
       brand,
     });
   }
+
+  @Get('sales-by-class')
+  getSalesByClass(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('city') city?: string,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getSalesByClass(tenantId, current.from, current.to, {
+      city,
+      vendor,
+      brand,
+    });
+  }
 }

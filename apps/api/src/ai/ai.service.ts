@@ -107,8 +107,8 @@ export class AiService {
         issuedAt: { gte: from, lte: to },
         ...(scopedIds ? { customerId: { in: scopedIds } } : {}),
       },
-      _sum: { total: true },
-      orderBy: { _sum: { total: 'desc' } },
+      _sum: { signedTotal: true },
+      orderBy: { _sum: { signedTotal: 'desc' } },
       take: 10,
     });
     const customers = await this.prisma.customer.findMany({
@@ -122,7 +122,7 @@ export class AiService {
         customerId: row.customerId,
         customerName: customerMap.get(row.customerId)?.name ?? 'N/A',
         customerNit: customerMap.get(row.customerId)?.nit ?? 'N/A',
-        totalSales: Number(row._sum.total ?? 0),
+        totalSales: Number(row._sum.signedTotal ?? 0),
       })),
       explanation: 'Top clientes por ventas en el periodo consultado.',
     };
@@ -155,19 +155,19 @@ export class AiService {
     const current = await this.prisma.invoice.groupBy({
       by: ['customerId'],
       where: { tenantId, issuedAt: { gte: from, lte: to } },
-      _sum: { total: true },
+      _sum: { signedTotal: true },
     });
     const compare = await this.prisma.invoice.groupBy({
       by: ['customerId'],
       where: { tenantId, issuedAt: { gte: compareFrom, lte: compareTo } },
-      _sum: { total: true },
+      _sum: { signedTotal: true },
     });
     const compareMap = new Map(
-      compare.map((row) => [row.customerId, Number(row._sum.total ?? 0)]),
+      compare.map((row) => [row.customerId, Number(row._sum.signedTotal ?? 0)]),
     );
     const drops = current
       .map((row) => {
-        const currentTotal = Number(row._sum.total ?? 0);
+        const currentTotal = Number(row._sum.signedTotal ?? 0);
         const compareTotal = compareMap.get(row.customerId) ?? 0;
         const dropPercent =
           compareTotal > 0 ? ((compareTotal - currentTotal) / compareTotal) * 100 : 0;
@@ -269,7 +269,7 @@ export class AiService {
     });
     const metrics = await this.prisma.invoice.aggregate({
       where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
-      _sum: { total: true, margin: true, units: true },
+      _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
       _count: { _all: true },
     });
     return {
@@ -280,7 +280,7 @@ export class AiService {
           customerId,
           customerName: customer?.name ?? 'N/A',
           customerNit: customer?.nit ?? 'N/A',
-          totalSales: Number(metrics._sum.total ?? 0),
+          totalSales: Number(metrics._sum.signedTotal ?? 0),
           totalMargin: Number(metrics._sum.margin ?? 0),
           totalUnits: Number(metrics._sum.units ?? 0),
           totalInvoices: metrics._count._all,

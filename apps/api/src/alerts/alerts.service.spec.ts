@@ -7,10 +7,10 @@ describe('AlertsService', () => {
       invoice: {
         groupBy: jest.fn()
           .mockResolvedValueOnce([
-            { customerId: 'c1', _sum: { total: 50 } },
+            { customerId: 'c1', _sum: { signedTotal: 50 } },
           ])
           .mockResolvedValueOnce([
-            { customerId: 'c1', _sum: { total: 100 } },
+            { customerId: 'c1', _sum: { signedTotal: 100 } },
           ]),
       },
       alertEvent: {

@@ -1,0 +1,100 @@
+{
+  "mappings": [
+    {
+      "code": "82",
+      "name": "ACCESORIOS AL"
+    },
+    {
+      "code": "80",
+      "name": "AIRES ACONDICIONADOS"
+    },
+    {
+      "code": "01",
+      "name": "ALARMA"
+    },
+    {
+      "code": "AL",
+      "name": "ALIMENTACIÓN 8%"
+    },
+    {
+      "code": "02",
+      "name": "ALMACENAMIENTO"
+    },
+    {
+      "code": "04",
+      "name": "CCTV"
+    },
+    {
+      "code": "05",
+      "name": "CONTROL DE ACCESO"
+    },
+    {
+      "code": "13",
+      "name": "COVID"
+    },
+    {
+      "code": "12",
+      "name": "ENERGIA SOLAR"
+    },
+    {
+      "code": "06",
+      "name": "ENLACES INALAMBRICOS"
+    },
+    {
+      "code": "00",
+      "name": "GENERICO"
+    },
+    {
+      "code": "03",
+      "name": "INFRAESTRUCTURA"
+    },
+    {
+      "code": "11",
+      "name": "MATERIAL PUBLICITARIO"
+    },
+    {
+      "code": "90",
+      "name": "OBSEQUIOS"
+    },
+    {
+      "code": "PP",
+      "name": "PAPELERIA 19%"
+    },
+    {
+      "code": "UP",
+      "name": "PAPELERIA 5%"
+    },
+    {
+      "code": "83",
+      "name": "POC - PUSH TO TALK OVER CELLULAR"
+    },
+    {
+      "code": "RA",
+      "name": "RADIOCOMUNICACION"
+    },
+    {
+      "code": "15",
+      "name": "REDES"
+    },
+    {
+      "code": "81",
+      "name": "REPUESTOS AL"
+    },
+    {
+      "code": "ST",
+      "name": "SERVICIOS"
+    },
+    {
+      "code": "S5",
+      "name": "SERVICIOS IVA 5%"
+    },
+    {
+      "code": "08",
+      "name": "SIT"
+    },
+    {
+      "code": "14",
+      "name": "SMART HOME"
+    }
+  ]
+}

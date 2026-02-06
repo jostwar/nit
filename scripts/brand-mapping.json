@@ -1,0 +1,480 @@
+{
+  "mappings": [
+    {
+      "code": "0032",
+      "name": "ACCESSPRO"
+    },
+    {
+      "code": "8039",
+      "name": "ALARM.COM"
+    },
+    {
+      "code": "0077",
+      "name": "ALLIED TELESIS"
+    },
+    {
+      "code": "0046",
+      "name": "AOC"
+    },
+    {
+      "code": "8030",
+      "name": "APSYSTEM"
+    },
+    {
+      "code": "8041",
+      "name": "ARMATURA"
+    },
+    {
+      "code": "8045",
+      "name": "ASSA ABLOY"
+    },
+    {
+      "code": "0076",
+      "name": "AXIS COMMUNICATIONS"
+    },
+    {
+      "code": "0023",
+      "name": "BELDEN"
+    },
+    {
+      "code": "8011",
+      "name": "BELTTT"
+    },
+    {
+      "code": "0039",
+      "name": "BOSCH"
+    },
+    {
+      "code": "0015",
+      "name": "CAMBIUM NETWORKS"
+    },
+    {
+      "code": "0013",
+      "name": "CAME"
+    },
+    {
+      "code": "0044",
+      "name": "CENTELSA"
+    },
+    {
+      "code": "0019",
+      "name": "COMMAX"
+    },
+    {
+      "code": "0035",
+      "name": "CROW"
+    },
+    {
+      "code": "0075",
+      "name": "CYA"
+    },
+    {
+      "code": "0063",
+      "name": "DELL"
+    },
+    {
+      "code": "0057",
+      "name": "DEXSON"
+    },
+    {
+      "code": "8044",
+      "name": "DKS DOORKING"
+    },
+    {
+      "code": "0001",
+      "name": "DSC"
+    },
+    {
+      "code": "0073",
+      "name": "DSC IQ"
+    },
+    {
+      "code": "8029",
+      "name": "ECOMAX"
+    },
+    {
+      "code": "0021",
+      "name": "EDWARDS"
+    },
+    {
+      "code": "0017",
+      "name": "EPCOM"
+    },
+    {
+      "code": "8027",
+      "name": "EXCLUSIV"
+    },
+    {
+      "code": "0036",
+      "name": "EXTRIUM"
+    },
+    {
+      "code": "0005",
+      "name": "EZVIZ"
+    },
+    {
+      "code": "0029",
+      "name": "FANVIL"
+    },
+    {
+      "code": "0071",
+      "name": "FIBER HOME"
+    },
+    {
+      "code": "0026",
+      "name": "FIRELITE"
+    },
+    {
+      "code": "0018",
+      "name": "FORZA"
+    },
+    {
+      "code": "0004",
+      "name": "GENERICO"
+    },
+    {
+      "code": "8023",
+      "name": "GENIUS"
+    },
+    {
+      "code": "8021",
+      "name": "GOOMAX"
+    },
+    {
+      "code": "0016",
+      "name": "GRANDSTREAM"
+    },
+    {
+      "code": "8013",
+      "name": "GREENPOINT"
+    },
+    {
+      "code": "8031",
+      "name": "GROWATT"
+    },
+    {
+      "code": "0053",
+      "name": "HACEB"
+    },
+    {
+      "code": "0009",
+      "name": "HIKVISION"
+    },
+    {
+      "code": "0011",
+      "name": "HILOOK"
+    },
+    {
+      "code": "0027",
+      "name": "HOCHIKI"
+    },
+    {
+      "code": "0002",
+      "name": "HONEYWELL"
+    },
+    {
+      "code": "8040",
+      "name": "HORUS"
+    },
+    {
+      "code": "0054",
+      "name": "HP"
+    },
+    {
+      "code": "8014",
+      "name": "HUAWEI"
+    },
+    {
+      "code": "HYTE",
+      "name": "HYTERA"
+    },
+    {
+      "code": "8004",
+      "name": "INDUSTRONIC"
+    },
+    {
+      "code": "8026",
+      "name": "INTI"
+    },
+    {
+      "code": "8009",
+      "name": "JASOLAR"
+    },
+    {
+      "code": "8008",
+      "name": "JINKO"
+    },
+    {
+      "code": "8015",
+      "name": "KAISER"
+    },
+    {
+      "code": "0055",
+      "name": "KALLEY"
+    },
+    {
+      "code": "67",
+      "name": "KARLUZ"
+    },
+    {
+      "code": "0020",
+      "name": "KIDDE"
+    },
+    {
+      "code": "0061",
+      "name": "KINGSTON"
+    },
+    {
+      "code": "0031",
+      "name": "KOCOM"
+    },
+    {
+      "code": "8033",
+      "name": "KTC"
+    },
+    {
+      "code": "0056",
+      "name": "LENOVO"
+    },
+    {
+      "code": "8043",
+      "name": "LG"
+    },
+    {
+      "code": "0022",
+      "name": "LINKEDPRO"
+    },
+    {
+      "code": "8024",
+      "name": "LIVOLTEK"
+    },
+    {
+      "code": "8010",
+      "name": "LONGI"
+    },
+    {
+      "code": "0",
+      "name": "Marca no existe"
+    },
+    {
+      "code": "8036",
+      "name": "MC4G"
+    },
+    {
+      "code": "0059",
+      "name": "MERCUSYS"
+    },
+    {
+      "code": "8028",
+      "name": "MIKROTIK"
+    },
+    {
+      "code": "0802",
+      "name": "MIRAGE"
+    },
+    {
+      "code": "0052",
+      "name": "MOTOROLA"
+    },
+    {
+      "code": "8034",
+      "name": "MTEK"
+    },
+    {
+      "code": "8006",
+      "name": "NETION"
+    },
+    {
+      "code": "0064",
+      "name": "NEURALLABS"
+    },
+    {
+      "code": "0010",
+      "name": "NEXXT"
+    },
+    {
+      "code": "0070",
+      "name": "OLMO"
+    },
+    {
+      "code": "0801",
+      "name": "PANASONIC"
+    },
+    {
+      "code": "0051",
+      "name": "PELCO"
+    },
+    {
+      "code": "0049",
+      "name": "PLANET"
+    },
+    {
+      "code": "0062",
+      "name": "POWEST"
+    },
+    {
+      "code": "8017",
+      "name": "PROJOY"
+    },
+    {
+      "code": "8038",
+      "name": "QUEST"
+    },
+    {
+      "code": "0040",
+      "name": "RANGER"
+    },
+    {
+      "code": "0030",
+      "name": "ROSSLARE"
+    },
+    {
+      "code": "0003",
+      "name": "S-FIRE"
+    },
+    {
+      "code": "0047",
+      "name": "SAMSUNG"
+    },
+    {
+      "code": "0008",
+      "name": "SANDISK"
+    },
+    {
+      "code": "0065",
+      "name": "SAT"
+    },
+    {
+      "code": "8037",
+      "name": "SCHNEIDER ELECTRIC"
+    },
+    {
+      "code": "0007",
+      "name": "SEAGATE"
+    },
+    {
+      "code": "0033",
+      "name": "SECOLARM"
+    },
+    {
+      "code": "0034",
+      "name": "SECULLUM"
+    },
+    {
+      "code": "0025",
+      "name": "SIMPLEX"
+    },
+    {
+      "code": "8022",
+      "name": "SOLIS"
+    },
+    {
+      "code": "8012",
+      "name": "SRNE"
+    },
+    {
+      "code": "8018",
+      "name": "STACK"
+    },
+    {
+      "code": "8035",
+      "name": "STACK"
+    },
+    {
+      "code": "8019",
+      "name": "STAUBLI"
+    },
+    {
+      "code": "0028",
+      "name": "STI"
+    },
+    {
+      "code": "8025",
+      "name": "SUNTREE"
+    },
+    {
+      "code": "0024",
+      "name": "SYSTEM SENSORS"
+    },
+    {
+      "code": "8016",
+      "name": "TB PLUS"
+    },
+    {
+      "code": "0048",
+      "name": "TOSHIBA"
+    },
+    {
+      "code": "0045",
+      "name": "TP-LINK"
+    },
+    {
+      "code": "0060",
+      "name": "TRENDNET"
+    },
+    {
+      "code": "0066",
+      "name": "TRIPPLITE"
+    },
+    {
+      "code": "0058",
+      "name": "TSC"
+    },
+    {
+      "code": "0014",
+      "name": "UBIQUITI"
+    },
+    {
+      "code": "0068",
+      "name": "UHF BY ZKTECO"
+    },
+    {
+      "code": "0038",
+      "name": "ULTRA"
+    },
+    {
+      "code": "0050",
+      "name": "VACRON"
+    },
+    {
+      "code": "0069",
+      "name": "VICTRON"
+    },
+    {
+      "code": "8020",
+      "name": "VIEWSONIC"
+    },
+    {
+      "code": "0072",
+      "name": "VISONIC"
+    },
+    {
+      "code": "VIXZ",
+      "name": "VIXZION"
+    },
+    {
+      "code": "W&O",
+      "name": "W&O X3 PRO"
+    },
+    {
+      "code": "0006",
+      "name": "WESTERN DIGITAL"
+    },
+    {
+      "code": "0043",
+      "name": "XTECH"
+    },
+    {
+      "code": "8032",
+      "name": "YOFC"
+    },
+    {
+      "code": "8042",
+      "name": "ZKDIGIMAX"
+    },
+    {
+      "code": "0012",
+      "name": "ZKTECO"
+    }
+  ]
+}

@@ -1,10 +1,10 @@
-import { Body, Controller, Get, HttpCode, Inject, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Put } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SyncService } from './sync.service';
 import { SyncDto } from './dto/sync.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { SourceApiClient } from './source-api.client';
+import type { SourceApiClient } from './source-api.client';
 import { SOURCE_API_CLIENT } from './source.constants';
 
 function* dayChunks(
@@ -87,6 +87,12 @@ export class SourceController {
           Math.ceil((safeTo.getTime() - safeFrom.getTime()) / (24 * 60 * 60 * 1000)) + 1;
         const byMonth = rangeDays > 31;
 
+        const brandRows = await this.prisma.productBrand.findMany({
+          where: { tenantId: user.tenantId },
+          select: { code: true, name: true },
+        });
+        const brandCodeToName = new Map(brandRows.map((b) => [b.code, b.name]));
+
         let invoicesSynced = 0;
         let paymentsSynced = 0;
         const errors: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> = [];
@@ -103,7 +109,7 @@ export class SourceController {
               tenantExternalId,
               rangeFrom,
               rangeTo,
-              { fullRange },
+              { fullRange, brandCodeToName },
             );
             countInvoices = result.synced;
             invoicesSynced += result.synced;
@@ -186,5 +192,79 @@ export class SourceController {
     const brands =
       (await this.sourceApi.getInventoryBrandNames?.(user.tenantId)) ?? [];
     return { brands };
+  }
+
+  @Get('class-mapping')
+  @Roles('ADMIN', 'ANALYST')
+  async getClassMapping(@CurrentUser() user: { tenantId: string }) {
+    const rows = await this.prisma.productClass.findMany({
+      where: { tenantId: user.tenantId },
+      select: { code: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+    return { mappings: rows };
+  }
+
+  @Put('class-mapping')
+  @Roles('ADMIN')
+  async setClassMapping(
+    @CurrentUser() user: { tenantId: string },
+    @Body() body: { mappings: Array<{ code: string; name: string }> },
+  ) {
+    const tenantId = user.tenantId;
+    for (const { code, name } of body.mappings ?? []) {
+      const c = String(code ?? '').trim();
+      const n = String(name ?? '').trim();
+      if (!c) continue;
+      await this.prisma.productClass.upsert({
+        where: {
+          tenantId_code: { tenantId, code: c },
+        },
+        update: { name: n },
+        create: { tenantId, code: c, name: n || c },
+      });
+    }
+    const rows = await this.prisma.productClass.findMany({
+      where: { tenantId },
+      select: { code: true, name: true },
+    });
+    return { mappings: rows };
+  }
+
+  @Get('brand-mapping')
+  @Roles('ADMIN', 'ANALYST')
+  async getBrandMapping(@CurrentUser() user: { tenantId: string }) {
+    const rows = await this.prisma.productBrand.findMany({
+      where: { tenantId: user.tenantId },
+      select: { code: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+    return { mappings: rows };
+  }
+
+  @Put('brand-mapping')
+  @Roles('ADMIN')
+  async setBrandMapping(
+    @CurrentUser() user: { tenantId: string },
+    @Body() body: { mappings: Array<{ code: string; name: string }> },
+  ) {
+    const tenantId = user.tenantId;
+    for (const { code, name } of body.mappings ?? []) {
+      const c = String(code ?? '').trim();
+      const n = String(name ?? '').trim();
+      if (!c) continue;
+      await this.prisma.productBrand.upsert({
+        where: {
+          tenantId_code: { tenantId, code: c },
+        },
+        update: { name: n },
+        create: { tenantId, code: c, name: n || c },
+      });
+    }
+    const rows = await this.prisma.productBrand.findMany({
+      where: { tenantId },
+      select: { code: true, name: true },
+    });
+    return { mappings: rows };
   }
 }

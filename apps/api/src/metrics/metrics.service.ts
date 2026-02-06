@@ -144,10 +144,10 @@ export class MetricsService {
               ? Prisma.sql`
                   SELECT
                     date(i."issuedAt") as "date",
-                    SUM(i.total)::text as "totalSales",
+                    SUM(i."signedTotal")::text as "totalSales",
                     COUNT(*)::bigint as "totalInvoices",
-                    COALESCE(SUM(i.units), 0)::text as "totalUnits",
-                    SUM(i.margin)::text as "totalMargin"
+                    COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
+                    SUM(i."signedMargin")::text as "totalMargin"
                   FROM "Invoice" i
                   INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
                   WHERE i."tenantId" = ${tenantId}
@@ -160,10 +160,10 @@ export class MetricsService {
               : Prisma.sql`
                   SELECT
                     date(i."issuedAt") as "date",
-                    SUM(i.total)::text as "totalSales",
+                    SUM(i."signedTotal")::text as "totalSales",
                     COUNT(*)::bigint as "totalInvoices",
-                    COALESCE(SUM(i.units), 0)::text as "totalUnits",
-                    SUM(i.margin)::text as "totalMargin"
+                    COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
+                    SUM(i."signedMargin")::text as "totalMargin"
                   FROM "Invoice" i
                   INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id AND it.brand ILIKE ${brandPattern}
                   WHERE i."tenantId" = ${tenantId}
@@ -195,10 +195,10 @@ export class MetricsService {
             ? Prisma.sql`
                 SELECT
                   date(i."issuedAt") as "date",
-                  SUM(i.total)::text as "totalSales",
+                  SUM(i."signedTotal")::text as "totalSales",
                   COUNT(*)::bigint as "totalInvoices",
-                  COALESCE(SUM(i.units), 0)::text as "totalUnits",
-                  SUM(i.margin)::text as "totalMargin"
+                  COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
+                  SUM(i."signedMargin")::text as "totalMargin"
                 FROM "Invoice" i
                 WHERE i."tenantId" = ${tenantId}
                   AND i."issuedAt" >= ${from}
@@ -210,10 +210,10 @@ export class MetricsService {
             : Prisma.sql`
                 SELECT
                   date(i."issuedAt") as "date",
-                  SUM(i.total)::text as "totalSales",
+                  SUM(i."signedTotal")::text as "totalSales",
                   COUNT(*)::bigint as "totalInvoices",
-                  COALESCE(SUM(i.units), 0)::text as "totalUnits",
-                  SUM(i.margin)::text as "totalMargin"
+                  COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
+                  SUM(i."signedMargin")::text as "totalMargin"
                 FROM "Invoice" i
                 WHERE i."tenantId" = ${tenantId}
                   AND i."issuedAt" >= ${from}
@@ -234,12 +234,12 @@ export class MetricsService {
       const [current, compare, distinctCustomers, seriesRows] = await Promise.all([
         this.prisma.invoice.aggregate({
           where: currentWhere,
-          _sum: { total: true, margin: true, units: true },
+          _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
           _count: { _all: true },
         }),
         this.prisma.invoice.aggregate({
           where: compareWhere,
-          _sum: { total: true, margin: true, units: true },
+          _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
           _count: { _all: true },
         }),
         this.prisma.invoice.findMany({
@@ -259,20 +259,20 @@ export class MetricsService {
 
       return {
         current: {
-          totalSales: Number(currentSum.total ?? 0),
-          totalMargin: Number(currentSum.margin ?? 0),
-          totalUnits: Number(currentSum.units ?? 0),
+          totalSales: Number(currentSum.signedTotal ?? 0),
+          totalMargin: Number(currentSum.signedMargin ?? 0),
+          totalUnits: Number(currentSum.signedUnits ?? 0),
           totalInvoices: currentCount._all ?? 0,
           uniqueCustomers: distinctCustomers.length,
           avgTicket:
             (currentCount._all ?? 0) > 0
-              ? Number(currentSum.total ?? 0) / (currentCount._all ?? 0)
+              ? Number(currentSum.signedTotal ?? 0) / (currentCount._all ?? 0)
               : 0,
         },
         compare: {
-          totalSales: Number(compareSum.total ?? 0),
-          totalMargin: Number(compareSum.margin ?? 0),
-          totalUnits: Number(compareSum.units ?? 0),
+          totalSales: Number(compareSum.signedTotal ?? 0),
+          totalMargin: Number(compareSum.signedMargin ?? 0),
+          totalUnits: Number(compareSum.signedUnits ?? 0),
           totalInvoices: compareCount._all ?? 0,
         },
         series: seriesRows,
@@ -283,7 +283,7 @@ export class MetricsService {
   async getFilterOptions(tenantId: string) {
     const key = `filterOptions:${tenantId}`;
     return this.getCached(key, 60000, async () => {
-      const [cities, vendors] = await Promise.all([
+      const [cities, vendors, brandRows] = await Promise.all([
         this.prisma.customer
           .groupBy({
             by: ['city'],
@@ -306,8 +306,15 @@ export class MetricsService {
               .filter((v): v is string => v != null && v.trim() !== '')
               .sort((a, b) => a.localeCompare(b, 'es')),
           ),
+        this.prisma.productBrand
+          .findMany({
+            where: { tenantId },
+            select: { name: true },
+            orderBy: { name: 'asc' },
+          })
+          .then((rows) => rows.map((r) => r.name).filter((n) => n?.trim())),
       ]);
-      return { cities, vendors, brands: [] as string[] };
+      return { cities, vendors, brands: brandRows };
     });
   }
 
@@ -355,18 +362,72 @@ export class MetricsService {
               }
             : {}),
         },
-        _sum: { total: true, margin: true, units: true },
+        _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
         _count: { _all: true },
       });
       const totalsSum = totals._sum ?? {};
       const totalsCount =
         typeof totals._count === 'object' && totals._count ? totals._count : { _all: 0 };
       return {
-        totalSales: Number(totalsSum.total ?? 0),
-        totalMargin: Number(totalsSum.margin ?? 0),
-        totalUnits: Number(totalsSum.units ?? 0),
+        totalSales: Number(totalsSum.signedTotal ?? 0),
+        totalMargin: Number(totalsSum.signedMargin ?? 0),
+        totalUnits: Number(totalsSum.signedUnits ?? 0),
         totalInvoices: totalsCount._all ?? 0,
       };
     });
+  }
+
+  async getSalesByClass(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string; brand?: string },
+  ) {
+    const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
+      city: filters?.city,
+    });
+    const trimmedVendor = filters?.vendor?.trim();
+    const trimmedBrand = filters?.brand?.trim();
+    const brandCond =
+      trimmedBrand ?
+        Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}` :
+        Prisma.empty;
+    const vendorCond =
+      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const customerCond =
+      scopedCustomerIds?.length
+        ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
+        : Prisma.empty;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ classCode: string | null; totalSales: string; lineCount: bigint }>
+    >(Prisma.sql`
+      SELECT it."classCode",
+        SUM(it.total * i."saleSign")::text as "totalSales",
+        COUNT(*)::bigint as "lineCount"
+      FROM "InvoiceItem" it
+      INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+      WHERE it."tenantId" = ${tenantId}
+        AND it."classCode" IS NOT NULL
+        AND i."issuedAt" >= ${from}
+        AND i."issuedAt" <= ${to}
+        ${customerCond}${vendorCond}${brandCond}
+      GROUP BY it."classCode"
+      ORDER BY SUM(it.total * i."saleSign") DESC
+    `);
+    const codes = (rows.map((r) => r.classCode).filter(Boolean) ?? []) as string[];
+    const nameMap = new Map<string, string>();
+    if (codes.length > 0) {
+      const classes = await this.prisma.productClass.findMany({
+        where: { tenantId, code: { in: codes } },
+        select: { code: true, name: true },
+      });
+      classes.forEach((c) => nameMap.set(c.code, c.name));
+    }
+    return rows.map((r) => ({
+      classCode: r.classCode,
+      className: nameMap.get(r.classCode ?? '') ?? r.classCode ?? '',
+      totalSales: Number(r.totalSales ?? 0),
+      count: Number(r.lineCount ?? 0),
+    })).sort((a, b) => b.totalSales - a.totalSales);
   }
 }

@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/package.json
+COPY scripts scripts
 
 RUN corepack enable && pnpm install --filter api...
 

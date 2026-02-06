@@ -26,7 +26,7 @@ export class MetricsScheduler {
             customerId: customer.id,
             issuedAt: { gte: targetDate, lt: nextDate },
           },
-          _sum: { total: true, margin: true, units: true },
+          _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
           _count: { _all: true },
         });
         await this.prisma.metricsDaily.upsert({
@@ -41,23 +41,23 @@ export class MetricsScheduler {
             tenantId: tenant.id,
             customerId: customer.id,
             date: targetDate,
-            totalSales: agg._sum.total ?? 0,
+            totalSales: agg._sum.signedTotal ?? 0,
             totalInvoices: agg._count._all,
-            totalUnits: agg._sum.units ?? 0,
-            totalMargin: agg._sum.margin ?? 0,
+            totalUnits: agg._sum.signedUnits ?? 0,
+            totalMargin: agg._sum.signedMargin ?? 0,
             avgTicket:
               agg._count._all > 0
-                ? Number(agg._sum.total ?? 0) / agg._count._all
+                ? Number(agg._sum.signedTotal ?? 0) / agg._count._all
                 : 0,
           },
           update: {
-            totalSales: agg._sum.total ?? 0,
+            totalSales: agg._sum.signedTotal ?? 0,
             totalInvoices: agg._count._all,
-            totalUnits: agg._sum.units ?? 0,
-            totalMargin: agg._sum.margin ?? 0,
+            totalUnits: agg._sum.signedUnits ?? 0,
+            totalMargin: agg._sum.signedMargin ?? 0,
             avgTicket:
               agg._count._all > 0
-                ? Number(agg._sum.total ?? 0) / agg._count._all
+                ? Number(agg._sum.signedTotal ?? 0) / agg._count._all
                 : 0,
           },
         });

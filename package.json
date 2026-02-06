@@ -9,6 +9,7 @@
     "build": "pnpm -r --parallel build",
     "lint": "pnpm -r --parallel lint",
     "db:migrate": "pnpm --filter api db:migrate",
-    "db:seed": "pnpm --filter api db:seed"
+    "db:seed": "pnpm --filter api db:seed",
+    "load-mappings": "pnpm --filter api load-mappings"
   }
 }

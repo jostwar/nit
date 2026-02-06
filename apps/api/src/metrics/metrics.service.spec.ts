@@ -6,20 +6,24 @@ describe('MetricsService', () => {
       invoice: {
         aggregate: jest.fn()
           .mockResolvedValueOnce({
-            _sum: { total: 1000, margin: 200, units: 50 },
+            _sum: { signedTotal: 1000, signedMargin: 200, signedUnits: 50 },
             _count: { _all: 10 },
           })
           .mockResolvedValueOnce({
-            _sum: { total: 800, margin: 150, units: 40 },
+            _sum: { signedTotal: 800, signedMargin: 150, signedUnits: 40 },
             _count: { _all: 8 },
           }),
         findMany: jest.fn().mockResolvedValue([{ customerId: 'c1' }, { customerId: 'c2' }]),
       },
-      metricsDaily: {
-        groupBy: jest.fn().mockResolvedValue([
-          { date: new Date('2024-01-01'), _sum: { totalSales: 100, totalInvoices: 2, totalUnits: 10, totalMargin: 20 } },
-        ]),
-      },
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          date: new Date('2024-01-01'),
+          totalSales: '100',
+          totalInvoices: 2,
+          totalUnits: '10',
+          totalMargin: '20',
+        },
+      ]),
     } as any;
 
     const service = new MetricsService(prisma);

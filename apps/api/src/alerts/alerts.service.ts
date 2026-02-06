@@ -138,18 +138,18 @@ export class AlertsService {
     const current = await this.prisma.invoice.groupBy({
       by: ['customerId'],
       where: { tenantId, issuedAt: { gte: from, lte: to } },
-      _sum: { total: true },
+      _sum: { signedTotal: true },
     });
     const compare = await this.prisma.invoice.groupBy({
       by: ['customerId'],
       where: { tenantId, issuedAt: { gte: compareFrom, lte: compareTo } },
-      _sum: { total: true },
+      _sum: { signedTotal: true },
     });
     const compareMap = new Map(
-      compare.map((row) => [row.customerId, Number(row._sum.total ?? 0)]),
+      compare.map((row) => [row.customerId, Number(row._sum.signedTotal ?? 0)]),
     );
     for (const row of current) {
-      const currentTotal = Number(row._sum.total ?? 0);
+      const currentTotal = Number(row._sum.signedTotal ?? 0);
       const compareTotal = compareMap.get(row.customerId) ?? 0;
       if (compareTotal <= 0) {
         continue;

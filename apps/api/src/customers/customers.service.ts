@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -124,7 +125,7 @@ export class CustomersService {
             ? { items: { some: { brand: { contains: trimmedBrand, mode: 'insensitive' } } } }
             : {}),
         },
-        _sum: { total: true, margin: true, units: true },
+        _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
         _count: { _all: true },
       });
 
@@ -132,9 +133,9 @@ export class CustomersService {
         metrics.map((row) => [
           row.customerId,
           {
-            totalSales: Number(row._sum.total ?? 0),
-            totalMargin: Number(row._sum.margin ?? 0),
-            totalUnits: Number(row._sum.units ?? 0),
+            totalSales: Number(row._sum.signedTotal ?? 0),
+            totalMargin: Number(row._sum.signedMargin ?? 0),
+            totalUnits: Number(row._sum.signedUnits ?? 0),
             totalInvoices: row._count._all,
           },
         ]),
@@ -179,12 +180,12 @@ export class CustomersService {
 
     const current = await this.prisma.invoice.aggregate({
       where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
-      _sum: { total: true, margin: true, units: true },
+      _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
       _count: { _all: true },
     });
     const compare = await this.prisma.invoice.aggregate({
       where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
-      _sum: { total: true, margin: true, units: true },
+      _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
       _count: { _all: true },
     });
 
@@ -214,15 +215,15 @@ export class CustomersService {
       },
       lastPurchaseAt: lastPurchase._max.issuedAt,
       current: {
-        totalSales: Number(current._sum.total ?? 0),
-        totalMargin: Number(current._sum.margin ?? 0),
-        totalUnits: Number(current._sum.units ?? 0),
+        totalSales: Number(current._sum.signedTotal ?? 0),
+        totalMargin: Number(current._sum.signedMargin ?? 0),
+        totalUnits: Number(current._sum.signedUnits ?? 0),
         totalInvoices: current._count._all,
       },
       compare: {
-        totalSales: Number(compare._sum.total ?? 0),
-        totalMargin: Number(compare._sum.margin ?? 0),
-        totalUnits: Number(compare._sum.units ?? 0),
+        totalSales: Number(compare._sum.signedTotal ?? 0),
+        totalMargin: Number(compare._sum.signedMargin ?? 0),
+        totalUnits: Number(compare._sum.signedUnits ?? 0),
         totalInvoices: compare._count._all,
       },
       series: series.map((row) => ({
@@ -244,37 +245,44 @@ export class CustomersService {
     compareFrom?: Date,
     compareTo?: Date,
   ) {
-    const current = await this.prisma.invoiceItem.groupBy({
-      by: ['brand'],
-      where: {
-        tenantId,
-        invoice: { customerId, issuedAt: { gte: from, lte: to } },
-      },
-      _sum: { total: true },
-      orderBy: { _sum: { total: 'desc' } },
-    });
-    const compare = await this.prisma.invoiceItem.groupBy({
-      by: ['brand'],
-      where: {
-        tenantId,
-        invoice: { customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
-      },
-      _sum: { total: true },
-      orderBy: { _sum: { total: 'desc' } },
-    });
-
-    const compareMap = new Map(compare.map((row) => [row.brand, Number(row._sum.total ?? 0)]));
+    const [current, compare] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ brand: string; currentTotal: string }>>(
+        Prisma.sql`
+          SELECT it.brand, SUM(it.total * i."saleSign")::text as "currentTotal"
+          FROM "InvoiceItem" it
+          INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+          WHERE it."tenantId" = ${tenantId} AND i."customerId" = ${customerId}
+            AND i."issuedAt" >= ${from} AND i."issuedAt" <= ${to}
+          GROUP BY it.brand
+          ORDER BY SUM(it.total * i."saleSign") DESC
+        `,
+      ),
+      this.prisma.$queryRaw<Array<{ brand: string; compareTotal: string }>>(
+        Prisma.sql`
+          SELECT it.brand, SUM(it.total * i."saleSign")::text as "compareTotal"
+          FROM "InvoiceItem" it
+          INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+          WHERE it."tenantId" = ${tenantId} AND i."customerId" = ${customerId}
+            AND i."issuedAt" >= ${compareFrom} AND i."issuedAt" <= ${compareTo}
+          GROUP BY it.brand
+          ORDER BY SUM(it.total * i."saleSign") DESC
+        `,
+      ),
+    ]);
+    const compareMap = new Map(compare.map((row) => [row.brand, Number(row.compareTotal ?? 0)]));
     if (current.length === 0) {
-      const currentTotals = await this.prisma.invoice.aggregate({
-        where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
-        _sum: { total: true },
-      });
-      const compareTotals = await this.prisma.invoice.aggregate({
-        where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
-        _sum: { total: true },
-      });
-      const currentTotal = Number(currentTotals._sum.total ?? 0);
-      const compareTotal = Number(compareTotals._sum.total ?? 0);
+      const [currentTotals, compareTotals] = await Promise.all([
+        this.prisma.invoice.aggregate({
+          where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
+          _sum: { signedTotal: true },
+        }),
+        this.prisma.invoice.aggregate({
+          where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
+          _sum: { signedTotal: true },
+        }),
+      ]);
+      const currentTotal = Number(currentTotals._sum.signedTotal ?? 0);
+      const compareTotal = Number(compareTotals._sum.signedTotal ?? 0);
       if (currentTotal === 0 && compareTotal === 0) {
         return [];
       }
@@ -288,7 +296,7 @@ export class CustomersService {
     }
     return current.map((row) => ({
       brand: row.brand,
-      currentTotal: Number(row._sum.total ?? 0),
+      currentTotal: Number(row.currentTotal ?? 0),
       compareTotal: compareMap.get(row.brand) ?? 0,
     }));
   }
@@ -302,40 +310,48 @@ export class CustomersService {
     compareTo?: Date,
     limit = 50,
   ) {
-    const current = await this.prisma.invoiceItem.groupBy({
-      by: ['productName'],
-      where: {
-        tenantId,
-        invoice: { customerId, issuedAt: { gte: from, lte: to } },
-      },
-      _sum: { total: true },
-      orderBy: { _sum: { total: 'desc' } },
-      take: limit,
-    });
-    const compare = await this.prisma.invoiceItem.groupBy({
-      by: ['productName'],
-      where: {
-        tenantId,
-        invoice: { customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
-      },
-      _sum: { total: true },
-      orderBy: { _sum: { total: 'desc' } },
-      take: limit,
-    });
+    const [current, compare] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ productName: string; currentTotal: string }>>(
+        Prisma.sql`
+          SELECT it."productName", SUM(it.total * i."saleSign")::text as "currentTotal"
+          FROM "InvoiceItem" it
+          INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+          WHERE it."tenantId" = ${tenantId} AND i."customerId" = ${customerId}
+            AND i."issuedAt" >= ${from} AND i."issuedAt" <= ${to}
+          GROUP BY it."productName"
+          ORDER BY SUM(it.total * i."saleSign") DESC
+          LIMIT ${limit}
+        `,
+      ),
+      this.prisma.$queryRaw<Array<{ productName: string; compareTotal: string }>>(
+        Prisma.sql`
+          SELECT it."productName", SUM(it.total * i."saleSign")::text as "compareTotal"
+          FROM "InvoiceItem" it
+          INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+          WHERE it."tenantId" = ${tenantId} AND i."customerId" = ${customerId}
+            AND i."issuedAt" >= ${compareFrom} AND i."issuedAt" <= ${compareTo}
+          GROUP BY it."productName"
+          ORDER BY SUM(it.total * i."saleSign") DESC
+          LIMIT ${limit}
+        `,
+      ),
+    ]);
     const compareMap = new Map(
-      compare.map((row) => [row.productName, Number(row._sum.total ?? 0)]),
+      compare.map((row) => [row.productName, Number(row.compareTotal ?? 0)]),
     );
     if (current.length === 0) {
-      const currentTotals = await this.prisma.invoice.aggregate({
-        where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
-        _sum: { total: true },
-      });
-      const compareTotals = await this.prisma.invoice.aggregate({
-        where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
-        _sum: { total: true },
-      });
-      const currentTotal = Number(currentTotals._sum.total ?? 0);
-      const compareTotal = Number(compareTotals._sum.total ?? 0);
+      const [currentTotals, compareTotals] = await Promise.all([
+        this.prisma.invoice.aggregate({
+          where: { tenantId, customerId, issuedAt: { gte: from, lte: to } },
+          _sum: { signedTotal: true },
+        }),
+        this.prisma.invoice.aggregate({
+          where: { tenantId, customerId, issuedAt: { gte: compareFrom, lte: compareTo } },
+          _sum: { signedTotal: true },
+        }),
+      ]);
+      const currentTotal = Number(currentTotals._sum.signedTotal ?? 0);
+      const compareTotal = Number(compareTotals._sum.signedTotal ?? 0);
       if (currentTotal === 0 && compareTotal === 0) {
         return [];
       }
@@ -349,7 +365,7 @@ export class CustomersService {
     }
     return current.map((row) => ({
       product: row.productName,
-      currentTotal: Number(row._sum.total ?? 0),
+      currentTotal: Number(row.currentTotal ?? 0),
       compareTotal: compareMap.get(row.productName) ?? 0,
     }));
   }

@@ -30,15 +30,17 @@ model Tenant {
   lastSyncAt  DateTime?
   createdAt   DateTime  @default(now())
 
-  users      User[]
-  customers  Customer[]
-  invoices   Invoice[]
+  users         User[]
+  customers     Customer[]
+  invoices      Invoice[]
   invoiceItems InvoiceItem[]
-  payments   Payment[]
-  credits    Credit[]
-  metrics    MetricsDaily[]
-  alertRules AlertRule[]
-  alertEvents AlertEvent[]
+  productClasses ProductClass[]
+  productBrands  ProductBrand[]
+  payments       Payment[]
+  credits       Credit[]
+  metrics       MetricsDaily[]
+  alertRules    AlertRule[]
+  alertEvents   AlertEvent[]
 }
 
 model User {
@@ -97,6 +99,12 @@ model Invoice {
   margin        Decimal  @db.Decimal(14, 2)
   units         Int
   vendor        String?  // NOMVEN de GenerarInfoVentas
+  // TIPOMOV: tipo documento (ej. 01, 13=SUMA; 04, 06, 15=RESTA). Ventas netas = sum(signedTotal)
+  documentType  String?  // código TIPOMOV
+  saleSign      Int      @default(1) // 1=SUMA VENTA, -1=RESTA VENTA
+  signedTotal   Decimal  @db.Decimal(14, 2) // total * saleSign para agregaciones
+  signedMargin  Decimal  @db.Decimal(14, 2)
+  signedUnits   Int // units * saleSign
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
   customer Customer @relation(fields: [customerId], references: [id])
@@ -115,6 +123,7 @@ model InvoiceItem {
   productName String
   brand       String
   category    String
+  classCode   String?  // código CLASE del inventario; nombre se resuelve por ProductClass
   quantity    Int
   unitPrice   Decimal  @db.Decimal(14, 2)
   total       Decimal  @db.Decimal(14, 2)
@@ -125,6 +134,30 @@ model InvoiceItem {
 
   @@index([tenantId])
   @@index([invoiceId])
+}
+
+model ProductClass {
+  id       String @id @default(cuid())
+  tenantId String
+  code     String
+  name     String
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model ProductBrand {
+  id       String @id @default(cuid())
+  tenantId String
+  code     String
+  name     String
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
 }
 
 model Payment {
