@@ -276,6 +276,48 @@ export class MetricsService {
     });
   }
 
+  async getFilterOptions(tenantId: string) {
+    const key = `filterOptions:${tenantId}`;
+    return this.getCached(key, 60000, async () => {
+      const [cities, vendors, brands] = await Promise.all([
+        this.prisma.customer
+          .groupBy({
+            by: ['city'],
+            where: { tenantId, city: { not: null } },
+          })
+          .then((rows) =>
+            rows
+              .map((r) => r.city)
+              .filter((c): c is string => c != null && c.trim() !== '')
+              .sort((a, b) => a.localeCompare(b, 'es')),
+          ),
+        this.prisma.customer
+          .groupBy({
+            by: ['vendor'],
+            where: { tenantId, vendor: { not: null } },
+          })
+          .then((rows) =>
+            rows
+              .map((r) => r.vendor)
+              .filter((v): v is string => v != null && v.trim() !== '')
+              .sort((a, b) => a.localeCompare(b, 'es')),
+          ),
+        this.prisma.invoiceItem
+          .groupBy({
+            by: ['brand'],
+            where: { tenantId },
+          })
+          .then((rows) =>
+            rows
+              .map((r) => r.brand)
+              .filter((b): b is string => b != null && b.trim() !== '')
+              .sort((a, b) => a.localeCompare(b, 'es')),
+          ),
+      ]);
+      return { cities, vendors, brands };
+    });
+  }
+
   async getSalesTotal(
     tenantId: string,
     from: Date,

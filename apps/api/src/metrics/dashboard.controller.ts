@@ -7,6 +7,11 @@ import { parseRange } from '../common/utils/date-range';
 export class DashboardController {
   constructor(private readonly metricsService: MetricsService) {}
 
+  @Get('filter-options')
+  getFilterOptions(@TenantId() tenantId: string) {
+    return this.metricsService.getFilterOptions(tenantId);
+  }
+
   @Get('summary')
   getSummary(
     @TenantId() tenantId: string,

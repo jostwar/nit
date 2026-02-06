@@ -71,6 +71,11 @@ export function DateFilters() {
     latestDate: string | null;
     totalInvoices: number;
   } | null>(null);
+  const [filterOptions, setFilterOptions] = useState<{
+    cities: string[];
+    vendors: string[];
+    brands: string[];
+  } | null>(null);
   const lastSyncLabel = useMemo(() => {
     if (!lastSyncedAt) return "Última sincronización: pendiente";
     const parsed = new Date(lastSyncedAt);
@@ -159,6 +164,12 @@ export function DateFilters() {
   }, [defaultFrom, today, router, searchParams]);
 
   useEffect(() => {
+    apiGet<{ cities: string[]; vendors: string[]; brands: string[] }>("/dashboard/filter-options")
+      .then(setFilterOptions)
+      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [] }));
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
     let wasRunning = false;
     const fetchStatus = async () => {
@@ -213,30 +224,48 @@ export function DateFilters() {
         </label>
         <label className="flex items-center gap-2">
           Ciudad
-          <input
+          <select
             value={city}
-            onChange={(event) => setCity(event.target.value)}
-            placeholder="Ciudad"
-            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs"
-          />
+            onChange={(e) => setCity(e.target.value)}
+            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs bg-white"
+          >
+            <option value="">Todas</option>
+            {(filterOptions?.cities ?? []).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex items-center gap-2">
           Vendedor
-          <input
+          <select
             value={vendor}
-            onChange={(event) => setVendor(event.target.value)}
-            placeholder="Vendedor"
-            className="w-32 rounded-md border border-slate-200 px-2 py-1 text-xs"
-          />
+            onChange={(e) => setVendor(e.target.value)}
+            className="w-32 rounded-md border border-slate-200 px-2 py-1 text-xs bg-white"
+          >
+            <option value="">Todos</option>
+            {(filterOptions?.vendors ?? []).map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex items-center gap-2">
           Marca
-          <input
+          <select
             value={brand}
-            onChange={(event) => setBrand(event.target.value)}
-            placeholder="Marca"
-            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs"
-          />
+            onChange={(e) => setBrand(e.target.value)}
+            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-xs bg-white"
+          >
+            <option value="">Todas</option>
+            {(filterOptions?.brands ?? []).map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
         </label>
         <Button onClick={applyFilters} className="h-8 px-3 text-xs" disabled={syncing}>
           {syncing ? "Cargando…" : "Consultar"}
