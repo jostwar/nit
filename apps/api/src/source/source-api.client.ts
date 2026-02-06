@@ -6,6 +6,7 @@ export type SourceInvoice = {
   total: number;
   margin: number;
   units: number;
+  vendor?: string; // NOMVEN de GenerarInfoVentas
   items: Array<{
     productName: string;
     brand: string;
@@ -60,4 +61,6 @@ export interface SourceApiClient {
     pageSize: number,
     vendor?: string,
   ): Promise<SourceCustomer[]>;
+  /** Marcas únicas desde API inventarios (GenerarInformacionInventariosGet). Opcional. */
+  getInventoryBrandNames?(tenantExternalId: string): Promise<string[]>;
 }

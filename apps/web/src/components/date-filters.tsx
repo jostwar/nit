@@ -187,8 +187,17 @@ export function DateFilters() {
   }, [defaultFrom, today, router, searchParams]);
 
   useEffect(() => {
-    apiGet<{ cities: string[]; vendors: string[]; brands: string[] }>("/dashboard/filter-options")
-      .then(setFilterOptions)
+    Promise.all([
+      apiGet<{ cities: string[]; vendors: string[]; brands: string[] }>("/dashboard/filter-options"),
+      apiGet<{ brands: string[] }>("/source/inventory-brands").catch(() => ({ brands: [] })),
+    ])
+      .then(([opts, brandsRes]) =>
+        setFilterOptions({
+          cities: opts.cities ?? [],
+          vendors: opts.vendors ?? [],
+          brands: (brandsRes.brands ?? []).length > 0 ? brandsRes.brands ?? [] : (opts.brands ?? []),
+        }),
+      )
       .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [] }));
   }, []);
 

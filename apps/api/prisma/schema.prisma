@@ -96,6 +96,7 @@ model Invoice {
   total         Decimal  @db.Decimal(14, 2)
   margin        Decimal  @db.Decimal(14, 2)
   units         Int
+  vendor        String?  // NOMVEN de GenerarInfoVentas
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
   customer Customer @relation(fields: [customerId], references: [id])

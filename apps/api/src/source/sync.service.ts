@@ -138,6 +138,7 @@ export class SyncService {
           invoiceNumber: invoice.externalId,
         },
       });
+      const vendor = invoice.vendor?.trim() || null;
       const saved = existing
         ? await this.prisma.invoice.update({
             where: { id: existing.id },
@@ -146,6 +147,7 @@ export class SyncService {
               total: invoice.total,
               margin: invoice.margin,
               units: Math.round(invoice.units),
+              vendor,
             },
           })
         : await this.prisma.invoice.create({
@@ -157,6 +159,7 @@ export class SyncService {
               total: invoice.total,
               margin: invoice.margin,
               units: Math.round(invoice.units),
+              vendor,
             },
           });
       await this.prisma.invoiceItem.deleteMany({

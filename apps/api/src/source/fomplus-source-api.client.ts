@@ -8,6 +8,7 @@ type FomplusConfig = {
   inventarioBaseUrl: string;
   database: string;
   token: string;
+  inventarioToken: string;
   vendor?: string;
 };
 
@@ -27,6 +28,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
       process.env.SOURCE_API_INVENTARIO_BASE_URL ?? 'https://gspapi.fomplus.com',
     database: process.env.SOURCE_API_DB ?? '',
     token: process.env.SOURCE_API_TOKEN ?? '',
+    inventarioToken:
+      process.env.SOURCE_API_INVENTARIO_TOKEN ?? process.env.SOURCE_API_TOKEN ?? '',
     vendor: process.env.SOURCE_API_VENDOR ?? '',
   };
 
@@ -362,6 +365,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         productRef && brandMap.has(productRef) ? brandMap.get(productRef) : undefined;
       const brand =
         mappedBrand ??
+        (productRef ? 'Sin marca' : null) ??
         this.pick(record, ['nommar', 'nommarca', 'marca', 'brand']) ??
         'Sin marca';
       const category =
@@ -373,6 +377,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
         this.pick(record, ['valtot', 'totalitem', 'subtotal', 'valoritem', 'totaldetalle']),
       );
 
+      const nomven =
+        this.pick(record, ['nomven', 'nomvendedor', 'vendedor', 'cli_nomven', 'vended']) ?? undefined;
       const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
       if (!existing) {
@@ -384,6 +390,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
           total: 0,
           margin: 0,
           units: quantity ?? 0,
+          vendor: nomven,
           items: [],
         });
       }
@@ -408,7 +415,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
   }
 
   private async fetchInventoryBrands(tenantExternalId: string): Promise<Map<string, string>> {
-    if (!this.config.inventarioBaseUrl || !this.config.token) {
+    if (!this.config.inventarioBaseUrl || !this.config.inventarioToken) {
       return new Map();
     }
     try {
@@ -416,7 +423,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         `${this.config.inventarioBaseUrl}/srvAPI.asmx/GenerarInformacionInventariosGet`,
         {
           strPar_Empresa: this.config.database || tenantExternalId,
-          objPar_Objeto: this.config.token,
+          objPar_Objeto: this.config.inventarioToken,
         },
       );
       const records = this.extractRecords(xml);
@@ -432,6 +439,13 @@ export class FomplusSourceApiClient implements SourceApiClient {
     } catch {
       return new Map();
     }
+  }
+
+  /** Marcas únicas desde inventario; cruce por referencia con ventas. */
+  async getInventoryBrandNames(tenantExternalId: string): Promise<string[]> {
+    const brandMap = await this.fetchInventoryBrands(tenantExternalId);
+    const names = Array.from(new Set(brandMap.values())).filter((b) => b && b.trim() !== '');
+    return names.sort((a, b) => a.localeCompare(b, 'es'));
   }
 
   private mapPayments(records: FlatRecord[], fallbackDate: string): SourcePayment[] {

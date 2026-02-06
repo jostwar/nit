@@ -1,9 +1,11 @@
-import { Body, Controller, Get, HttpCode, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Logger, Post } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SyncService } from './sync.service';
 import { SyncDto } from './dto/sync.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SourceApiClient } from './source-api.client';
+import { SOURCE_API_CLIENT } from './source.constants';
 
 function* dayChunks(
   from: Date,
@@ -42,6 +44,7 @@ export class SourceController {
   constructor(
     private readonly syncService: SyncService,
     private readonly prisma: PrismaService,
+    @Inject(SOURCE_API_CLIENT) private readonly sourceApi: SourceApiClient,
   ) {}
 
   @Post('sync')
@@ -175,5 +178,13 @@ export class SourceController {
         totalInvoices: minMax._count?._all ?? 0,
       },
     };
+  }
+
+  @Get('inventory-brands')
+  @Roles('ADMIN', 'ANALYST')
+  async getInventoryBrands(@CurrentUser() user: { tenantId: string }) {
+    const brands =
+      (await this.sourceApi.getInventoryBrandNames?.(user.tenantId)) ?? [];
+    return { brands };
   }
 }
