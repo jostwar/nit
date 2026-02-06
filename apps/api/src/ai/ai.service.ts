@@ -45,6 +45,8 @@ export class AiService {
         q.includes('mas vendida') ||
         q.includes('más vendió') ||
         q.includes('top marcas') ||
+        q.includes('top marca') ||
+        q.includes('marca top') ||
         q.includes('mejor marca')
       ) {
         return this.topBrands(tenantId, from, to, filters);
@@ -67,7 +69,7 @@ export class AiService {
       return this.brandLost(tenantId, from, to);
     }
 
-    // Vendedores: que más creció, que más vendió
+    // Vendedores: que más creció, que más vendió, que menos vendió
     if (q.includes('vendedor')) {
       if (
         q.includes('más creció') ||
@@ -76,6 +78,14 @@ export class AiService {
         q.includes('mejor crecimiento')
       ) {
         return this.topVendorGrowth(tenantId, from, to, filters);
+      }
+      if (
+        q.includes('menor venta') ||
+        q.includes('menos vendió') ||
+        q.includes('menos ventas') ||
+        q.includes('que menos vendió')
+      ) {
+        return this.bottomVendors(tenantId, from, to, filters);
       }
       if (
         q.includes('más vendió') ||
@@ -312,6 +322,36 @@ export class AiService {
         totalSales: Number(r._sum.signedTotal ?? 0),
       })),
       explanation: 'Vendedores con más ventas en el periodo.',
+    };
+  }
+
+  private async bottomVendors(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string },
+  ): Promise<AiResponse> {
+    const scopedIds = await this.resolveCustomerScope(tenantId, filters);
+    const rows = await this.prisma.invoice.groupBy({
+      by: ['vendor'],
+      where: {
+        tenantId,
+        issuedAt: { gte: from, lte: to },
+        vendor: { not: null },
+        ...(scopedIds ? { customerId: { in: scopedIds } } : {}),
+      },
+      _sum: { signedTotal: true },
+      orderBy: { _sum: { signedTotal: 'asc' } },
+      take: 10,
+    });
+    return {
+      template: 'top_vendors',
+      period: { from: from.toISOString(), to: to.toISOString() },
+      rows: rows.map((r) => ({
+        vendor: r.vendor ?? 'N/A',
+        totalSales: Number(r._sum.signedTotal ?? 0),
+      })),
+      explanation: 'Vendedores con menos ventas en el periodo.',
     };
   }
 

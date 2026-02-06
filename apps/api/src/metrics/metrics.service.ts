@@ -79,40 +79,64 @@ export class MetricsService {
     return rows.map((r) => r.code.trim()).filter(Boolean);
   }
 
-  /** Condición Prisma para filtro por clase. */
-  private async classFilterWhere(
+  /** Condición Prisma para filtro por clase (solo el item). */
+  private async classItemCondition(
     tenantId: string,
     classFilter: string | undefined,
-  ): Promise<Prisma.InvoiceWhereInput> {
+  ): Promise<Prisma.InvoiceItemWhereInput | null> {
     const codes = classFilter?.trim()
       ? await this.getClassMatchCodes(tenantId, classFilter.trim())
       : [];
-    if (codes.length === 0) return {};
+    if (codes.length === 0) return null;
+    return { classCode: { in: codes } };
+  }
+
+  /** Condición Prisma para filtro por marca (solo el item). */
+  private async brandItemCondition(
+    tenantId: string,
+    brandFilter: string | undefined,
+  ): Promise<Prisma.InvoiceItemWhereInput | null> {
+    const trimmed = brandFilter?.trim();
+    if (!trimmed) return null;
+    const values = await this.getBrandMatchValues(tenantId, trimmed);
     return {
-      items: {
-        some: { classCode: { in: codes } },
-      },
+      OR: [
+        ...(values.length > 0 ? [{ brand: { in: values } }] : []),
+        { brand: { contains: trimmed, mode: Prisma.QueryMode.insensitive } },
+      ],
     };
   }
 
-  /** Condición Prisma para filtro por marca (nombre o código). */
+  /** Filtro combinado marca + clase: un solo items.some con AND para que no se pisen. */
+  private async itemsBrandClassWhere(
+    tenantId: string,
+    brandFilter: string | undefined,
+    classFilter: string | undefined,
+  ): Promise<Prisma.InvoiceWhereInput> {
+    const [brandCond, classCond] = await Promise.all([
+      this.brandItemCondition(tenantId, brandFilter),
+      this.classItemCondition(tenantId, classFilter),
+    ]);
+    if (!brandCond && !classCond) return {};
+    if (brandCond && !classCond) return { items: { some: brandCond } };
+    if (!brandCond && classCond) return { items: { some: classCond } };
+    return { items: { some: { AND: [brandCond!, classCond!] } } };
+  }
+
+  /** @deprecated Usar itemsBrandClassWhere para combinar con clase. */
   private async brandFilterWhere(
     tenantId: string,
     brandFilter: string | undefined,
   ): Promise<Prisma.InvoiceWhereInput> {
-    const trimmed = brandFilter?.trim();
-    if (!trimmed) return {};
-    const values = await this.getBrandMatchValues(tenantId, trimmed);
-    return {
-      items: {
-        some: {
-          OR: [
-            ...(values.length > 0 ? [{ brand: { in: values } }] : []),
-            { brand: { contains: trimmed, mode: Prisma.QueryMode.insensitive } },
-          ],
-        },
-      },
-    };
+    return this.itemsBrandClassWhere(tenantId, brandFilter, undefined);
+  }
+
+  /** @deprecated Usar itemsBrandClassWhere para combinar con marca. */
+  private async classFilterWhere(
+    tenantId: string,
+    classFilter: string | undefined,
+  ): Promise<Prisma.InvoiceWhereInput> {
+    return this.itemsBrandClassWhere(tenantId, undefined, classFilter);
   }
 
   /** Where para filtro ciudad: Customer.city O Invoice.city (NOMSEC, etc.). */
@@ -162,25 +186,26 @@ export class MetricsService {
       });
       const trimmedVendor = filters?.vendor?.trim();
       const trimmedBrand = filters?.brand?.trim();
+      const trimmedClass = filters?.class?.trim();
       const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
-      const brandWhere = await this.brandFilterWhere(tenantId, filters?.brand);
-      const classWhere = await this.classFilterWhere(tenantId, filters?.class);
-      const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
+      const itemsWhere = await this.itemsBrandClassWhere(tenantId, filters?.brand, filters?.class);
+      const [brandValues, classCodes] = await Promise.all([
+        trimmedBrand ? this.getBrandMatchValues(tenantId, trimmedBrand) : [],
+        trimmedClass ? this.getClassMatchCodes(tenantId, trimmedClass) : [],
+      ]);
       const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
         ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
-        ...brandWhere,
-        ...classWhere,
+        ...itemsWhere,
       };
       const compareWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: compareFrom, lte: compareTo },
         ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
-        ...brandWhere,
-        ...classWhere,
+        ...itemsWhere,
       };
 
       // Serie por día: siempre desde Invoice para que sum(serie) = total (misma fuente)
@@ -196,12 +221,17 @@ export class MetricsService {
         const vendorAnd = trimmedVendor
           ? Prisma.sql` AND i."vendor" = ${trimmedVendor}`
           : Prisma.sql``;
-        if (trimmedBrand) {
-          const brandPattern = `%${trimmedBrand}%`;
-          const brandJoinCond =
-            brandValues.length > 0
-              ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${brandPattern})`
-              : Prisma.sql` AND it.brand ILIKE ${brandPattern}`;
+        if (trimmedBrand || classCodes.length > 0) {
+          const brandPattern = trimmedBrand ? `%${trimmedBrand}%` : '';
+          const brandJoinCond = trimmedBrand
+            ? (brandValues.length > 0
+                ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${brandPattern})`
+                : Prisma.sql` AND it.brand ILIKE ${brandPattern}`)
+            : Prisma.sql``;
+          const classJoinCond =
+            classCodes.length > 0
+              ? Prisma.sql` AND it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))})`
+              : Prisma.sql``;
           const rows = await this.prisma.$queryRaw<
             Array<{
               date: Date;
@@ -220,7 +250,7 @@ export class MetricsService {
                     COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
                     SUM(i."signedMargin")::text as "totalMargin"
                   FROM "Invoice" i
-                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}
+                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}${classJoinCond}
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}
@@ -236,7 +266,7 @@ export class MetricsService {
                     COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
                     SUM(i."signedMargin")::text as "totalMargin"
                   FROM "Invoice" i
-                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}
+                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}${classJoinCond}
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}${vendorAnd}
@@ -454,16 +484,14 @@ export class MetricsService {
       });
       const trimmedVendor = filters?.vendor?.trim();
       const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
-      const brandWhere = await this.brandFilterWhere(tenantId, filters?.brand);
-      const classWhere = await this.classFilterWhere(tenantId, filters?.class);
+      const itemsWhere = await this.itemsBrandClassWhere(tenantId, filters?.brand, filters?.class);
       const totals = await this.prisma.invoice.aggregate({
         where: {
           tenantId,
           issuedAt: { gte: from, lte: to },
           ...cityWhere,
           ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
-          ...brandWhere,
-          ...classWhere,
+          ...itemsWhere,
         },
         _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
         _count: { _all: true },
