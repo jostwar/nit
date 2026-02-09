@@ -697,4 +697,52 @@ export class MetricsService {
       ...withNull.map((r) => ({ ...r, documentType: 'N/A' })),
     ];
   }
+
+  /**
+   * Detalle línea a línea para una fila TIPOMOV (ej. documentType=N/A para "Sin tipo").
+   * Devuelve las facturas que componen esa fila.
+   */
+  async getTipomovDetail(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    documentType: string,
+  ): Promise<
+    Array<{
+      fecha: string;
+      invoiceNumber: string;
+      customerNit: string;
+      customerName: string | null;
+      total: number;
+      units: number;
+    }>
+  > {
+    const isNull = documentType === 'N/A' || documentType === '__NULL__' || documentType === '';
+    const where = {
+      tenantId,
+      issuedAt: { gte: from, lte: to },
+      ...(isNull ? { documentType: null } : { documentType }),
+    };
+    const invoices = await this.prisma.invoice.findMany({
+      where,
+      select: {
+        issuedAt: true,
+        invoiceNumber: true,
+        signedTotal: true,
+        signedUnits: true,
+        customerId: true,
+        customer: { select: { nit: true, name: true } },
+      },
+      orderBy: { issuedAt: 'desc' },
+      take: 500,
+    });
+    return invoices.map((i) => ({
+      fecha: i.issuedAt.toISOString().slice(0, 10),
+      invoiceNumber: i.invoiceNumber,
+      customerNit: i.customer.nit,
+      customerName: i.customer.name,
+      total: Number(i.signedTotal ?? 0),
+      units: Number(i.signedUnits ?? 0),
+    }));
+  }
 }

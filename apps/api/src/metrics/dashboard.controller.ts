@@ -68,6 +68,23 @@ export class DashboardController {
     return this.metricsService.getTipomovSummary(tenantId, current.from, current.to);
   }
 
+  /** Detalle factura a factura de una fila TIPOMOV (documentType=N/A para "Sin tipo"). */
+  @Get('tipomov-detail')
+  getTipomovDetail(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('documentType') documentType?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getTipomovDetail(
+      tenantId,
+      current.from,
+      current.to,
+      documentType ?? 'N/A',
+    );
+  }
+
   @Get('sales-by-class')
   getSalesByClass(
     @TenantId() tenantId: string,
