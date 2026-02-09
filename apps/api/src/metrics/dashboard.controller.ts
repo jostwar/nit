@@ -58,6 +58,16 @@ export class DashboardController {
     });
   }
 
+  @Get('tipomov')
+  getTipomov(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getTipomovSummary(tenantId, current.from, current.to);
+  }
+
   @Get('sales-by-class')
   getSalesByClass(
     @TenantId() tenantId: string,

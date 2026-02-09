@@ -122,9 +122,10 @@ model InvoiceItem {
   tenantId    String
   invoiceId   String
   productName String
-  brand       String
+  brand       String   // nombre de marca (mapeado por ref→CSV/inventario + brandCodeToName)
   category    String
-  classCode   String?  // código CLASE del inventario; nombre se resuelve por ProductClass
+  classCode   String?  // código CLASE (para filtros)
+  className   String?  // nombre de clase (mapeado por ref→CSV/inventario + ProductClass)
   quantity    Int
   unitPrice   Decimal  @db.Decimal(14, 2)
   total       Decimal  @db.Decimal(14, 2)

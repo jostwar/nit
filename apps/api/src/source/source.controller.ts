@@ -96,11 +96,18 @@ export class SourceController {
           Math.ceil((safeTo.getTime() - safeFrom.getTime()) / (24 * 60 * 60 * 1000)) + 1;
         const byMonth = rangeDays > 31;
 
-        const brandRows = await this.prisma.productBrand.findMany({
-          where: { tenantId: user.tenantId },
-          select: { code: true, name: true },
-        });
+        const [brandRows, classRows] = await Promise.all([
+          this.prisma.productBrand.findMany({
+            where: { tenantId: user.tenantId },
+            select: { code: true, name: true },
+          }),
+          this.prisma.productClass.findMany({
+            where: { tenantId: user.tenantId },
+            select: { code: true, name: true },
+          }),
+        ]);
         const brandCodeToName = new Map(brandRows.map((b) => [b.code, b.name]));
+        const classCodeToName = new Map(classRows.map((c) => [c.code.trim(), c.name]));
 
         let invoicesSynced = 0;
         let paymentsSynced = 0;
@@ -128,7 +135,7 @@ export class SourceController {
               tenantExternalId,
               rangeFrom,
               rangeTo,
-              { fullRange, brandCodeToName },
+              { fullRange, brandCodeToName, classCodeToName },
             );
             countInvoices = result.synced;
             invoicesSynced += result.synced;

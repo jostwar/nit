@@ -13,6 +13,14 @@ type AiResponse = {
 export class AiService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Normaliza texto para matching sin depender de tildes (crecio/creció, mas/más). */
+  private normalizeQuery(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+  }
+
   async answer(
     tenantId: string,
     question: string,
@@ -22,7 +30,7 @@ export class AiService {
     optionalCity?: string,
     optionalVendor?: string,
   ): Promise<AiResponse> {
-    const q = question.toLowerCase();
+    const q = this.normalizeQuery(question);
     const filters = this.mergeFilters(this.extractFilters(question), {
       city: optionalCity,
       vendor: optionalVendor,
@@ -38,12 +46,11 @@ export class AiService {
       return this.customerSummary(tenantId, optionalCustomerId, from, to);
     }
 
-    // Marcas: más vendida, menos vendida, que más venta perdió, o clientes que dejaron de comprar
+    // Marcas: más vendida, menos vendida, que más venta perdió (q ya sin tildes)
     if (q.includes('marca')) {
       if (
-        q.includes('más vendida') ||
         q.includes('mas vendida') ||
-        q.includes('más vendió') ||
+        q.includes('mas vendio') ||
         q.includes('top marcas') ||
         q.includes('top marca') ||
         q.includes('marca top') ||
@@ -53,44 +60,41 @@ export class AiService {
       }
       if (
         q.includes('menos vendida') ||
-        q.includes('menos vendió') ||
+        q.includes('menos vendio') ||
         q.includes('que menos')
       ) {
         return this.bottomBrands(tenantId, from, to, filters);
       }
       if (
-        q.includes('más venta perdió') ||
-        q.includes('mas venta perdió') ||
-        q.includes('más perdió') ||
-        q.includes('que más perdió')
+        q.includes('mas venta perdio') ||
+        q.includes('mas perdio') ||
+        q.includes('que mas perdio')
       ) {
         return this.brandMostLost(tenantId, from, to, filters);
       }
       return this.brandLost(tenantId, from, to);
     }
 
-    // Vendedores: que más creció, que más vendió, que menos vendió
+    // Vendedores: que más creció, que más vendió, que menos vendió (q ya sin tildes)
     if (q.includes('vendedor')) {
       if (
-        q.includes('más creció') ||
-        q.includes('mas creció') ||
-        q.includes('más crecimiento') ||
-        q.includes('mejor crecimiento')
+        q.includes('mas crecio') ||
+        q.includes('mas crecimiento') ||
+        q.includes('mejor crecimiento') ||
+        q.includes('que mas crecio')
       ) {
         return this.topVendorGrowth(tenantId, from, to, filters);
       }
       if (
         q.includes('menor venta') ||
-        q.includes('menos vendió') ||
+        q.includes('menos vendio') ||
         q.includes('menos ventas') ||
-        q.includes('que menos vendió')
+        q.includes('que menos vendio')
       ) {
         return this.bottomVendors(tenantId, from, to, filters);
       }
       if (
-        q.includes('más vendió') ||
-        q.includes('mas vendió') ||
-        q.includes('más ventas') ||
+        q.includes('mas vendio') ||
         q.includes('mas ventas') ||
         q.includes('mejor vendedor') ||
         q.includes('top vendedor')
@@ -99,15 +103,14 @@ export class AiService {
       }
     }
 
-    if (q.includes('caida') || q.includes('caída') || q.includes('drop')) {
+    if (q.includes('caida') || q.includes('drop')) {
       return this.topDrop(tenantId, from, to);
     }
 
-    // Productos: más vendido, top productos
+    // Productos: más vendido, top productos (q ya sin tildes)
     if (
       q.includes('producto') &&
-      (q.includes('más vendido') ||
-        q.includes('mas vendido') ||
+      (q.includes('mas vendido') ||
         q.includes('top producto') ||
         q.includes('mejor producto'))
     ) {

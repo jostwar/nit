@@ -57,6 +57,15 @@ type CustomerTask = {
   actionLabel: string;
 };
 
+type TipomovRow = {
+  documentType: string;
+  concept: string;
+  sign: string;
+  count: number;
+  totalSigned: number;
+  unitsSigned: number;
+};
+
 const DASHBOARD_LOADING_END = "dashboard-loading-end";
 
 export default function DashboardPage() {
@@ -65,6 +74,7 @@ export default function DashboardPage() {
   const [salesByClass, setSalesByClass] = useState<
     Array<{ classCode: string; className: string; totalSales: number; count: number }>
   >([]);
+  const [tipomov, setTipomov] = useState<TipomovRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -144,6 +154,18 @@ export default function DashboardPage() {
         }
       });
   }, [query, refreshKey]);
+
+  useEffect(() => {
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (!from || !to) {
+      setTipomov([]);
+      return;
+    }
+    apiGet<TipomovRow[]>(`/dashboard/tipomov?from=${from}&to=${to}`)
+      .then(setTipomov)
+      .catch(() => setTipomov([]));
+  }, [searchParams, refreshKey]);
 
   useEffect(() => {
     const loadTasks = async () => {
@@ -308,6 +330,50 @@ export default function DashboardPage() {
           })}
         </p>
       )}
+
+      {tipomov.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">TIPOMOV (validar contra ERP)</CardTitle>
+            <p className="text-xs text-slate-500 font-normal">
+              Totales por tipo de documento en el rango seleccionado.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 pr-4">Código</th>
+                    <th className="text-left py-2 pr-4">Concepto</th>
+                    <th className="text-left py-2 pr-4">SUMA/RESTA</th>
+                    <th className="text-right py-2 pr-4">Facturas</th>
+                    <th className="text-right py-2 pr-4">Total (COP)</th>
+                    <th className="text-right py-2">Unidades</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tipomov.map((row) => (
+                    <tr key={row.documentType} className="border-b border-slate-100">
+                      <td className="py-2 pr-4 font-mono">{row.documentType}</td>
+                      <td className="py-2 pr-4">{row.concept}</td>
+                      <td className="py-2 pr-4">
+                        <span className={row.sign === "RESTA" ? "text-red-600" : "text-slate-700"}>
+                          {row.sign}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-right">{row.count.toLocaleString("es-CO")}</td>
+                      <td className="py-2 pr-4 text-right">{formatCop(row.totalSigned)}</td>
+                      <td className="py-2 text-right">{row.unitsSigned.toLocaleString("es-CO")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
           <Card key={card.label}>

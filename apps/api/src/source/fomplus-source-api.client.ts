@@ -519,11 +519,47 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return map;
   }
 
+  /** Carga mapa referencia → clase (código) desde CSV (scripts/ref-class-mapping.csv). Formato: referencia,clase o ref,codclase (primera fila puede ser cabecera). */
+  private loadRefClassMapFromCsv(): Map<string, string> {
+    const map = new Map<string, string>();
+    const envPath = process.env.SOURCE_REF_CLASS_CSV_PATH?.trim();
+    const candidates = envPath
+      ? [path.resolve(envPath)]
+      : [
+          path.resolve(process.cwd(), 'scripts', 'ref-class-mapping.csv'),
+          path.resolve(process.cwd(), '..', '..', 'scripts', 'ref-class-mapping.csv'),
+        ];
+    let content: string | null = null;
+    for (const filePath of candidates) {
+      try {
+        if (fs.existsSync(filePath)) {
+          content = fs.readFileSync(filePath, 'utf-8');
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!content) return map;
+    const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const header = lines[0]?.toLowerCase() ?? '';
+    const skipFirst =
+      header.includes('referencia') || header.includes('ref') || header.includes('clase') || header.includes('codclase');
+    const start = skipFirst ? 1 : 0;
+    for (let i = start; i < lines.length; i++) {
+      const parts = lines[i].split(/[,;\t]/).map((p) => p.replace(/^"|"$/g, '').trim());
+      const ref = this.normalizeRef(parts[0]);
+      const classCode = parts[1]?.trim();
+      if (ref && classCode) map.set(ref, classCode);
+    }
+    return map;
+  }
+
   private async fetchInventoryMaps(
     tenantExternalId: string,
   ): Promise<{ brandMap: Map<string, string>; classMap: Map<string, string> }> {
     const brandMap = this.loadRefBrandMapFromCsv();
-    const classMap = new Map<string, string>();
+    const classMap = this.loadRefClassMapFromCsv();
     if (!this.config.inventarioBaseUrl || !this.config.inventarioToken) {
       return { brandMap, classMap };
     }
@@ -561,7 +597,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         const brand = this.pick(record, brandKeys.length > 0 ? brandKeys : ['marca', 'brand']);
         const classCode = this.pick(record, classKeys.length > 0 ? classKeys : ['clase', 'codclase']);
         if (ref && brand && !brandMap.has(ref)) brandMap.set(ref, brand);
-        if (ref && classCode) classMap.set(ref, classCode);
+        if (ref && classCode && !classMap.has(ref)) classMap.set(ref, classCode);
       });
       return { brandMap, classMap };
     } catch {

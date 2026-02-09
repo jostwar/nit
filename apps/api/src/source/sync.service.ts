@@ -91,7 +91,11 @@ export class SyncService {
     tenantExternalId: string,
     from: string,
     to: string,
-    opts?: { fullRange?: boolean; brandCodeToName?: Map<string, string> },
+    opts?: {
+      fullRange?: boolean;
+      brandCodeToName?: Map<string, string>;
+      classCodeToName?: Map<string, string>;
+    },
   ) {
     const usePerCustomer =
       !opts?.fullRange &&
@@ -198,18 +202,25 @@ export class SyncService {
         where: { tenantId, invoiceId: saved.id },
       });
       const brandCodeToName = opts?.brandCodeToName;
+      const classCodeToName = opts?.classCodeToName;
       if (invoice.items.length > 0) {
         await this.prisma.invoiceItem.createMany({
           data: invoice.items.map((item) => {
             const brand =
               brandCodeToName?.get(item.brand) ?? item.brand;
+            const classCode = item.classCode?.trim() || null;
+            const className =
+              classCode && classCodeToName?.get(classCode)
+                ? classCodeToName.get(classCode)!
+                : classCode;
             return {
               tenantId,
               invoiceId: saved.id,
               productName: item.productName,
               brand,
               category: item.category,
-              classCode: item.classCode?.trim() || null,
+              classCode,
+              className: className ?? null,
               quantity: Math.round(item.quantity),
               unitPrice: item.unitPrice,
               total: item.total,

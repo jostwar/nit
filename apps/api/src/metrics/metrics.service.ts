@@ -596,4 +596,64 @@ export class MetricsService {
       count: Number(r.lineCount ?? 0),
     })).sort((a, b) => b.totalSales - a.totalSales);
   }
+
+  /** Tabla TIPOMOV para validar contra ERP: código, concepto, SUMA/RESTA, facturas, total. */
+  private static TIPOMOV_CONCEPTS: Record<string, string> = {
+    '01': 'Factura de venta',
+    '13': 'Factura de caja',
+    '04': 'Nota crédito a factura',
+    '06': 'Nota crédito independiente',
+    '15': 'Devolución independiente caja',
+  };
+
+  async getTipomovSummary(
+    tenantId: string,
+    from: Date,
+    to: Date,
+  ): Promise<
+    Array<{
+      documentType: string;
+      concept: string;
+      sign: string;
+      count: number;
+      totalSigned: number;
+      unitsSigned: number;
+    }>
+  > {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        documentType: string | null;
+        count: bigint;
+        totalSigned: string;
+        unitsSigned: string;
+      }>
+    >(Prisma.sql`
+      SELECT i."documentType",
+        COUNT(*)::bigint as count,
+        COALESCE(SUM(i."signedTotal"), 0)::text as "totalSigned",
+        COALESCE(SUM(i."signedUnits"), 0)::text as "unitsSigned"
+      FROM "Invoice" i
+      WHERE i."tenantId" = ${tenantId}
+        AND i."issuedAt" >= ${from}
+        AND i."issuedAt" <= ${to}
+      GROUP BY i."documentType"
+      ORDER BY i."documentType"
+    `);
+    const restaCodes = (process.env.SOURCE_VENTAS_TIPOMOV_RESTA ?? '04,06,15')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+    return rows.map((r) => {
+      const code = r.documentType?.trim() ?? 'N/A';
+      const isResta = restaCodes.includes(code);
+      return {
+        documentType: code,
+        concept: MetricsService.TIPOMOV_CONCEPTS[code] ?? 'Otro',
+        sign: isResta ? 'RESTA' : 'SUMA',
+        count: Number(r.count ?? 0),
+        totalSigned: Number(r.totalSigned ?? 0),
+        unitsSigned: Number(r.unitsSigned ?? 0),
+      };
+    });
+  }
 }
