@@ -42,10 +42,12 @@ export class CustomersService {
     city?: string,
     vendor?: string,
     brand?: string,
+    classFilter?: string,
   ) {
     const trimmedCity = city?.trim();
     const trimmedVendor = vendor?.trim();
     const trimmedBrand = brand?.trim();
+    const trimmedClass = classFilter?.trim();
     const key = [
       tenantId,
       search ?? '',
@@ -56,6 +58,7 @@ export class CustomersService {
       trimmedCity ?? '',
       trimmedVendor ?? '',
       trimmedBrand ?? '',
+      trimmedClass ?? '',
     ].join('|');
 
     return this.getCached(key, 30000, async () => {
@@ -76,6 +79,23 @@ export class CustomersService {
         if (scopedCustomerIds.length === 0) return [];
       }
 
+      let classCodes: string[] = [];
+      if (trimmedClass) {
+        const rows = await this.prisma.productClass.findMany({
+          where: {
+            tenantId,
+            OR: [
+              { name: { contains: trimmedClass, mode: 'insensitive' } },
+              { code: { contains: trimmedClass, mode: 'insensitive' } },
+              { code: { equals: trimmedClass } },
+            ],
+          },
+          select: { code: true },
+        });
+        classCodes = rows.map((r) => r.code.trim()).filter(Boolean);
+        if (classCodes.length === 0) classCodes = [trimmedClass];
+      }
+
       let brandCustomerIds: string[] | null = null;
       if (trimmedBrand) {
         const brandRows = await this.prisma.invoice.groupBy({
@@ -91,10 +111,33 @@ export class CustomersService {
         if (brandCustomerIds.length === 0) return [];
       }
 
+      let classCustomerIds: string[] | null = null;
+      if (classCodes.length > 0) {
+        const classRows = await this.prisma.invoice.groupBy({
+          by: ['customerId'],
+          where: {
+            tenantId,
+            issuedAt: { gte: from, lte: to },
+            items: { some: { classCode: { in: classCodes } } },
+            ...(scopedCustomerIds ? { customerId: { in: scopedCustomerIds } } : {}),
+          },
+        });
+        classCustomerIds = classRows.map((row) => row.customerId);
+        if (classCustomerIds.length === 0) return [];
+      }
+
+      const idFilter =
+        brandCustomerIds && classCustomerIds
+          ? { id: { in: brandCustomerIds.filter((id) => classCustomerIds!.includes(id)) } }
+          : brandCustomerIds
+            ? { id: { in: brandCustomerIds } }
+            : classCustomerIds
+              ? { id: { in: classCustomerIds } }
+              : {};
       const customers = await this.prisma.customer.findMany({
         where: {
           tenantId,
-          ...(brandCustomerIds ? { id: { in: brandCustomerIds } } : {}),
+          ...idFilter,
           ...(trimmedCity ? { city: { contains: trimmedCity, mode: 'insensitive' } } : {}),
           ...(trimmedVendor
             ? { vendor: { contains: trimmedVendor, mode: 'insensitive' } }

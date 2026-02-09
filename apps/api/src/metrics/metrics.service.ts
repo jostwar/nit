@@ -62,7 +62,7 @@ export class MetricsService {
     return Array.from(values);
   }
 
-  /** Códigos de clase que coinciden con el nombre (filtro por clase). */
+  /** Códigos de clase que coinciden con el nombre o código (filtro por clase). Si no hay match en ProductClass, devuelve [trimmed] para permitir filtrar por código que existe en ítems. */
   private async getClassMatchCodes(tenantId: string, classFilter: string): Promise<string[]> {
     const trimmed = classFilter?.trim();
     if (!trimmed) return [];
@@ -72,11 +72,14 @@ export class MetricsService {
         OR: [
           { name: { contains: trimmed, mode: 'insensitive' } },
           { code: { contains: trimmed, mode: 'insensitive' } },
+          { code: { equals: trimmed } },
         ],
       },
       select: { code: true },
     });
-    return rows.map((r) => r.code.trim()).filter(Boolean);
+    const codes = rows.map((r) => r.code.trim()).filter(Boolean);
+    if (codes.length > 0) return codes;
+    return [trimmed];
   }
 
   /** Condición Prisma para filtro por clase (solo el item). */
@@ -390,7 +393,8 @@ export class MetricsService {
         vendors,
         brandFromTable,
         brandsFromItems,
-        classesFromTable,
+        productClassRows,
+        classCodesFromItems,
       ] =
         await Promise.all([
           this.prisma.customer
@@ -445,20 +449,37 @@ export class MetricsService {
               .filter((b): b is string => b != null && b.trim() !== '')
               .sort((a, b) => a.localeCompare(b, 'es')),
           ),
-          this.prisma.productClass
-            .findMany({
-              where: { tenantId },
-              select: { name: true },
-              orderBy: { name: 'asc' },
-            })
-            .then((rows) => rows.map((r) => r.name).filter((n) => n?.trim())),
-        ]);
+        this.prisma.productClass.findMany({
+          where: { tenantId },
+          select: { code: true, name: true },
+          orderBy: { name: 'asc' },
+        }),
+        this.prisma.invoiceItem
+          .groupBy({
+            by: ['classCode'],
+            where: { tenantId, classCode: { not: null } },
+          })
+          .then((rows) =>
+            rows
+              .map((r) => r.classCode)
+              .filter((c): c is string => c != null && c.trim() !== ''),
+          ),
+      ]);
       const cities = [
         ...new Set([...citiesFromCustomer, ...citiesFromInvoice]),
       ].sort((a, b) => a.localeCompare(b, 'es'));
       const brands =
         brandFromTable.length > 0 ? brandFromTable : [...new Set(brandsFromItems)];
-      const classes = [...new Set(classesFromTable)].sort((a, b) => a.localeCompare(b, 'es'));
+      const classCodeToName = new Map(
+        productClassRows.map((r) => [r.code.trim(), r.name?.trim() ?? r.code]),
+      );
+      const classDisplayNames = new Set(
+        productClassRows.map((r) => r.name?.trim()).filter((n): n is string => !!n),
+      );
+      classCodesFromItems.forEach((code) => {
+        classDisplayNames.add(classCodeToName.get(code) ?? code);
+      });
+      const classes = Array.from(classDisplayNames).sort((a, b) => a.localeCompare(b, 'es'));
       return { cities, vendors, brands, classes };
     });
   }

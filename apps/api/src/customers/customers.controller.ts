@@ -19,6 +19,7 @@ export class CustomersController {
     @Query('city') city?: string,
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
+    @Query('class') classFilter?: string,
   ) {
     const range = parseRange(from, to);
     const parsedPage = page ? parseInt(page, 10) : NaN;
@@ -41,6 +42,7 @@ export class CustomersController {
       city,
       vendor,
       brand,
+      classFilter,
     );
   }
 
