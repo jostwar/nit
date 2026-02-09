@@ -1,4 +1,6 @@
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
 import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment } from './source-api.client';
 
@@ -482,12 +484,48 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
   }
 
+  /** Carga mapa referencia → marca desde CSV (scripts/ref-brand-mapping.csv). Formato: referencia,marca o ref,marca (primera fila puede ser cabecera). */
+  private loadRefBrandMapFromCsv(): Map<string, string> {
+    const map = new Map<string, string>();
+    const envPath = process.env.SOURCE_REF_BRAND_CSV_PATH?.trim();
+    const candidates = envPath
+      ? [path.resolve(envPath)]
+      : [
+          path.resolve(process.cwd(), 'scripts', 'ref-brand-mapping.csv'),
+          path.resolve(process.cwd(), '..', '..', 'scripts', 'ref-brand-mapping.csv'),
+        ];
+    let content: string | null = null;
+    for (const filePath of candidates) {
+      try {
+        if (fs.existsSync(filePath)) {
+          content = fs.readFileSync(filePath, 'utf-8');
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!content) return map;
+    const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const header = lines[0]?.toLowerCase() ?? '';
+    const skipFirst = header.includes('referencia') || header.includes('ref') || header.includes('marca');
+    const start = skipFirst ? 1 : 0;
+    for (let i = start; i < lines.length; i++) {
+      const parts = lines[i].split(/[,;\t]/).map((p) => p.replace(/^"|"$/g, '').trim());
+      const ref = this.normalizeRef(parts[0]);
+      const brand = parts[1]?.trim();
+      if (ref && brand) map.set(ref, brand);
+    }
+    return map;
+  }
+
   private async fetchInventoryMaps(
     tenantExternalId: string,
   ): Promise<{ brandMap: Map<string, string>; classMap: Map<string, string> }> {
-    const empty = { brandMap: new Map<string, string>(), classMap: new Map<string, string>() };
+    const brandMap = this.loadRefBrandMapFromCsv();
+    const classMap = new Map<string, string>();
     if (!this.config.inventarioBaseUrl || !this.config.inventarioToken) {
-      return empty;
+      return { brandMap, classMap };
     }
     try {
       const fecha = new Date().toISOString().slice(0, 10);
@@ -508,8 +546,6 @@ export class FomplusSourceApiClient implements SourceApiClient {
         },
       );
       const records = this.extractRecords(xml);
-      const brandMap = new Map<string, string>();
-      const classMap = new Map<string, string>();
       const brandKeys = (process.env.SOURCE_INVENTARIO_BRAND_FIELDS ?? 'MARCA,marca,nommar,nommarca,brand')
         .split(',')
         .map((k) => k.trim())
@@ -524,12 +560,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
         );
         const brand = this.pick(record, brandKeys.length > 0 ? brandKeys : ['marca', 'brand']);
         const classCode = this.pick(record, classKeys.length > 0 ? classKeys : ['clase', 'codclase']);
-        if (ref && brand) brandMap.set(ref, brand);
+        if (ref && brand && !brandMap.has(ref)) brandMap.set(ref, brand);
         if (ref && classCode) classMap.set(ref, classCode);
       });
       return { brandMap, classMap };
     } catch {
-      return empty;
+      return { brandMap, classMap };
     }
   }
 
@@ -556,6 +592,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const balance = this.toNumber(this.pick(record, ['saldo'])) ?? undefined;
       const dueAt = this.normalizeDate(this.pick(record, ['fecven', 'fechaven', 'fechavenc']));
       const overdueDays = this.toNumber(this.pick(record, ['daiaven'])) ?? undefined;
+      const creditLimit = this.toNumber(
+        this.pick(record, ['cupo', 'cupocredito', 'credito', 'creditlimit', 'cupo_credito', 'limite']),
+      );
       if (!customerNit) continue;
       payments.push({
         externalId:
@@ -569,6 +608,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         balance,
         dueAt,
         overdueDays: overdueDays ?? undefined,
+        creditLimit: creditLimit != null && creditLimit >= 0 ? creditLimit : undefined,
       });
     }
     return payments;

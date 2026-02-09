@@ -264,7 +264,13 @@ export class SyncService {
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
     const creditMap = new Map<
       string,
-      { balance: number; overdue: number; overdueDaysSum: number; overdueCount: number }
+      {
+        balance: number;
+        overdue: number;
+        overdueDaysSum: number;
+        overdueCount: number;
+        creditLimit?: number;
+      }
     >();
     let synced = 0;
     const processPayment = async (payment: {
@@ -277,6 +283,7 @@ export class SyncService {
       balance?: number;
       dueAt?: string;
       overdueDays?: number;
+      creditLimit?: number;
     }) => {
       const normalizedNit = this.normalizeNit(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) return 0;
@@ -310,6 +317,9 @@ export class SyncService {
           summary.overdue += balance;
           summary.overdueDaysSum += overdueDays;
           summary.overdueCount += 1;
+        }
+        if (payment.creditLimit != null && payment.creditLimit >= 0) {
+          summary.creditLimit = summary.creditLimit ?? payment.creditLimit;
         }
         creditMap.set(customer.id, summary);
       }
@@ -380,17 +390,19 @@ export class SyncService {
     for (const [customerId, summary] of creditMap.entries()) {
       const dsoDays =
         summary.overdueCount > 0 ? Math.round(summary.overdueDaysSum / summary.overdueCount) : 0;
+      const creditLimit = summary.creditLimit ?? 0;
       await this.prisma.credit.upsert({
         where: { customerId },
         update: {
           balance: summary.balance,
           overdue: summary.overdue,
           dsoDays,
+          ...(summary.creditLimit !== undefined ? { creditLimit: summary.creditLimit } : {}),
         },
         create: {
           tenantId,
           customerId,
-          creditLimit: 0,
+          creditLimit,
           balance: summary.balance,
           overdue: summary.overdue,
           dsoDays,

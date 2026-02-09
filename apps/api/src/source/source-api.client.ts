@@ -34,6 +34,8 @@ export type SourcePayment = {
   balance?: number;
   dueAt?: string;
   overdueDays?: number;
+  /** Cupo / crédito autorizado (desde API cartera). */
+  creditLimit?: number;
 };
 
 export type SourceCustomer = {
