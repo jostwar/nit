@@ -328,9 +328,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
         ]),
         segment: this.pick(record, ['cli_nomsec', 'cli_sector', 'nomsec', 'sector', 'NOMSEC']),
         vendor: this.pick(record, ['cli_nomven', 'nomven', 'vendedor', 'cli_vended', 'vended']),
-        creditLimit: this.toNumber(
-          this.pick(record, ['cli_cupcre', 'cupcre', 'cupo', 'cupocredito', 'credito', 'limite', 'creditlimit']),
-        ),
+        creditLimit: (() => {
+          const v = this.toNumber(
+            this.pick(record, ['cli_cupcre', 'cupcre', 'cupo', 'cupocredito', 'credito', 'limite', 'creditlimit']),
+          );
+          return v != null && v >= 0 ? v : undefined;
+        })(),
       });
     }
     return customers;

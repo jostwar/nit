@@ -68,6 +68,7 @@ export class SyncService {
           city?: string;
           segment?: string;
           vendor?: string;
+          creditLimit?: number;
         }>
       >;
     },
