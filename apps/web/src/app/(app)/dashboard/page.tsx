@@ -336,7 +336,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base">TIPOMOV (validar contra ERP)</CardTitle>
             <p className="text-xs text-slate-500 font-normal">
-              Totales por tipo de documento en el rango seleccionado.
+              Totales por tipo de documento en el rango seleccionado. Ventas netas = SUMA − RESTA.
             </p>
           </CardHeader>
           <CardContent>
@@ -354,7 +354,10 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {tipomov.map((row) => (
-                    <tr key={row.documentType} className="border-b border-slate-100">
+                    <tr
+                      key={row.documentType}
+                      className={`border-b border-slate-100 ${row.documentType === "N/A" ? "bg-amber-50" : ""}`}
+                    >
                       <td className="py-2 pr-4 font-mono">{row.documentType}</td>
                       <td className="py-2 pr-4">{row.concept}</td>
                       <td className="py-2 pr-4">
@@ -370,6 +373,11 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+            {tipomov.some((r) => r.documentType === "N/A") && (
+              <p className="text-xs text-amber-700 mt-2">
+                Si aparece fila «N/A» con valores, el ERP no está enviando el campo TIPOMOV en GenerarInfoVentas. Esos registros se suman como SUMA. Revisa el nombre del campo en tu API y configúralo en <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_TIPOMOV_FIELDS</code> (ej. TIPOMOV,TIPMOV).
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

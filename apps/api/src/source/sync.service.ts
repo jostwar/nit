@@ -11,7 +11,7 @@ export class SyncService {
         tenantExternalId: string,
         from: string,
         to: string,
-        options?: { cedula?: string; vendor?: string },
+        options?: { cedula?: string; vendor?: string; tenantId?: string },
       ) => Promise<
         Array<{
           externalId: string;
@@ -233,7 +233,9 @@ export class SyncService {
     };
 
     if (!usePerCustomer) {
-      const invoices = await this.sourceApi.fetchInvoices(tenantExternalId, from, to);
+      const invoices = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
+        tenantId,
+      });
       if (invoices.length === 0) {
         return { synced: 0 };
       }
@@ -251,6 +253,7 @@ export class SyncService {
       const records = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
         cedula: customer.nit,
         vendor: customer.vendor ?? '',
+        tenantId,
       });
       for (const record of records) {
         synced += await processInvoice({

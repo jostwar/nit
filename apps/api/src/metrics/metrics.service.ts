@@ -480,7 +480,31 @@ export class MetricsService {
         classDisplayNames.add(classCodeToName.get(code) ?? code);
       });
       const classes = Array.from(classDisplayNames).sort((a, b) => a.localeCompare(b, 'es'));
-      return { cities, vendors, brands, classes };
+      const [totalItems, itemsWithBrand, itemsWithClass] = await Promise.all([
+        this.prisma.invoiceItem.count({ where: { tenantId } }),
+        this.prisma.invoiceItem.count({
+          where: { tenantId, brand: { notIn: ['', 'Sin marca'] } },
+        }),
+        this.prisma.invoiceItem.count({
+          where: { tenantId, classCode: { not: null } },
+        }),
+      ]);
+      const brandsFromItemsSet = new Set(brandsFromItems);
+      const brandsResolved =
+        brandsFromItemsSet.size > 0
+          ? Array.from(brandsFromItemsSet).sort((a, b) => a.localeCompare(b, 'es'))
+          : brandFromTable;
+      return {
+        cities,
+        vendors,
+        brands: brandsResolved,
+        classes,
+        itemDiagnostic: {
+          totalItems,
+          itemsWithBrand,
+          itemsWithClass,
+        },
+      };
     });
   }
 
@@ -643,17 +667,27 @@ export class MetricsService {
       .split(',')
       .map((c) => c.trim())
       .filter(Boolean);
-    return rows.map((r) => {
-      const code = r.documentType?.trim() ?? 'N/A';
-      const isResta = restaCodes.includes(code);
+    const mapped = rows.map((r) => {
+      const raw = r.documentType?.trim();
+      const code = raw ?? '__NULL__';
+      const isResta = code !== '__NULL__' && restaCodes.includes(code);
       return {
         documentType: code,
-        concept: MetricsService.TIPOMOV_CONCEPTS[code] ?? 'Otro',
+        concept:
+          code === '__NULL__'
+            ? 'Sin tipo (ERP no envía TIPOMOV)'
+            : MetricsService.TIPOMOV_CONCEPTS[code] ?? 'Otro',
         sign: isResta ? 'RESTA' : 'SUMA',
         count: Number(r.count ?? 0),
         totalSigned: Number(r.totalSigned ?? 0),
         unitsSigned: Number(r.unitsSigned ?? 0),
       };
     });
+    const withNull = mapped.filter((r) => r.documentType === '__NULL__');
+    const withoutNull = mapped.filter((r) => r.documentType !== '__NULL__');
+    return [
+      ...withoutNull.sort((a, b) => (a.documentType < b.documentType ? -1 : 1)),
+      ...withNull.map((r) => ({ ...r, documentType: 'N/A' })),
+    ];
   }
 }

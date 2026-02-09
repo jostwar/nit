@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
 import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment } from './source-api.client';
+import type { InventoryDirectoryService } from './inventory-directory.service';
 
 type FomplusConfig = {
   carteraBaseUrl: string;
@@ -17,6 +18,10 @@ type FomplusConfig = {
 type FlatRecord = Record<string, string | number | boolean | null | undefined>;
 
 export class FomplusSourceApiClient implements SourceApiClient {
+  constructor(
+    private readonly inventoryDirectory?: InventoryDirectoryService,
+  ) {}
+
   private readonly parser = new XMLParser({
     ignoreAttributes: false,
     trimValues: true,
@@ -39,7 +44,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     tenantExternalId: string,
     from: string,
     to: string,
-    options?: { cedula?: string; vendor?: string },
+    options?: { cedula?: string; vendor?: string; tenantId?: string },
   ): Promise<SourceInvoice[]> {
     const normalizedCedula = options?.cedula ? this.normalizeId(options.cedula) : '';
     const chunkDays = Number(process.env.SOURCE_VENTAS_CHUNK_DAYS ?? 7);
@@ -66,7 +71,10 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const records = this.extractRecords(xml);
       payload.push(...records);
     }
-    const { brandMap, classMap } = await this.fetchInventoryMaps(tenantExternalId);
+    const { brandMap, classMap } = await this.fetchInventoryMaps(
+      tenantExternalId,
+      options?.tenantId,
+    );
     return this.mapInvoices(payload, from, brandMap, classMap);
   }
 
@@ -345,13 +353,13 @@ export class FomplusSourceApiClient implements SourceApiClient {
   ): SourceInvoice[] {
     const grouped = new Map<string, SourceInvoice>();
     const tipomovKeys = (
-      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'tipomov,tipmov,tipo_mov,tipodoc,codmov'
+      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'TIPOMOV,TIPMOV,tipomov,tipmov,tipo_mov,tipodoc,codmov,cod_tipomov'
     )
       .split(',')
       .map((k) => k.trim())
       .filter(Boolean);
     records.forEach((record) => {
-      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['tipomov', 'tipmov', 'tipodoc']);
+      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['TIPOMOV', 'tipomov', 'tipmov', 'tipodoc']);
       const documentType = tipomovRaw ? String(tipomovRaw).trim() : undefined;
       const saleSign = this.saleSignFromTipomov(documentType);
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
@@ -557,9 +565,20 @@ export class FomplusSourceApiClient implements SourceApiClient {
 
   private async fetchInventoryMaps(
     tenantExternalId: string,
+    tenantId?: string,
   ): Promise<{ brandMap: Map<string, string>; classMap: Map<string, string> }> {
     const brandMap = this.loadRefBrandMapFromCsv();
     const classMap = this.loadRefClassMapFromCsv();
+    // Directorio en BD: REFER → MARCA, CLASE (prioridad sobre CSV y API inventario)
+    if (tenantId && this.inventoryDirectory) {
+      try {
+        const db = await this.inventoryDirectory.getRefBrandClassMap(tenantId);
+        db.brandMap.forEach((v, k) => brandMap.set(k, v));
+        db.classMap.forEach((v, k) => classMap.set(k, v));
+      } catch {
+        // sigue con CSV/API si falla
+      }
+    }
     if (!this.config.inventarioBaseUrl || !this.config.inventarioToken) {
       return { brandMap, classMap };
     }

@@ -55,7 +55,7 @@ export interface SourceApiClient {
     tenantExternalId: string,
     from: string,
     to: string,
-    options?: { cedula?: string; vendor?: string },
+    options?: { cedula?: string; vendor?: string; tenantId?: string },
   ): Promise<SourceInvoice[]>;
   fetchPayments(
     tenantExternalId: string,

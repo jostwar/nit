@@ -83,6 +83,11 @@ export function DateFilters() {
     vendors: string[];
     brands: string[];
     classes: string[];
+    itemDiagnostic?: {
+      totalItems: number;
+      itemsWithBrand: number;
+      itemsWithClass: number;
+    };
   } | null>(null);
   const lastSyncLabel = useMemo(() => {
     if (!lastSyncedAt) return "Última sincronización: pendiente";
@@ -221,6 +226,7 @@ export function DateFilters() {
           vendors: opts.vendors ?? [],
           brands: (opts.brands ?? []).length > 0 ? opts.brands ?? [] : (brandsRes.brands ?? []),
           classes: opts.classes ?? [],
+          itemDiagnostic: (opts as { itemDiagnostic?: { totalItems: number; itemsWithBrand: number; itemsWithClass: number } }).itemDiagnostic,
         }),
       )
       .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [] }));
@@ -416,6 +422,19 @@ export function DateFilters() {
         <span className="text-slate-400 text-xs">
           Primera vez: «Cargar datos históricos». Luego el sistema actualiza solo el día cada hora.
         </span>
+        {filterOptions?.itemDiagnostic &&
+          filterOptions.itemDiagnostic.totalItems > 0 &&
+          (filterOptions.itemDiagnostic.itemsWithBrand === 0 ||
+            filterOptions.itemDiagnostic.itemsWithClass === 0) && (
+            <span className="block text-amber-700 text-xs mt-1">
+              Para que los filtros de marca y clase muestren datos, las líneas deben tener marca y clase. Actualmente{" "}
+              {filterOptions.itemDiagnostic.itemsWithBrand.toLocaleString("es-CO")} de{" "}
+              {filterOptions.itemDiagnostic.totalItems.toLocaleString("es-CO")} ítems tienen marca;{" "}
+              {filterOptions.itemDiagnostic.itemsWithClass.toLocaleString("es-CO")} tienen clase. Sin subir CSV: que GenerarInfoVentas envíe MARCA y CLASE en cada línea (configura{" "}
+              <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_BRAND_FIELDS</code> y{" "}
+              <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_CLASS_FIELDS</code> en el servidor con los nombres de campo de tu API) o ten configurado el API de inventario para cruce por referencia. Luego ejecuta una sincronización.
+            </span>
+          )}
       </div>
 
       {/* Periodo a comparar (opcional) */}

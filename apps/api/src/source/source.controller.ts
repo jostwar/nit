@@ -1,9 +1,10 @@
-import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Put, Query } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SyncService } from './sync.service';
 import { SyncDto } from './dto/sync.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { InventoryDirectoryService } from './inventory-directory.service';
 import type { SourceApiClient } from './source-api.client';
 import { SOURCE_API_CLIENT } from './source.constants';
 
@@ -52,6 +53,7 @@ export class SourceController {
   constructor(
     private readonly syncService: SyncService,
     private readonly prisma: PrismaService,
+    private readonly inventoryDirectory: InventoryDirectoryService,
     @Inject(SOURCE_API_CLIENT) private readonly sourceApi: SourceApiClient,
   ) {}
 
@@ -309,5 +311,32 @@ export class SourceController {
       select: { code: true, name: true },
     });
     return { mappings: rows };
+  }
+
+  /** Directorio de inventario: REFER → MARCA, CLASE. Cruce con ítems de GenerarInfoVentas. */
+  @Get('inventory-directory')
+  @Roles('ADMIN', 'ANALYST')
+  async getInventoryDirectory(
+    @CurrentUser() user: { tenantId: string },
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const result = await this.inventoryDirectory.list(user.tenantId, {
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+    });
+    return result;
+  }
+
+  /** Carga o actualiza directorio (referencia, marca, clase). reference = REFER del producto. */
+  @Put('inventory-directory')
+  @Roles('ADMIN')
+  async putInventoryDirectory(
+    @CurrentUser() user: { tenantId: string },
+    @Body() body: { items: Array<{ reference: string; brand?: string; classCode?: string }> },
+  ) {
+    const items = body.items ?? [];
+    const result = await this.inventoryDirectory.upsertBulk(user.tenantId, items);
+    return { count: result.count };
   }
 }
