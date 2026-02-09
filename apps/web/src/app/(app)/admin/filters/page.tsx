@@ -11,6 +11,7 @@ const DEFAULT_FILTERS: Record<string, boolean> = {
   ai: true,
   adminUsers: true,
   adminFilters: true,
+  adminCatalog: true,
   adminReports: true,
 };
 
@@ -41,6 +42,7 @@ export default function AdminFiltersPage() {
       { key: "ai", label: "AI Copilot" },
       { key: "adminUsers", label: "Usuarios" },
       { key: "adminFilters", label: "Filtros de Apps" },
+      { key: "adminCatalog", label: "Catálogo referencias" },
       { key: "adminReports", label: "Reportes de Ventas" },
     ],
     [],

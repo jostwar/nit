@@ -13,6 +13,7 @@ const navItems = [
 const adminItems = [
   { key: "adminUsers", href: "/admin/users", label: "Usuarios" },
   { key: "adminFilters", href: "/admin/filters", label: "Filtros de Apps" },
+  { key: "adminCatalog", href: "/admin/catalog", label: "Catálogo referencias" },
   { key: "adminReports", href: "/admin/reports", label: "Reportes de Ventas" },
 ];
 
@@ -23,6 +24,7 @@ const DEFAULT_FILTERS: Record<string, boolean> = {
   ai: true,
   adminUsers: true,
   adminFilters: true,
+  adminCatalog: true,
   adminReports: true,
 };
 

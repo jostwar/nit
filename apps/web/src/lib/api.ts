@@ -211,3 +211,34 @@ export async function apiDelete<T>(path: string, retried = false): Promise<T> {
   if (!response.ok) throw new Error(`API error: ${response.status}`);
   return response.json();
 }
+
+/** Sube un archivo (multipart/form-data). Campo del archivo: "file". */
+export async function apiUploadFile<T = { count: number; message?: string }>(
+  path: string,
+  file: File,
+  retried = false,
+): Promise<T> {
+  const token = getAccessToken();
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (response.status === 401 && !retried) {
+    const refreshed = await doRefresh();
+    if (refreshed) return apiUploadFile<T>(path, file, true);
+    redirectToLogin();
+    throw new Error("Unauthorized");
+  }
+  if (response.status === 401 && retried) {
+    redirectToLogin();
+    throw new Error("Unauthorized");
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `API error: ${response.status}`);
+  }
+  return response.json();
+}
