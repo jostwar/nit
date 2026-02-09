@@ -82,16 +82,20 @@ export class MetricsService {
     return [trimmed];
   }
 
-  /** Condición Prisma para filtro por clase (solo el item). */
+  /** Condición Prisma para filtro por clase: por nombre (className) o código (classCode). */
   private async classItemCondition(
     tenantId: string,
     classFilter: string | undefined,
   ): Promise<Prisma.InvoiceItemWhereInput | null> {
-    const codes = classFilter?.trim()
-      ? await this.getClassMatchCodes(tenantId, classFilter.trim())
-      : [];
-    if (codes.length === 0) return null;
-    return { classCode: { in: codes } };
+    const trimmed = classFilter?.trim();
+    if (!trimmed) return null;
+    const codes = await this.getClassMatchCodes(tenantId, trimmed);
+    return {
+      OR: [
+        { className: { equals: trimmed } },
+        ...(codes.length > 0 ? [{ classCode: { in: codes } }] : []),
+      ],
+    };
   }
 
   /** Condición Prisma para filtro por marca (solo el item). */
@@ -394,7 +398,7 @@ export class MetricsService {
         _brandFromTable,
         brandsFromItems,
         productClassRows,
-        classCodesFromItems,
+        classesFromItems,
       ] =
         await Promise.all([
           this.prisma.customer
@@ -448,16 +452,19 @@ export class MetricsService {
           select: { code: true, name: true },
           orderBy: { name: 'asc' },
         }),
-        this.prisma.invoiceItem
-          .groupBy({
+        Promise.all([
+          this.prisma.invoiceItem.groupBy({
+            by: ['className'],
+            where: { tenantId, className: { not: null } },
+          }),
+          this.prisma.invoiceItem.groupBy({
             by: ['classCode'],
             where: { tenantId, classCode: { not: null } },
-          })
-          .then((rows) =>
-            rows
-              .map((r) => r.classCode)
-              .filter((c): c is string => c != null && c.trim() !== ''),
-          ),
+          }),
+        ]).then(([byName, byCode]) => ({
+          names: byName.map((r) => r.className).filter((c): c is string => c != null && c.trim() !== ''),
+          codes: byCode.map((r) => r.classCode).filter((c): c is string => c != null && c.trim() !== ''),
+        })),
       ]);
       const cities = [
         ...new Set([...citiesFromCustomer, ...citiesFromInvoice]),
@@ -465,20 +472,25 @@ export class MetricsService {
       const classCodeToName = new Map(
         productClassRows.map((r) => [r.code.trim(), r.name?.trim() ?? r.code]),
       );
-      const classDisplayNames = new Set(
-        productClassRows.map((r) => r.name?.trim()).filter((n): n is string => !!n),
-      );
-      classCodesFromItems.forEach((code) => {
+      const classDisplayNames = new Set<string>();
+      productClassRows.forEach((r) => {
+        const n = r.name?.trim();
+        if (n) classDisplayNames.add(n);
+      });
+      classesFromItems.names.forEach((name) => {
+        if (name && name !== '(SIN MAPEO)') classDisplayNames.add(name);
+      });
+      classesFromItems.codes.forEach((code) => {
         classDisplayNames.add(classCodeToName.get(code) ?? code);
       });
-      const classes = Array.from(classDisplayNames).sort((a, b) => a.localeCompare(b, 'es'));
+      const classes = Array.from(classDisplayNames).filter((c) => c && c !== '(SIN MAPEO)').sort((a, b) => a.localeCompare(b, 'es'));
       const [totalItems, itemsWithBrand, itemsWithClass] = await Promise.all([
         this.prisma.invoiceItem.count({ where: { tenantId } }),
         this.prisma.invoiceItem.count({
           where: { tenantId, brand: { notIn: ['', 'Sin marca'] } },
         }),
         this.prisma.invoiceItem.count({
-          where: { tenantId, classCode: { not: null } },
+          where: { tenantId, OR: [{ className: { not: null } }, { classCode: { not: null } }] },
         }),
       ]);
       // Marcas solo desde ítems (MARCA/REFER del sync). No usar ProductBrand para el filtro.
@@ -561,8 +573,10 @@ export class MetricsService {
     const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
     const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
     const classCond =
-      classCodes.length > 0
-        ? Prisma.sql` AND it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))})`
+      trimmedClass
+        ? classCodes.length > 0
+          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
+          : Prisma.sql` AND it."className" = ${trimmedClass}`
         : Prisma.empty;
     const brandCond =
       trimmedBrand ?
@@ -582,19 +596,19 @@ export class MetricsService {
         ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
         : Prisma.empty;
     const rows = await this.prisma.$queryRaw<
-      Array<{ classCode: string | null; totalSales: string; lineCount: bigint }>
+      Array<{ className: string | null; classCode: string | null; totalSales: string; lineCount: bigint }>
     >(Prisma.sql`
-      SELECT it."classCode",
+      SELECT it."className", it."classCode",
         SUM(it.total * i."saleSign")::text as "totalSales",
         COUNT(*)::bigint as "lineCount"
       FROM "InvoiceItem" it
       INNER JOIN "Invoice" i ON i.id = it."invoiceId"
       WHERE it."tenantId" = ${tenantId}
-        AND it."classCode" IS NOT NULL
+        AND (it."className" IS NOT NULL OR it."classCode" IS NOT NULL)
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
         ${cityCond}${vendorCond}${brandCond}${classCond}
-      GROUP BY it."classCode"
+      GROUP BY it."className", it."classCode"
       ORDER BY SUM(it.total * i."saleSign") DESC
     `);
     const codes = (rows.map((r) => r.classCode).filter(Boolean) ?? []) as string[];
@@ -608,7 +622,7 @@ export class MetricsService {
     }
     return rows.map((r) => ({
       classCode: r.classCode,
-      className: nameMap.get(r.classCode ?? '') ?? r.classCode ?? '',
+      className: (r.className?.trim() || nameMap.get(r.classCode ?? '') || r.classCode || '').trim(),
       totalSales: Number(r.totalSales ?? 0),
       count: Number(r.lineCount ?? 0),
     })).sort((a, b) => b.totalSales - a.totalSales);

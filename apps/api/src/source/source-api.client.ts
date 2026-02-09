@@ -17,6 +17,7 @@ export type SourceInvoice = {
     brand: string;
     category: string;
     classCode?: string;
+    className?: string; /// Nombre CLASE (para filtros/agrupación)
     quantity: number;
     unitPrice: number;
     total: number;

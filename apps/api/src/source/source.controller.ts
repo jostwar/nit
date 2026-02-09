@@ -363,7 +363,7 @@ export class SourceController {
   @Roles('ADMIN')
   async putInventoryDirectory(
     @CurrentUser() user: { tenantId: string },
-    @Body() body: { items: Array<{ reference: string; brand?: string; classCode?: string }> },
+    @Body() body: { items: Array<{ reference: string; brand?: string; classCode?: string; className?: string }> },
   ) {
     const items = body.items ?? [];
     const result = await this.inventoryDirectory.upsertBulk(user.tenantId, items);

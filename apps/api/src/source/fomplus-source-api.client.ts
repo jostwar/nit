@@ -435,6 +435,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         (productRef ? mappedClass : undefined) ||
         (productRef ? UNMAPPED_CLASS : undefined) ||
         undefined;
+      const className = mappedClass ?? classCode ?? undefined;
       if (productRef && (brand === UNMAPPED_BRAND || classCode === UNMAPPED_CLASS)) {
         unmappedRefsCount += 1;
       }
@@ -487,6 +488,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         brand,
         category,
         classCode,
+        className,
         quantity: resolvedQty,
         unitPrice: unitPrice ?? (resolvedQty > 0 ? resolvedTotal / resolvedQty : 0),
         total: resolvedTotal,

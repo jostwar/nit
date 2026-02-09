@@ -118,6 +118,7 @@ export class SyncService {
         brand: string;
         category: string;
         classCode?: string;
+        className?: string;
         quantity: number;
         unitPrice: number;
         total: number;
@@ -209,9 +210,9 @@ export class SyncService {
               brandCodeToName?.get(item.brand) ?? item.brand;
             const classCode = item.classCode?.trim() || null;
             const className =
-              classCode && classCodeToName?.get(classCode)
-                ? classCodeToName.get(classCode)!
-                : classCode;
+              item.className?.trim() ||
+              (classCode && classCodeToName?.get(classCode) ? classCodeToName.get(classCode)! : null) ||
+              classCode;
             return {
               tenantId,
               invoiceId: saved.id,

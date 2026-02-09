@@ -147,6 +147,8 @@ model InvoiceItem {
 
   @@index([tenantId])
   @@index([invoiceId])
+  @@index([tenantId, brand])
+  @@index([tenantId, className])
 }
 
 model ProductClass {
@@ -173,18 +175,21 @@ model ProductBrand {
   @@index([tenantId])
 }
 
-/// Directorio de inventario: REFER (referencia) → MARCA y CLASE. Cruce con ítems de GenerarInfoVentas.
+/// Catálogo de referencias: REFER → Nombre MARCA, Nombre CLASE. Cruce con GenerarInfoVentas.
 model InventoryDirectory {
-  id        String  @id @default(cuid())
-  tenantId  String
-  reference String  /// Referencia del producto (REFER); se normaliza mayúsculas para cruce
-  brand     String  /// MARCA
-  classCode String  /// CLASE (código)
+  id         String   @id @default(cuid())
+  tenantId   String
+  reference  String   /// refer_norm (REFER normalizado)
+  brand      String   /// Nombre MARCA (marca_nombre)
+  classCode  String?  /// CLASE código (opcional)
+  className  String?  /// Nombre CLASE (clase_nombre)
+  updatedAt  DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, reference])
   @@index([tenantId])
+  @@index([reference])
 }
 
 model Payment {
