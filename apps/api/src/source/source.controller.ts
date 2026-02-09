@@ -377,12 +377,12 @@ export class SourceController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadInventoryDirectoryCsv(
     @CurrentUser() user: { tenantId: string },
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: { buffer?: Buffer } | undefined,
   ) {
     if (!file) {
       return { error: 'No se recibió archivo. Envía multipart con campo "file".' };
     }
-    const buffer = (file as Express.Multer.File & { buffer?: Buffer }).buffer ?? file.buffer;
+    const buffer = file.buffer;
     const content = buffer ? buffer.toString('utf-8') : '';
     if (!content?.trim()) {
       return { error: 'El archivo está vacío.' };
