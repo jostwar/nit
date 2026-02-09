@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Logger, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { SyncService } from './sync.service';
@@ -79,6 +80,7 @@ export class SourceController {
     this.syncProgress.set(user.tenantId, { percent: 0, stage: 'Clientes', current: 0, total: 1 });
     this.logger.log(`[sync] Iniciando para tenant ${user.tenantId} | rango ${from} → ${to}`);
 
+    const syncStartedAt = Date.now();
     setImmediate(async () => {
       try {
         const customers = await this.syncService.syncCustomers(
@@ -113,6 +115,7 @@ export class SourceController {
 
         let invoicesSynced = 0;
         let paymentsSynced = 0;
+        let totalUnmappedRefs = 0;
         const errors: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> = [];
 
         const chunks = [...(byMonth ? monthChunks(safeFrom, safeTo) : dayChunks(safeFrom, safeTo))];
@@ -141,6 +144,7 @@ export class SourceController {
             );
             countInvoices = result.synced;
             invoicesSynced += result.synced;
+            totalUnmappedRefs += result.unmappedRefsCount ?? 0;
           } catch (error) {
             const msg = (error as Error).message ?? 'Error sincronizando ventas';
             errors.push({ date: label, stage: 'invoices', message: msg });
@@ -172,18 +176,30 @@ export class SourceController {
           }
         }
 
+        const syncDurationMs = Date.now() - syncStartedAt;
         this.logger.log(
-          `[sync] Listo ${user.tenantId}: clientes=${customers.synced}, ventas=${invoicesSynced}, cartera=${paymentsSynced}, errores=${errors.length}`,
+          `[sync] Listo ${user.tenantId}: clientes=${customers.synced}, ventas=${invoicesSynced}, cartera=${paymentsSynced}, unmappedRefs=${totalUnmappedRefs}, duración=${syncDurationMs}ms, errores=${errors.length}`,
         );
         await this.prisma.tenant.update({
           where: { id: user.tenantId },
-          data: { lastSyncAt: new Date() },
+          data: {
+            lastSyncAt: new Date(),
+            lastSyncDurationMs: syncDurationMs,
+            lastUnmappedRefsCount: totalUnmappedRefs,
+            lastSyncError: errors.length > 0 ? errors.map((e) => e.message).join('; ') : null,
+          },
         });
       } catch (error) {
-        this.logger.error(
-          `Sync failed for ${user.tenantId}: ${(error as Error).message ?? 'Unknown error'}`,
-          error as Error,
-        );
+        const errMsg = (error as Error).message ?? 'Unknown error';
+        this.logger.error(`Sync failed for ${user.tenantId}: ${errMsg}`, error as Error);
+        await this.prisma.tenant.update({
+          where: { id: user.tenantId },
+          data: {
+            lastSyncAt: new Date(),
+            lastSyncDurationMs: Date.now() - syncStartedAt,
+            lastSyncError: errMsg,
+          },
+        }).catch(() => {});
       } finally {
         this.runningTenants.delete(user.tenantId);
         this.syncProgress.delete(user.tenantId);
@@ -196,10 +212,15 @@ export class SourceController {
   @Get('sync/status')
   @Roles('ADMIN')
   async getSyncStatus(@CurrentUser() user: { tenantId: string }) {
-    const [tenant, minMax] = await Promise.all([
+    const [tenant, minMax, totalItems] = await Promise.all([
       this.prisma.tenant.findUnique({
         where: { id: user.tenantId },
-        select: { lastSyncAt: true },
+        select: {
+          lastSyncAt: true,
+          lastSyncDurationMs: true,
+          lastUnmappedRefsCount: true,
+          lastSyncError: true,
+        },
       }),
       this.prisma.invoice.aggregate({
         where: { tenantId: user.tenantId },
@@ -207,14 +228,23 @@ export class SourceController {
         _max: { issuedAt: true },
         _count: { _all: true },
       }),
+      this.prisma.invoiceItem.count({ where: { tenantId: user.tenantId } }),
     ]);
     const minDate = minMax._min?.issuedAt;
     const maxDate = minMax._max?.issuedAt;
     const running = this.runningTenants.has(user.tenantId);
     const progress = running ? this.syncProgress.get(user.tenantId) ?? null : null;
+    const unmappedPercent =
+      totalItems > 0 && (tenant?.lastUnmappedRefsCount ?? 0) > 0
+        ? Math.round(((tenant?.lastUnmappedRefsCount ?? 0) / totalItems) * 1000) / 10
+        : null;
     return {
       running,
       lastSyncedAt: tenant?.lastSyncAt?.toISOString() ?? null,
+      lastSyncDurationMs: tenant?.lastSyncDurationMs ?? null,
+      lastUnmappedRefsCount: tenant?.lastUnmappedRefsCount ?? null,
+      lastSyncError: tenant?.lastSyncError ?? null,
+      unmappedRefsPercent: unmappedPercent,
       dataCoverage: {
         earliestDate: minDate?.toISOString().slice(0, 10) ?? null,
         latestDate: maxDate?.toISOString().slice(0, 10) ?? null,
@@ -337,6 +367,35 @@ export class SourceController {
   ) {
     const items = body.items ?? [];
     const result = await this.inventoryDirectory.upsertBulk(user.tenantId, items);
-    return { count: result.count };
+    return { count: result.count, duplicateRefsLogged: result.duplicateRefsLogged };
+  }
+
+  /** Carga directorio desde CSV (columnas REFER, MARCA, CLASE). Última fila gana en duplicados. */
+  @Post('inventory-directory/upload')
+  @HttpCode(200)
+  @Roles('ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadInventoryDirectoryCsv(
+    @CurrentUser() user: { tenantId: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      return { error: 'No se recibió archivo. Envía multipart con campo "file".' };
+    }
+    const buffer = (file as Express.Multer.File & { buffer?: Buffer }).buffer ?? file.buffer;
+    const content = buffer ? buffer.toString('utf-8') : '';
+    if (!content?.trim()) {
+      return { error: 'El archivo está vacío.' };
+    }
+    const { items } = this.inventoryDirectory.parseCsvToDirectoryRows(content);
+    const result = await this.inventoryDirectory.upsertBulk(user.tenantId, items);
+    this.logger.log(
+      `[inventory-directory] CSV upload tenant=${user.tenantId} rows=${items.length} upserted=${result.count} duplicateRefsLogged=${result.duplicateRefsLogged}`,
+    );
+    return {
+      count: result.count,
+      duplicateRefsLogged: result.duplicateRefsLogged,
+      message: 'Catálogo actualizado. Las ventas se enriquecerán con MARCA/CLASE en el próximo sync.',
+    };
   }
 }

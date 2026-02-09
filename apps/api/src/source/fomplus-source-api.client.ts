@@ -2,8 +2,10 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
-import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment } from './source-api.client';
+import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment, FetchInvoicesResult } from './source-api.client';
 import type { InventoryDirectoryService } from './inventory-directory.service';
+import { normalizeCustomerId } from '../common/utils/customer-id.util';
+import { normalizeRefer, UNMAPPED_BRAND, UNMAPPED_CLASS } from '../common/utils/refer.util';
 
 type FomplusConfig = {
   carteraBaseUrl: string;
@@ -45,8 +47,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
     from: string,
     to: string,
     options?: { cedula?: string; vendor?: string; tenantId?: string },
-  ): Promise<SourceInvoice[]> {
-    const normalizedCedula = options?.cedula ? this.normalizeId(options.cedula) : '';
+  ): Promise<FetchInvoicesResult> {
+    const normalizedCedula = options?.cedula ? normalizeCustomerId(options.cedula) : '';
     const chunkDays = Number(process.env.SOURCE_VENTAS_CHUNK_DAYS ?? 7);
     const ranges = this.splitDateRange(from, to, Number.isFinite(chunkDays) ? chunkDays : 7);
     const payload: FlatRecord[] = [];
@@ -75,7 +77,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
       tenantExternalId,
       options?.tenantId,
     );
-    return this.mapInvoices(payload, from, brandMap, classMap);
+    return this.mapInvoicesWithUnmapped(payload, from, brandMap, classMap);
   }
 
   async fetchPayments(
@@ -138,10 +140,6 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return raw;
   }
 
-  private normalizeId(value?: string) {
-    if (!value) return '';
-    return value.replace(/[^\d]/g, '');
-  }
 
   private formatDateOnly(value: string | Date) {
     const date = value instanceof Date ? value : new Date(value);
@@ -295,7 +293,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
   private mapCustomers(records: FlatRecord[]): SourceCustomer[] {
     const customers: SourceCustomer[] = [];
     for (const record of records) {
-      const nit = this.pick(record, ['cli_cedula', 'nit', 'cedula', 'documento', 'idcliente']);
+      const nitRaw = this.pick(record, ['cli_cedula', 'nit', 'cedula', 'documento', 'idcliente']);
+      const nit = normalizeCustomerId(nitRaw);
       const name = this.pick(record, [
         'cli_nombre',
         'nombre',
@@ -345,13 +344,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return this.getTipomovRestaCodes().has(String(tipomov).trim()) ? -1 : 1;
   }
 
-  private mapInvoices(
+  private mapInvoicesWithUnmapped(
     records: FlatRecord[],
     fallbackDate: string,
     brandMap: Map<string, string>,
     classMap: Map<string, string> = new Map(),
-  ): SourceInvoice[] {
+  ): FetchInvoicesResult {
     const grouped = new Map<string, SourceInvoice>();
+    let unmappedRefsCount = 0;
     const tipomovKeys = (
       process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'TIPOMOV,TIPMOV,tipomov,tipmov,tipo_mov,tipodoc,codmov,cod_tipomov'
     )
@@ -377,8 +377,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const invoiceId =
         baseInvoiceId && prefijo ? `${prefijo}${baseInvoiceId}` : baseInvoiceId ||
         (prefijo && numdoc ? `${prefijo}${numdoc}` : '');
-      const nit =
+      const nitRaw =
         this.pick(record, ['cedula', 'nit', 'documentocliente', 'idcliente', 'nitcliente']) ?? '';
+      const nit = normalizeCustomerId(nitRaw);
       const customerName =
         this.pick(record, ['nomced', 'cliente', 'nombre', 'razonsocial']) ?? undefined;
       const issuedAt =
@@ -394,7 +395,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         this.pick(record, ['cantid', 'cantidad', 'unidades', 'cant', 'qty']),
       );
       const productRef =
-        this.normalizeRef(
+        normalizeRefer(
           this.pick(record, ['refer', 'referencia', 'codigo', 'codref']),
         ) || '';
       const productName =
@@ -422,15 +423,21 @@ export class FomplusSourceApiClient implements SourceApiClient {
       );
       const mappedBrand =
         productRef && brandMap.has(productRef) ? brandMap.get(productRef) : undefined;
+      const mappedClass =
+        productRef ? classMap.get(productRef) : undefined;
       const brand =
         brandFromRecord ??
         mappedBrand ??
-        (productRef ? 'Sin marca' : null) ??
+        (productRef ? UNMAPPED_BRAND : null) ??
         'Sin marca';
       const classCode =
         (classFromRecord ? String(classFromRecord).trim() : undefined) ||
-        (productRef ? classMap.get(productRef) : undefined) ||
+        (productRef ? mappedClass : undefined) ||
+        (productRef ? UNMAPPED_CLASS : undefined) ||
         undefined;
+      if (productRef && (brand === UNMAPPED_BRAND || classCode === UNMAPPED_CLASS)) {
+        unmappedRefsCount += 1;
+      }
       const category =
         this.pick(record, ['nomsec', 'categoria', 'linea', 'grupo', 'codsec']) ?? 'Sin categoría';
       const unitPrice = this.toNumber(
@@ -489,7 +496,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
       target.total += resolvedTotal;
       target.margin += margin;
     });
-    return Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
+    const invoices = Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
+    return { invoices, unmappedRefsCount };
   }
 
   /** Carga mapa referencia → marca desde CSV (scripts/ref-brand-mapping.csv). Formato: referencia,marca o ref,marca (primera fila puede ser cabecera). */
@@ -520,7 +528,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const start = skipFirst ? 1 : 0;
     for (let i = start; i < lines.length; i++) {
       const parts = lines[i].split(/[,;\t]/).map((p) => p.replace(/^"|"$/g, '').trim());
-      const ref = this.normalizeRef(parts[0]);
+      const ref = normalizeRefer(parts[0]);
       const brand = parts[1]?.trim();
       if (ref && brand) map.set(ref, brand);
     }
@@ -556,7 +564,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const start = skipFirst ? 1 : 0;
     for (let i = start; i < lines.length; i++) {
       const parts = lines[i].split(/[,;\t]/).map((p) => p.replace(/^"|"$/g, '').trim());
-      const ref = this.normalizeRef(parts[0]);
+      const ref = normalizeRefer(parts[0]);
       const classCode = parts[1]?.trim();
       if (ref && classCode) map.set(ref, classCode);
     }
@@ -610,7 +618,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         .map((k) => k.trim())
         .filter(Boolean);
       records.forEach((record) => {
-        const ref = this.normalizeRef(
+        const ref = normalizeRefer(
           this.pick(record, ['refer', 'referencia', 'codigo', 'codref']),
         );
         const brand = this.pick(record, brandKeys.length > 0 ? brandKeys : ['marca', 'brand']);
@@ -634,8 +642,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
   private mapPayments(records: FlatRecord[], fallbackDate: string): SourcePayment[] {
     const payments: SourcePayment[] = [];
     for (const record of records) {
-      const customerNit =
+      const customerNitRaw =
         this.pick(record, ['cedula', 'nit', 'documentocliente', 'nitcliente']) ?? '';
+      const customerNit = normalizeCustomerId(customerNitRaw);
       const customerName =
         this.pick(record, ['nomced', 'cliente', 'nombre', 'razonsocial']) ?? undefined;
       const paidAt =
@@ -667,12 +676,6 @@ export class FomplusSourceApiClient implements SourceApiClient {
       });
     }
     return payments;
-  }
-
-  /** Normaliza referencia para cruce inventario/ventas (trim + mayúsculas; mismo criterio en ambos APIs). */
-  private normalizeRef(ref: string | undefined): string {
-    if (!ref || typeof ref !== 'string') return '';
-    return ref.trim().toUpperCase();
   }
 
   private pick(record: FlatRecord, keys: string[]): string | undefined {

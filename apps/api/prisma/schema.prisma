@@ -24,11 +24,21 @@ enum AlertStatus {
   CLOSED
 }
 
+model SyncLock {
+  id        String    @id @default("global")
+  lockedAt  DateTime?
+  lockedBy  String?
+  createdAt DateTime  @default(now())
+}
+
 model Tenant {
-  id          String    @id @default(cuid())
-  name        String
-  lastSyncAt  DateTime?
-  createdAt   DateTime  @default(now())
+  id                    String    @id @default(cuid())
+  name                  String
+  lastSyncAt            DateTime?
+  lastSyncDurationMs    Int?      // duración último sync (ms)
+  lastUnmappedRefsCount Int?      // REFER sin mapeo en último sync (para %)
+  lastSyncError         String?   // último error para observabilidad
+  createdAt             DateTime  @default(now())
 
   users         User[]
   customers     Customer[]

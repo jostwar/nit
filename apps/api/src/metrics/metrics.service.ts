@@ -391,7 +391,7 @@ export class MetricsService {
         citiesFromCustomer,
         citiesFromInvoice,
         vendors,
-        brandFromTable,
+        _brandFromTable,
         brandsFromItems,
         productClassRows,
         classCodesFromItems,
@@ -428,13 +428,7 @@ export class MetricsService {
               .filter((v): v is string => v != null && v.trim() !== '')
               .sort((a, b) => a.localeCompare(b, 'es')),
           ),
-        this.prisma.productBrand
-          .findMany({
-            where: { tenantId },
-            select: { name: true },
-            orderBy: { name: 'asc' },
-          })
-          .then((rows) => rows.map((r) => r.name).filter((n) => n?.trim())),
+        Promise.resolve([] as string[]),
         this.prisma.invoiceItem
           .groupBy({
             by: ['brand'],
@@ -468,8 +462,6 @@ export class MetricsService {
       const cities = [
         ...new Set([...citiesFromCustomer, ...citiesFromInvoice]),
       ].sort((a, b) => a.localeCompare(b, 'es'));
-      const brands =
-        brandFromTable.length > 0 ? brandFromTable : [...new Set(brandsFromItems)];
       const classCodeToName = new Map(
         productClassRows.map((r) => [r.code.trim(), r.name?.trim() ?? r.code]),
       );
@@ -489,15 +481,16 @@ export class MetricsService {
           where: { tenantId, classCode: { not: null } },
         }),
       ]);
+      // Marcas solo desde ítems (MARCA/REFER del sync). No usar ProductBrand para el filtro.
       const brandsFromItemsSet = new Set(brandsFromItems);
-      const brandsResolved =
+      const brands =
         brandsFromItemsSet.size > 0
           ? Array.from(brandsFromItemsSet).sort((a, b) => a.localeCompare(b, 'es'))
-          : brandFromTable;
+          : [];
       return {
         cities,
         vendors,
-        brands: brandsResolved,
+        brands,
         classes,
         itemDiagnostic: {
           totalItems,

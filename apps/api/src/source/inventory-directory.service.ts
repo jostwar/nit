@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
-/** Normaliza referencia para cruce (trim + mayúsculas), igual que en ventas/inventario. */
-function normalizeRef(ref: string | undefined): string {
-  if (!ref || typeof ref !== 'string') return '';
-  return ref.trim().toUpperCase();
-}
+import { normalizeRefer } from '../common/utils/refer.util';
 
 @Injectable()
 export class InventoryDirectoryService {
@@ -25,7 +20,7 @@ export class InventoryDirectoryService {
     const brandMap = new Map<string, string>();
     const classMap = new Map<string, string>();
     for (const row of rows) {
-      const ref = normalizeRef(row.reference);
+      const ref = normalizeRefer(row.reference);
       if (ref) {
         if (row.brand?.trim()) brandMap.set(ref, row.brand.trim());
         if (row.classCode?.trim()) classMap.set(ref, row.classCode.trim());
@@ -37,15 +32,20 @@ export class InventoryDirectoryService {
   /**
    * Carga o actualiza el directorio de inventario (referencia → MARCA, CLASE).
    * reference = REFER del producto; se normaliza para cruce con ventas.
+   * Si una REFER viene repetida, última fila gana (upsert).
    */
   async upsertBulk(
     tenantId: string,
     items: Array<{ reference: string; brand?: string; classCode?: string }>,
-  ): Promise<{ count: number }> {
+  ): Promise<{ count: number; duplicateRefsLogged: number }> {
+    const seenRefs = new Set<string>();
+    let duplicateRefsLogged = 0;
     let count = 0;
     for (const item of items) {
-      const reference = normalizeRef(item.reference);
+      const reference = normalizeRefer(item.reference);
       if (!reference) continue;
+      if (seenRefs.has(reference)) duplicateRefsLogged++;
+      else seenRefs.add(reference);
       const brand = item.brand?.trim() ?? '';
       const classCode = item.classCode?.trim() ?? '';
       await this.prisma.inventoryDirectory.upsert({
@@ -57,7 +57,49 @@ export class InventoryDirectoryService {
       });
       count++;
     }
-    return { count };
+    return { count, duplicateRefsLogged };
+  }
+
+  /**
+   * Parsea CSV con columnas REFER, MARCA, CLASE (o nombres similares).
+   * Detecta cabecera; columnas extra se ignoran. Última fila gana para duplicados.
+   */
+  parseCsvToDirectoryRows(
+    csvContent: string,
+  ): { items: Array<{ reference: string; brand?: string; classCode?: string }>; duplicateRefsLogged: number } {
+    const lines = csvContent.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return { items: [], duplicateRefsLogged: 0 };
+    const sep = /[,;\t]/;
+    const findCol = (headerParts: string[], names: string[]): number => {
+      for (const name of names) {
+        const i = headerParts.findIndex((p) => p === name || p.replace(/\s/g, '') === name);
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const headerParts = lines[0].split(sep).map((p) => p.replace(/^"|"$/g, '').trim().toLowerCase());
+    const refCol = findCol(headerParts, ['refer', 'referencia', 'ref', 'codigo', 'codref']);
+    const brandCol = findCol(headerParts, ['marca', 'brand']);
+    const classCol = findCol(headerParts, ['clase', 'class', 'classcode', 'codclase']);
+    const hasHeader = refCol >= 0 || brandCol >= 0 || classCol >= 0;
+    const start = hasHeader ? 1 : 0;
+    const items: Array<{ reference: string; brand?: string; classCode?: string }> = [];
+    const seen = new Set<string>();
+    let duplicateRefsLogged = 0;
+    for (let i = start; i < lines.length; i++) {
+      const parts = lines[i].split(sep).map((p) => p.replace(/^"|"$/g, '').trim());
+      const ref = refCol >= 0 ? parts[refCol] : parts[0];
+      const reference = normalizeRefer(ref);
+      if (!reference) continue;
+      if (seen.has(reference)) duplicateRefsLogged++;
+      else seen.add(reference);
+      items.push({
+        reference,
+        brand: brandCol >= 0 ? parts[brandCol] : parts[1],
+        classCode: classCol >= 0 ? parts[classCol] : parts[2],
+      });
+    }
+    return { items, duplicateRefsLogged };
   }
 
   /** Lista entradas del directorio (paginado). */

@@ -50,13 +50,18 @@ export type SourceCustomer = {
   vendor?: string;
 };
 
+export type FetchInvoicesResult = {
+  invoices: SourceInvoice[];
+  unmappedRefsCount: number;
+};
+
 export interface SourceApiClient {
   fetchInvoices(
     tenantExternalId: string,
     from: string,
     to: string,
     options?: { cedula?: string; vendor?: string; tenantId?: string },
-  ): Promise<SourceInvoice[]>;
+  ): Promise<SourceInvoice[] | FetchInvoicesResult>;
   fetchPayments(
     tenantExternalId: string,
     from: string,

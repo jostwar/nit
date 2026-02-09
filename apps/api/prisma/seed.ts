@@ -55,7 +55,7 @@ async function main() {
     ),
   );
 
-  const brands = ['Andes', 'Pacifico', 'Selva', 'Norte'];
+  const brands = ['Marca A', 'Marca B', 'Marca C', 'Marca D'];
   const categories = ['Bebidas', 'Abarrotes', 'Limpieza', 'Snacks'];
 
   for (const customer of customers) {
@@ -187,9 +187,9 @@ async function main() {
       },
       {
         tenantId: tenant.id,
-        name: 'Marca perdida Andes',
+        name: 'Marca perdida Marca A',
         type: AlertRuleType.BRAND_LOST,
-        params: { brand: 'Andes' },
+        params: { brand: 'Marca A' },
         isActive: true,
       },
       {

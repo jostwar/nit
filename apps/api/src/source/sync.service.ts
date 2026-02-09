@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SOURCE_API_CLIENT } from './source.constants';
+import { normalizeCustomerId } from '../common/utils/customer-id.util';
+import type { FetchInvoicesResult } from './source-api.client';
 
 @Injectable()
 export class SyncService {
@@ -71,10 +73,6 @@ export class SyncService {
     },
   ) {}
 
-  private normalizeNit(value?: string) {
-    if (!value) return '';
-    return value.replace(/[^\d]/g, '');
-  }
 
   private isInvalidName(name?: string, nit?: string) {
     if (!name) return true;
@@ -96,12 +94,13 @@ export class SyncService {
       brandCodeToName?: Map<string, string>;
       classCodeToName?: Map<string, string>;
     },
-  ) {
+  ): Promise<{ synced: number; unmappedRefsCount: number }> {
     const usePerCustomer =
       !opts?.fullRange &&
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
     let synced = 0;
+    let unmappedRefsCount = 0;
     const processInvoice = async (invoice: {
       externalId: string;
       customerNit: string;
@@ -125,7 +124,7 @@ export class SyncService {
         margin: number;
       }>;
     }) => {
-      const normalizedNit = this.normalizeNit(invoice.customerNit) || invoice.customerNit;
+      const normalizedNit = normalizeCustomerId(invoice.customerNit) || invoice.customerNit;
       if (!normalizedNit || !invoice.externalId) return 0;
       const existingCustomer = await this.prisma.customer.findFirst({
         where: { tenantId, nit: normalizedNit },
@@ -232,17 +231,25 @@ export class SyncService {
       return 1;
     };
 
+    const unwrap = (r: Awaited<ReturnType<typeof this.sourceApi.fetchInvoices>>) => {
+      if (Array.isArray(r)) return { invoices: r, unmapped: 0 };
+      const res = r as FetchInvoicesResult;
+      return { invoices: res.invoices, unmapped: res.unmappedRefsCount ?? 0 };
+    };
+
     if (!usePerCustomer) {
-      const invoices = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
+      const result = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
         tenantId,
       });
+      const { invoices, unmapped } = unwrap(result);
+      unmappedRefsCount += unmapped;
       if (invoices.length === 0) {
-        return { synced: 0 };
+        return { synced: 0, unmappedRefsCount };
       }
       for (const invoice of invoices) {
         synced += await processInvoice(invoice);
       }
-      return { synced };
+      return { synced, unmappedRefsCount };
     }
 
     const customerList = await this.prisma.customer.findMany({
@@ -250,11 +257,13 @@ export class SyncService {
       select: { id: true, nit: true, vendor: true },
     });
     for (const customer of customerList) {
-      const records = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
+      const result = await this.sourceApi.fetchInvoices(tenantExternalId, from, to, {
         cedula: customer.nit,
         vendor: customer.vendor ?? '',
         tenantId,
       });
+      const { invoices: records, unmapped } = unwrap(result);
+      unmappedRefsCount += unmapped;
       for (const record of records) {
         synced += await processInvoice({
           ...record,
@@ -262,7 +271,7 @@ export class SyncService {
         });
       }
     }
-    return { synced };
+    return { synced, unmappedRefsCount };
   }
 
   async syncPayments(
@@ -299,7 +308,7 @@ export class SyncService {
       overdueDays?: number;
       creditLimit?: number;
     }) => {
-      const normalizedNit = this.normalizeNit(payment.customerNit) || payment.customerNit;
+      const normalizedNit = normalizeCustomerId(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) return 0;
       const existingCustomer = await this.prisma.customer.findFirst({
         where: { tenantId, nit: normalizedNit },
@@ -433,7 +442,7 @@ export class SyncService {
       return { synced: 0 };
     }
     for (const customer of customers) {
-      const normalizedNit = this.normalizeNit(customer.nit);
+      const normalizedNit = normalizeCustomerId(customer.nit);
       if (!normalizedNit) continue;
       const existing = await this.prisma.customer.findFirst({
         where: {
