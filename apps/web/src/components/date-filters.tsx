@@ -215,7 +215,7 @@ export function DateFilters() {
     }
   }, [defaultFrom, today, router, searchParams]);
 
-  useEffect(() => {
+  const fetchFilterOptions = () => {
     Promise.all([
       apiGet<{ cities: string[]; vendors: string[]; brands: string[]; classes: string[] }>("/dashboard/filter-options"),
       apiGet<{ brands: string[] }>("/source/inventory-brands").catch(() => ({ brands: [] })),
@@ -230,6 +230,18 @@ export function DateFilters() {
         }),
       )
       .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [] }));
+  };
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  useEffect(() => {
+    const onSyncCompleted = () => {
+      fetchFilterOptions();
+    };
+    window.addEventListener("sync-completed", onSyncCompleted);
+    return () => window.removeEventListener("sync-completed", onSyncCompleted);
   }, []);
 
   useEffect(() => {

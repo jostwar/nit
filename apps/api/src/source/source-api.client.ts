@@ -49,6 +49,8 @@ export type SourceCustomer = {
   city?: string;
   segment?: string;
   vendor?: string;
+  /** Cupo de crédito (CLI_CUPCRE desde ListadoClientes). */
+  creditLimit?: number;
 };
 
 export type FetchInvoicesResult = {

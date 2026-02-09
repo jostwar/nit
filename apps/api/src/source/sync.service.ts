@@ -465,7 +465,7 @@ export class SyncService {
       const safeName = this.isInvalidName(customer.name, normalizedNit)
         ? 'Cliente sin nombre'
         : customer.name.trim();
-      await this.prisma.customer.upsert({
+      const saved = await this.prisma.customer.upsert({
         where: { tenantId_nit: { tenantId, nit: normalizedNit } },
         update: {
           name: safeName,
@@ -482,6 +482,24 @@ export class SyncService {
           vendor: customer.vendor ?? undefined,
         },
       });
+      if (
+        customer.creditLimit != null &&
+        typeof customer.creditLimit === 'number' &&
+        customer.creditLimit >= 0
+      ) {
+        await this.prisma.credit.upsert({
+          where: { customerId: saved.id },
+          update: { creditLimit: customer.creditLimit },
+          create: {
+            tenantId,
+            customerId: saved.id,
+            creditLimit: customer.creditLimit,
+            balance: 0,
+            overdue: 0,
+            dsoDays: 0,
+          },
+        });
+      }
     }
     return { synced: customers.length };
   }

@@ -390,7 +390,7 @@ export class MetricsService {
 
   async getFilterOptions(tenantId: string) {
     const key = `filterOptions:${tenantId}`;
-    return this.getCached(key, 60000, async () => {
+    return this.getCached(key, 15000, async () => {
       const [
         citiesFromCustomer,
         citiesFromInvoice,
