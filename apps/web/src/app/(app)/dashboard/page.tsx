@@ -349,36 +349,30 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base">TIPMOV / TIPOMOV (validar contra ERP)</CardTitle>
             <p className="text-xs text-slate-500 font-normal">
-              Totales por tipo de documento en el rango seleccionado. Ventas netas = SUMA − RESTA.
+              Totales por tipo de documento en el rango seleccionado. El signo del monto indica si suma o resta.
             </p>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto opacity-100">
+              <table className="w-full text-sm text-slate-900">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th className="text-left py-2 pr-4">Código</th>
-                    <th className="text-left py-2 pr-4">Concepto</th>
-                    <th className="text-left py-2 pr-4">SUMA/RESTA</th>
-                    <th className="text-right py-2 pr-4">Facturas</th>
-                    <th className="text-right py-2 pr-4">Total (COP)</th>
-                    <th className="text-right py-2 pr-4">Unidades</th>
-                    <th className="text-left py-2 pl-2 w-24">Detalle</th>
+                    <th className="text-left py-2 pr-4 font-medium text-slate-900">Código</th>
+                    <th className="text-left py-2 pr-4 font-medium text-slate-900">Concepto</th>
+                    <th className="text-right py-2 pr-4 font-medium text-slate-900">Facturas</th>
+                    <th className="text-right py-2 pr-4 font-medium text-slate-900">Total (COP)</th>
+                    <th className="text-right py-2 pr-4 font-medium text-slate-900">Unidades</th>
+                    <th className="text-left py-2 pl-2 w-24 font-medium text-slate-900">Detalle</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tipomov.map((row) => (
                     <tr
                       key={row.documentType}
-                      className={`border-b border-slate-100 ${row.documentType === "N/A" ? "bg-amber-50" : ""}`}
+                      className={`border-b border-slate-100 text-slate-900 ${row.documentType === "N/A" ? "bg-amber-50" : ""}`}
                     >
                       <td className="py-2 pr-4 font-mono">{row.documentType}</td>
                       <td className="py-2 pr-4">{row.concept}</td>
-                      <td className="py-2 pr-4">
-                        <span className={row.sign === "RESTA" ? "text-red-600" : "text-slate-700"}>
-                          {row.sign}
-                        </span>
-                      </td>
                       <td className="py-2 pr-4 text-right">{row.count.toLocaleString("es-CO")}</td>
                       <td className="py-2 pr-4 text-right">{formatCop(row.totalSigned)}</td>
                       <td className="py-2 pr-4 text-right">{row.unitsSigned.toLocaleString("es-CO")}</td>
@@ -437,21 +431,21 @@ export default function DashboardPage() {
                   <p className="text-sm text-slate-500 mb-2">No hay facturas para este tipo en el rango seleccionado.</p>
                 )}
                 {tipomovDetail && tipomovDetail.length > 0 && (
-                  <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                    <table className="w-full text-sm">
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto opacity-100">
+                    <table className="w-full text-sm text-slate-900">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50 sticky top-0">
-                          <th className="text-left py-1.5 pr-3">Fecha</th>
-                          <th className="text-left py-1.5 pr-3">Nº factura</th>
-                          <th className="text-left py-1.5 pr-3">NIT cliente</th>
-                          <th className="text-left py-1.5 pr-3">Nombre cliente</th>
-                          <th className="text-right py-1.5 pr-3">Total (COP)</th>
-                          <th className="text-right py-1.5">Unidades</th>
+                          <th className="text-left py-1.5 pr-3 font-medium text-slate-900">Fecha</th>
+                          <th className="text-left py-1.5 pr-3 font-medium text-slate-900">Nº factura</th>
+                          <th className="text-left py-1.5 pr-3 font-medium text-slate-900">NIT cliente</th>
+                          <th className="text-left py-1.5 pr-3 font-medium text-slate-900">Nombre cliente</th>
+                          <th className="text-right py-1.5 pr-3 font-medium text-slate-900">Total (COP)</th>
+                          <th className="text-right py-1.5 font-medium text-slate-900">Unidades</th>
                         </tr>
                       </thead>
                       <tbody>
                         {tipomovDetail.map((d, idx) => (
-                          <tr key={`${d.fecha}-${d.invoiceNumber}-${idx}`} className="border-b border-slate-100">
+                          <tr key={`${d.fecha}-${d.invoiceNumber}-${idx}`} className="border-b border-slate-100 text-slate-900">
                             <td className="py-1.5 pr-3">{d.fecha}</td>
                             <td className="py-1.5 pr-3 font-mono">{d.invoiceNumber}</td>
                             <td className="py-1.5 pr-3 font-mono">{d.customerNit}</td>
