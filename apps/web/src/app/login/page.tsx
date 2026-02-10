@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function LoginPage() {
   }, []);
 
   const handleLogin = async () => {
+    setError(null);
     setLoading(true);
     try {
       const response = await apiPost<{ accessToken: string; refreshToken: string }>(
@@ -31,6 +33,15 @@ export default function LoginPage() {
       if (rememberMe) setSavedLoginEmail(email);
       else clearSavedLoginEmail();
       router.push("/dashboard");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error al conectar";
+      if (msg.includes("401") || msg.includes("Unauthorized") || msg.toLowerCase().includes("credential")) {
+        setError("Correo o contraseña incorrectos.");
+      } else if (msg.includes("fetch") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("conectar")) {
+        setError("No se pudo conectar a la API. Revisa que la API esté en marcha y CORS_ORIGIN en el servidor incluya esta URL (ej. http://tu-ip:3000).");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -71,6 +82,11 @@ export default function LoginPage() {
             />
             Recordarme (mantener sesión y recordar usuario)
           </label>
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
           <Button className="w-full" onClick={handleLogin} disabled={loading}>
             {loading ? "Validando..." : "Entrar"}
           </Button>
