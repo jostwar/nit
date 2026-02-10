@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Post, Body, Res, HttpStatus, HttpException } from '@nestjs/common';
-import { Response } from 'express';
+import * as express from 'express';
 import { CopilotService } from './copilot.service';
 import { CopilotAskDto } from './dto/copilot-ask.dto';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
@@ -44,8 +44,8 @@ export class CopilotController {
   async export(
     @TenantId() _tenantId: string,
     @Param('queryId') queryId: string,
-    @Res() res: Response,
-  ) {
+    @Res() res: express.Response,
+  ): Promise<void> {
     const tables = this.copilot.getExport(queryId);
     if (!tables || tables.length === 0) {
       return res.status(HttpStatus.NOT_FOUND).json({ message: 'Exportación no encontrada o expirada.' });
