@@ -739,8 +739,8 @@ export class MetricsService {
     return invoices.map((i) => ({
       fecha: i.issuedAt.toISOString().slice(0, 10),
       invoiceNumber: i.invoiceNumber,
-      customerNit: i.customer.nit,
-      customerName: i.customer.name,
+      customerNit: i.customer?.nit ?? '',
+      customerName: i.customer?.name ?? null,
       total: Number(i.signedTotal ?? 0),
       units: Number(i.signedUnits ?? 0),
     }));

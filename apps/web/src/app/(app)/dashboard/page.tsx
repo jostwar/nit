@@ -85,7 +85,9 @@ export default function DashboardPage() {
   >([]);
   const [tipomov, setTipomov] = useState<TipomovRow[]>([]);
   const [tipomovDetail, setTipomovDetail] = useState<TipomovDetailRow[] | null>(null);
+  const [tipomovDetailType, setTipomovDetailType] = useState<string | null>(null);
   const [tipomovDetailLoading, setTipomovDetailLoading] = useState(false);
+  const [tipomovDetailError, setTipomovDetailError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -360,7 +362,8 @@ export default function DashboardPage() {
                     <th className="text-left py-2 pr-4">SUMA/RESTA</th>
                     <th className="text-right py-2 pr-4">Facturas</th>
                     <th className="text-right py-2 pr-4">Total (COP)</th>
-                    <th className="text-right py-2">Unidades</th>
+                    <th className="text-right py-2 pr-4">Unidades</th>
+                    <th className="text-left py-2 pl-2 w-24">Detalle</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -378,14 +381,14 @@ export default function DashboardPage() {
                       </td>
                       <td className="py-2 pr-4 text-right">{row.count.toLocaleString("es-CO")}</td>
                       <td className="py-2 pr-4 text-right">{formatCop(row.totalSigned)}</td>
-                      <td className="py-2 text-right flex items-center justify-end gap-2">
-                        {row.unitsSigned.toLocaleString("es-CO")}
-                        {row.documentType === "N/A" && row.count > 0 && (
+                      <td className="py-2 pr-4 text-right">{row.unitsSigned.toLocaleString("es-CO")}</td>
+                      <td className="py-2 pl-2">
+                        {row.count > 0 && (
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="ml-2 h-7 text-xs"
+                            className="h-7 text-xs"
                             disabled={tipomovDetailLoading}
                             onClick={async () => {
                               const from = searchParams.get("from");
@@ -393,17 +396,22 @@ export default function DashboardPage() {
                               if (!from || !to) return;
                               setTipomovDetailLoading(true);
                               setTipomovDetail(null);
+                              setTipomovDetailType(row.documentType);
+                              setTipomovDetailError(null);
                               try {
                                 const data = await apiGet<TipomovDetailRow[]>(
-                                  `/dashboard/tipomov-detail?from=${from}&to=${to}&documentType=N/A`,
+                                  `/dashboard/tipomov-detail?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&documentType=${encodeURIComponent(row.documentType)}`,
                                 );
-                                setTipomovDetail(data);
+                                setTipomovDetail(Array.isArray(data) ? data : []);
+                              } catch (e) {
+                                setTipomovDetail([]);
+                                setTipomovDetailError(e instanceof Error ? e.message : "Error al cargar detalle");
                               } finally {
                                 setTipomovDetailLoading(false);
                               }
                             }}
                           >
-                            {tipomovDetailLoading ? "Cargando…" : "Ver detalle"}
+                            {tipomovDetailLoading ? "…" : "Ver detalle"}
                           </Button>
                         )}
                       </td>
@@ -417,43 +425,55 @@ export default function DashboardPage() {
                 Si aparece fila «N/A» con valores, el ERP no está enviando el campo TIPOMOV en GenerarInfoVentas. Esos registros se suman como SUMA. Revisa el nombre del campo en tu API y configúralo en <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_TIPOMOV_FIELDS</code> (ej. TIPOMOV,TIPMOV).
               </p>
             )}
-            {tipomovDetail && tipomovDetail.length > 0 && (
+            {(tipomovDetail !== null || tipomovDetailError) && (
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <p className="text-sm font-medium text-slate-700 mb-2">
-                  Detalle factura a factura (Sin tipo / N/A) — hasta 500 registros
+                  Detalle factura a factura {tipomovDetailType != null && `(${tipomovDetailType})`} — hasta 500 registros
                 </p>
-                <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 sticky top-0">
-                        <th className="text-left py-1.5 pr-3">Fecha</th>
-                        <th className="text-left py-1.5 pr-3">Nº factura</th>
-                        <th className="text-left py-1.5 pr-3">NIT cliente</th>
-                        <th className="text-left py-1.5 pr-3">Nombre cliente</th>
-                        <th className="text-right py-1.5 pr-3">Total (COP)</th>
-                        <th className="text-right py-1.5">Unidades</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tipomovDetail.map((d, idx) => (
-                        <tr key={`${d.fecha}-${d.invoiceNumber}-${idx}`} className="border-b border-slate-100">
-                          <td className="py-1.5 pr-3">{d.fecha}</td>
-                          <td className="py-1.5 pr-3 font-mono">{d.invoiceNumber}</td>
-                          <td className="py-1.5 pr-3 font-mono">{d.customerNit}</td>
-                          <td className="py-1.5 pr-3">{d.customerName ?? "—"}</td>
-                          <td className="py-1.5 pr-3 text-right">{formatCop(d.total)}</td>
-                          <td className="py-1.5 text-right">{d.units.toLocaleString("es-CO")}</td>
+                {tipomovDetailError && (
+                  <p className="text-sm text-red-600 mb-2">{tipomovDetailError}</p>
+                )}
+                {tipomovDetail !== null && tipomovDetail.length === 0 && !tipomovDetailError && (
+                  <p className="text-sm text-slate-500 mb-2">No hay facturas para este tipo en el rango seleccionado.</p>
+                )}
+                {tipomovDetail && tipomovDetail.length > 0 && (
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50 sticky top-0">
+                          <th className="text-left py-1.5 pr-3">Fecha</th>
+                          <th className="text-left py-1.5 pr-3">Nº factura</th>
+                          <th className="text-left py-1.5 pr-3">NIT cliente</th>
+                          <th className="text-left py-1.5 pr-3">Nombre cliente</th>
+                          <th className="text-right py-1.5 pr-3">Total (COP)</th>
+                          <th className="text-right py-1.5">Unidades</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {tipomovDetail.map((d, idx) => (
+                          <tr key={`${d.fecha}-${d.invoiceNumber}-${idx}`} className="border-b border-slate-100">
+                            <td className="py-1.5 pr-3">{d.fecha}</td>
+                            <td className="py-1.5 pr-3 font-mono">{d.invoiceNumber}</td>
+                            <td className="py-1.5 pr-3 font-mono">{d.customerNit}</td>
+                            <td className="py-1.5 pr-3">{d.customerName ?? "—"}</td>
+                            <td className="py-1.5 pr-3 text-right">{formatCop(d.total)}</td>
+                            <td className="py-1.5 text-right">{d.units.toLocaleString("es-CO")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="mt-2 text-slate-500"
-                  onClick={() => setTipomovDetail(null)}
+                  onClick={() => {
+                    setTipomovDetail(null);
+                    setTipomovDetailType(null);
+                    setTipomovDetailError(null);
+                  }}
                 >
                   Cerrar detalle
                 </Button>
