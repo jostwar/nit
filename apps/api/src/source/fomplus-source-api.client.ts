@@ -358,14 +358,15 @@ export class FomplusSourceApiClient implements SourceApiClient {
   ): FetchInvoicesResult {
     const grouped = new Map<string, SourceInvoice>();
     let unmappedRefsCount = 0;
+    // Solo TIPMOV/TIPOMOV definen el tipo de movimiento. No usar TIPDOC (puede ser otro concepto y hace que 06/13 se muestren como 05/Otro).
     const tipomovKeys = (
-      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'TIPMOV,TIPOMOV,tipmov,tipomov,tipo_mov,tipodoc,codmov,cod_tipomov'
+      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'TIPMOV,TIPOMOV,tipmov,tipomov,tipo_mov,codmov,cod_tipomov'
     )
       .split(',')
       .map((k) => k.trim())
       .filter(Boolean);
     records.forEach((record) => {
-      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['TIPMOV', 'tipmov', 'TIPOMOV', 'tipomov', 'tipodoc']);
+      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['TIPMOV', 'tipmov', 'TIPOMOV', 'tipomov']);
       const documentType = tipomovRaw ? String(tipomovRaw).trim() : undefined;
       const saleSign = this.saleSignFromTipomov(documentType);
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';
