@@ -1,0 +1,30 @@
+---
+description: Tras cada cambio, subir a Git (commit + push) y dar comando Lightsail
+alwaysApply: true
+---
+
+# Git y deploy en Lightsail
+
+## Obligatorio tras cada cambio
+
+1. **Commit y push**: Después de cualquier cambio de código que implementes, debes:
+   - Hacer `git add` de los archivos modificados
+   - `git commit` con mensaje descriptivo (ej. `feat(...):` o `fix(...):`)
+   - `git push` a la rama actual (normalmente `main`)
+
+2. **Comando para Lightsail**: Al final, indicar al usuario el comando para desplegar en Lightsail.
+
+   - **Deploy automático**: Un push a `main` dispara el workflow "Deploy to Lightsail" (SSH al servidor + `bash deploy.sh`). El usuario puede revisar en GitHub → Actions.
+
+   - **Deploy manual** (si hace falta ejecutarlo en el servidor):
+   ```bash
+   ssh <usuario>@<ip-lightsail>
+   cd ~/nit && git pull && bash deploy.sh
+   ```
+
+   Incluir siempre una línea tipo: "Para desplegar en Lightsail (manual): `cd ~/nit && git pull && bash deploy.sh`" o "El push a main ya dispara el deploy automático; revisa GitHub → Actions."
+
+## Resumen
+
+- Cada cambio → commit + push.
+- Siempre dar al usuario el código/comando para Lightsail (automático o manual).
