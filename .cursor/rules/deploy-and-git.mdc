@@ -1,5 +1,5 @@
 ---
-description: Tras cada cambio, subir a Git (commit + push) y dar comando Lightsail
+description: Tras cada cambio, subir a Git (commit + push) y dar código Lightsail con ubicaciones
 alwaysApply: true
 ---
 
@@ -12,19 +12,30 @@ alwaysApply: true
    - `git commit` con mensaje descriptivo (ej. `feat(...):` o `fix(...):`)
    - `git push` a la rama actual (normalmente `main`)
 
-2. **Comando para Lightsail**: Al final, indicar al usuario el comando para desplegar en Lightsail.
+2. **Código para Lightsail (con ubicaciones y todo)**: Al final, dar siempre el bloque completo para desplegar en Lightsail, incluyendo ubicaciones y pasos.
 
-   - **Deploy automático**: Un push a `main` dispara el workflow "Deploy to Lightsail" (SSH al servidor + `bash deploy.sh`). El usuario puede revisar en GitHub → Actions.
+   - **Deploy automático**: Un push a `main` dispara el workflow "Deploy to Lightsail" (`.github/workflows/lightsail-deploy.yml`): SSH a `LIGHTSAIL_HOST` con `LIGHTSAIL_USER` y ejecuta en el servidor `cd ~/nit`, `git pull`, `bash deploy.sh`. Revisar en **GitHub → Actions**.
 
-   - **Deploy manual** (si hace falta ejecutarlo en el servidor):
+   - **Deploy manual** (ejecutar en tu máquina para conectar y luego en el servidor):
    ```bash
-   ssh <usuario>@<ip-lightsail>
+   # Conectar al servidor (sustituir usuario e IP/host por los de tu instancia Lightsail)
+   ssh <usuario>@<ip-o-dominio-lightsail>
+
+   # En el servidor: ubicación del repo ~/nit, luego pull y script de deploy
+   cd ~/nit && git pull && bash deploy.sh
+   ```
+   El script `deploy.sh` está en la **raíz del repo** (`~/nit/deploy.sh`) y hace: `git pull`, `docker compose down`, `build --no-cache web api`, `up -d`, `prisma migrate deploy`, `load-mappings`.
+
+   - **Si falla por disco lleno o contenedor en uso** (en el servidor, dentro de `~/nit`):
+   ```bash
+   sudo docker system prune -f
+   sudo docker compose down
    cd ~/nit && git pull && bash deploy.sh
    ```
 
-   Incluir siempre una línea tipo: "Para desplegar en Lightsail (manual): `cd ~/nit && git pull && bash deploy.sh`" o "El push a main ya dispara el deploy automático; revisa GitHub → Actions."
+   Documentación completa: `docs/DEPLOY-LIGHTSAIL.md`.
 
 ## Resumen
 
 - Cada cambio → commit + push.
-- Siempre dar al usuario el código/comando para Lightsail (automático o manual).
+- Siempre dar el **código completo para Lightsail** con ubicaciones (`~/nit`, `deploy.sh` en la raíz) y, si aplica, comandos de recuperación (prune, down).
