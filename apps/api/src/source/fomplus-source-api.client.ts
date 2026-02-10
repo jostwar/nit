@@ -339,7 +339,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return customers;
   }
 
-  /** Códigos TIPOMOV que restan venta (devoluciones, notas crédito). Por defecto 04,06,15. */
+  /** Códigos TIPMOV/TIPOMOV que restan venta (devoluciones, notas crédito). Por defecto 04,06,15. */
   private getTipomovRestaCodes(): Set<string> {
     const raw = process.env.SOURCE_VENTAS_TIPOMOV_RESTA ?? '04,06,15';
     return new Set(raw.split(',').map((c) => String(c).trim()).filter(Boolean));
@@ -359,13 +359,13 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const grouped = new Map<string, SourceInvoice>();
     let unmappedRefsCount = 0;
     const tipomovKeys = (
-      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'TIPOMOV,TIPMOV,tipomov,tipmov,tipo_mov,tipodoc,codmov,cod_tipomov'
+      process.env.SOURCE_VENTAS_TIPOMOV_FIELDS ?? 'TIPMOV,TIPOMOV,tipmov,tipomov,tipo_mov,tipodoc,codmov,cod_tipomov'
     )
       .split(',')
       .map((k) => k.trim())
       .filter(Boolean);
     records.forEach((record) => {
-      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['TIPOMOV', 'tipomov', 'tipmov', 'tipodoc']);
+      const tipomovRaw = this.pick(record, tipomovKeys.length > 0 ? tipomovKeys : ['TIPMOV', 'tipmov', 'TIPOMOV', 'tipomov', 'tipodoc']);
       const documentType = tipomovRaw ? String(tipomovRaw).trim() : undefined;
       const saleSign = this.saleSignFromTipomov(documentType);
       const prefijo = this.pick(record, ['prefijo', 'prefij', 'prefac']) ?? '';

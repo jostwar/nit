@@ -347,7 +347,7 @@ export default function DashboardPage() {
       {tipomov.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">TIPOMOV (validar contra ERP)</CardTitle>
+            <CardTitle className="text-base">TIPMOV / TIPOMOV (validar contra ERP)</CardTitle>
             <p className="text-xs text-slate-500 font-normal">
               Totales por tipo de documento en el rango seleccionado. Ventas netas = SUMA − RESTA.
             </p>
@@ -422,7 +422,7 @@ export default function DashboardPage() {
             </div>
             {tipomov.some((r) => r.documentType === "N/A") && (
               <p className="text-xs text-amber-700 mt-2">
-                Si aparece fila «N/A» con valores, el ERP no está enviando el campo TIPOMOV en GenerarInfoVentas. Esos registros se suman como SUMA. Revisa el nombre del campo en tu API y configúralo en <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_TIPOMOV_FIELDS</code> (ej. TIPOMOV,TIPMOV).
+                Si aparece fila «N/A» con valores, el ERP no está enviando el campo TIPMOV (o TIPOMOV) en GenerarInfoVentas. Esos registros se suman como SUMA. Por defecto se busca TIPMOV primero; si tu API usa otro nombre, configúralo en <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_TIPOMOV_FIELDS</code> (ej. TIPMOV,TIPOMOV).
               </p>
             )}
             {(tipomovDetail !== null || tipomovDetailError) && (

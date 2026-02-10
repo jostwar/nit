@@ -682,7 +682,7 @@ export class MetricsService {
         documentType: code,
         concept:
           code === '__NULL__'
-            ? 'Sin tipo (ERP no envía TIPOMOV)'
+            ? 'Sin tipo (ERP no envía TIPMOV/TIPOMOV)'
             : MetricsService.TIPOMOV_CONCEPTS[code] ?? 'Otro',
         sign: isResta ? 'RESTA' : 'SUMA',
         count: Number(r.count ?? 0),

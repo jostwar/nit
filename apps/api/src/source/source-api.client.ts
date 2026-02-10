@@ -8,7 +8,7 @@ export type SourceInvoice = {
   units: number;
   vendor?: string; // NOMVEN de GenerarInfoVentas
   city?: string; // para enriquecer Customer si viene en la venta
-  /** Código TIPOMOV (ej. 01, 13=SUMA VENTA; 04, 06, 15=RESTA VENTA). */
+  /** Código TIPMOV/TIPOMOV (ej. 01, 13=SUMA VENTA; 04, 06, 15=RESTA VENTA). */
   documentType?: string;
   /** 1 = SUMA VENTA, -1 = RESTA VENTA. Por defecto 1. */
   saleSign?: number;
