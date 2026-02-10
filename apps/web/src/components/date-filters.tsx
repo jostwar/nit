@@ -59,6 +59,19 @@ export function DateFilters() {
     setBrand(initial.brand);
     setClassFilter(initial.class);
   }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.vendor, initial.brand, initial.class]);
+
+  // Mantener URL en sync con Desde/Hasta para que "Rango aplicado" coincida siempre con el filtro
+  useEffect(() => {
+    const currentFrom = searchParams.get("from");
+    const currentTo = searchParams.get("to");
+    if (from && to && (from !== currentFrom || to !== currentTo)) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("from", from);
+      params.set("to", to);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }, [from, to, router, searchParams]);
+
   const [compareEnabled, setCompareEnabled] = useState(
     Boolean(searchParams.get("compareFrom") || searchParams.get("compareTo")),
   );
