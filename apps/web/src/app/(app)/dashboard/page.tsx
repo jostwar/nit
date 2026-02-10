@@ -329,7 +329,7 @@ export default function DashboardPage() {
       )}
       {!loading && summary && searchParams.get("from") && searchParams.get("to") && (
         <p className="text-xs text-slate-500">
-          Datos del rango:{" "}
+          Rango aplicado en esta consulta:{" "}
           {new Date(searchParams.get("from")!).toLocaleDateString("es-CO", {
             day: "numeric",
             month: "short",
@@ -347,7 +347,7 @@ export default function DashboardPage() {
       {tipomov.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">TIPMOV / TIPOMOV (validar contra ERP)</CardTitle>
+            <CardTitle className="text-base">Detalle de facturación por tipo de documento</CardTitle>
             <p className="text-xs text-slate-500 font-normal">
               Totales por tipo de documento en el rango seleccionado. El signo del monto indica si suma o resta.
             </p>

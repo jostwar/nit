@@ -100,7 +100,7 @@ export function DateFilters() {
     if (dataCoverage.totalInvoices === 0) return "Sin datos de ventas";
     const fmt = (d: string) =>
       new Date(d).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
-    return `Datos: ${dataCoverage.earliestDate ? fmt(dataCoverage.earliestDate) : "?"} – ${dataCoverage.latestDate ? fmt(dataCoverage.latestDate) : "?"} (${dataCoverage.totalInvoices.toLocaleString("es-CO")} facturas)`;
+    return `En BD: ${dataCoverage.earliestDate ? fmt(dataCoverage.earliestDate) : "?"} – ${dataCoverage.latestDate ? fmt(dataCoverage.latestDate) : "?"} (${dataCoverage.totalInvoices.toLocaleString("es-CO")} facturas)`;
   }, [dataCoverage]);
 
   const updateQuery = (enableCompare: boolean) => {
