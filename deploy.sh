@@ -19,6 +19,8 @@ echo ">>> Eliminando contenedores huérfanos (por si down no los quitó)"
 sudo docker rm -f nit-db-1 nit-api-1 nit-web-1 2>/dev/null || true
 echo ">>> $COMPOSE build --no-cache (puede tardar varios minutos)"
 sudo BUILD_ID=$BUILD_ID $COMPOSE build --no-cache web api
+echo ">>> Quitando contenedores previos antes de up"
+sudo docker rm -f nit-db-1 nit-api-1 nit-web-1 2>/dev/null || true
 echo ">>> $COMPOSE up -d"
 sudo $COMPOSE up -d
 echo ">>> prisma migrate"
