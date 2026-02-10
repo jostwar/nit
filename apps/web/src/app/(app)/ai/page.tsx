@@ -177,9 +177,9 @@ export default function AiPage() {
                 </Button>
               )}
               <p>{newResponse?.answer ?? (response as any).explanation ?? "—"}</p>
-              {newResponse?.warnings?.length > 0 && (
+              {(newResponse?.warnings ?? []).length > 0 && (
                 <ul className="text-amber-700 text-xs list-disc pl-4">
-                  {newResponse.warnings.map((w, i) => (
+                  {(newResponse?.warnings ?? []).map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
