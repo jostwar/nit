@@ -48,7 +48,8 @@ export class CopilotController {
   ): Promise<void> {
     const tables = this.copilot.getExport(queryId);
     if (!tables || tables.length === 0) {
-      return res.status(HttpStatus.NOT_FOUND).json({ message: 'Exportación no encontrada o expirada.' });
+      res.status(HttpStatus.NOT_FOUND).json({ message: 'Exportación no encontrada o expirada.' });
+      return;
     }
     const lines: string[] = [];
     tables.forEach((t) => {
