@@ -2,104 +2,99 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { apiPost } from "@/lib/api";
+import { apiPost, getAccessToken } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { formatCop } from "@/lib/utils";
 
+type CopilotTable = { title: string; columns: string[]; rows: (string | number)[][] };
+type CopilotResponse = {
+  answer: string;
+  tables: CopilotTable[];
+  download_available: boolean;
+  download_query_id: string | null;
+  applied_filters: { start: string; end: string; seller: string | null; city: string | null; brand: string | null; class: string | null };
+  warnings: string[];
+};
+
+function isNewCopilotResponse(r: unknown): r is CopilotResponse {
+  return (
+    r != null &&
+    typeof r === "object" &&
+    "answer" in r &&
+    "tables" in r &&
+    Array.isArray((r as CopilotResponse).tables)
+  );
+}
+
 export default function AiPage() {
   const [question, setQuestion] = useState("");
   const [city, setCity] = useState("");
   const [vendor, setVendor] = useState("");
-  const [response, setResponse] = useState<any>(null);
+  const [brand, setBrand] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [response, setResponse] = useState<CopilotResponse | Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const period = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return {
-      from: searchParams.get("from") ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      to: searchParams.get("to") ?? today,
+      start: searchParams.get("from") ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      end: searchParams.get("to") ?? today,
     };
   }, [searchParams]);
 
-  const rows: Record<string, unknown>[] = Array.isArray(response?.rows) ? response.rows : [];
-  const normalizedRows: Record<string, unknown>[] = rows.map((row) => {
-    const next = { ...row };
-    delete next.customerId;
-    if (next.customerName && next.customerNit && next.customerName === next.customerNit) {
-      next.customerNit = "";
-    }
-    return next;
-  });
-  const visibleKeys = normalizedRows.length > 0 ? Object.keys(normalizedRows[0]) : [];
-  const columns =
-    visibleKeys.length > 0
-      ? visibleKeys.map((key) => ({
-          header: key
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, (c) => c.toUpperCase()),
-          accessorKey: key,
-          cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
-            const value = row.original[key];
-            if (typeof value === "number") {
-              if (key.toLowerCase().includes("percent")) {
-                return `${value.toFixed(1)}%`;
-              }
-              if (
-                ["sales", "total", "overdue", "amount", "margin", "ticket", "venta"].some((token) =>
-                  key.toLowerCase().includes(token),
-                )
-              ) {
-                return formatCop(value);
-              }
-              return value.toLocaleString("es-CO");
-            }
-            return value ?? "-";
-          },
-        }))
-      : [];
+  const newResponse = isNewCopilotResponse(response) ? response : null;
+  const tables = newResponse?.tables ?? [];
+  const downloadQueryId = newResponse?.download_query_id ?? null;
+  const downloadAvailable = newResponse?.download_available === true && downloadQueryId;
 
-  const downloadCsv = () => {
-    if (normalizedRows.length === 0) return;
-    const headers = visibleKeys;
-    const escapeValue = (value: unknown) => {
-      if (value === null || value === undefined) return "";
-      const text = String(value).replace(/"/g, '""');
-      return `"${text}"`;
-    };
-    const lines = [
-      headers.map(escapeValue).join(","),
-      ...normalizedRows.map((row: Record<string, unknown>) =>
-        headers.map((key) => escapeValue(row[key])).join(","),
-      ),
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `ai-resultados-${period.from}-${period.to}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const downloadExport = () => {
+    if (!downloadQueryId) return;
+    const token = getAccessToken();
+    const base = typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL : `${window?.location?.protocol}//${window?.location?.hostname}:4000/api`;
+    const url = `${base}/copilot/export/${downloadQueryId}`;
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(url, { headers })
+      .then((res) => {
+        if (!res.ok) throw new Error("Export no disponible");
+        return res.blob();
+      })
+      .then((blob) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `copilot-export-${downloadQueryId.slice(0, 8)}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      })
+      .catch(() => {});
   };
 
   const sendQuestion = async () => {
     if (!question.trim()) return;
     setLoading(true);
+    setResponse(null);
     try {
-      const result = await apiPost("/ai/chat", {
+      const result = await apiPost<CopilotResponse | Record<string, unknown>>("/copilot/ask", {
         question: question.trim(),
-        from: period.from,
-        to: period.to,
-        optionalCity: city.trim() || undefined,
-        optionalVendor: vendor.trim() || undefined,
+        start: period.start,
+        end: period.end,
+        city: city.trim() || undefined,
+        vendor: vendor.trim() || undefined,
+        brand: brand.trim() || undefined,
+        class: classFilter.trim() || undefined,
       });
       setResponse(result);
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error de conexión";
       setResponse({
-        template: "error",
-        explanation: "No se pudo consultar el copiloto. Revisa el rango de fechas y la conexión.",
-        rows: [],
+        answer: "No se pudo consultar el copilot. Revisa el rango de fechas (ISO YYYY-MM-DD) y la conexión.",
+        tables: [],
+        download_available: false,
+        download_query_id: null,
+        applied_filters: { start: period.start, end: period.end, seller: null, city: null, brand: null, class: null },
+        warnings: [msg],
       });
     } finally {
       setLoading(false);
@@ -110,35 +105,47 @@ export default function AiPage() {
     <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>AI Copilot</CardTitle>
+          <CardTitle>Copilot BI</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <textarea
             value={question}
-            onChange={(event) => setQuestion(event.target.value)}
+            onChange={(e) => setQuestion(e.target.value)}
             rows={6}
-            placeholder="Ej: ¿Marca más vendida? ¿Vendedor que más creció? ¿Producto más vendido? ¿Clientes con mayor caída?"
+            placeholder="Ej: Top 10 clientes por ventas en el último trimestre. ¿Marcas que más vendieron? ¿Vendedores con mayor caída? ¿Estado de cartera? Puedes decir 'últimos 30 días', 'mes actual'."
             className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
           />
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
             <input
               value={city}
-              onChange={(event) => setCity(event.target.value)}
-              placeholder="Ciudad (opcional)"
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Ciudad"
               className="rounded-md border border-slate-200 px-3 py-2 text-sm"
             />
             <input
               value={vendor}
-              onChange={(event) => setVendor(event.target.value)}
-              placeholder="Vendedor (opcional)"
+              onChange={(e) => setVendor(e.target.value)}
+              placeholder="Vendedor"
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+            />
+            <input
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder="Marca"
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+            />
+            <input
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              placeholder="Clase"
               className="rounded-md border border-slate-200 px-3 py-2 text-sm"
             />
           </div>
-          <div className="text-xs text-slate-500">
-            Pregunta por lo que necesites: marcas (más/menos vendida, que más perdió), vendedores (que más creció, que más vendió), productos (más vendido), clientes (top, mayor caída), DSO/cartera, alertas. Filtra con ciudad o vendedor si quieres.
-          </div>
-          <Button onClick={sendQuestion} disabled={loading || !question}>
-            {loading ? "Consultando..." : "Enviar"}
+          <p className="text-xs text-slate-500">
+            Fechas del header (ISO YYYY-MM-DD) o escribe en la pregunta &quot;último trimestre&quot;, &quot;mes actual&quot;, etc. Ventas filtradas por FECHA de negocio (issuedAt).
+          </p>
+          <Button onClick={sendQuestion} disabled={loading || !question.trim()}>
+            {loading ? "Consultando…" : "Enviar"}
           </Button>
         </CardContent>
       </Card>
@@ -150,25 +157,73 @@ export default function AiPage() {
         <CardContent>
           {response ? (
             <div className="space-y-3 text-sm text-slate-700">
-              <div className="text-xs text-slate-500">
-                Template: {response.template}
-              </div>
-              <Button
-                className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50"
-                onClick={downloadCsv}
-                disabled={normalizedRows.length === 0}
-              >
-                Descargar Excel
-              </Button>
-              <p>{response.explanation}</p>
-              {normalizedRows.length > 0 ? (
-                <DataTable columns={columns} data={normalizedRows} />
+              {newResponse?.applied_filters && (
+                <p className="text-xs text-slate-500">
+                  Periodo: {newResponse.applied_filters.start} – {newResponse.applied_filters.end}
+                  {[newResponse.applied_filters.city, newResponse.applied_filters.seller, newResponse.applied_filters.brand, newResponse.applied_filters.class]
+                    .filter(Boolean)
+                    .join(" · ") && ` · Filtros: ${[newResponse.applied_filters.city, newResponse.applied_filters.seller, newResponse.applied_filters.brand, newResponse.applied_filters.class].filter(Boolean).join(", ")}`}
+                </p>
+              )}
+              {downloadAvailable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={downloadExport}
+                >
+                  Descargar Excel (CSV)
+                </Button>
+              )}
+              <p>{newResponse?.answer ?? (response as any).explanation ?? "—"}</p>
+              {newResponse?.warnings?.length > 0 && (
+                <ul className="text-amber-700 text-xs list-disc pl-4">
+                  {newResponse.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              )}
+              {tables.length > 0 ? (
+                tables.map((t, idx) => (
+                  <div key={idx} className="overflow-x-auto">
+                    <p className="font-medium text-slate-800 mb-1">{t.title}</p>
+                    {t.rows.length > 0 ? (
+                      <table className="w-full text-sm border border-slate-200">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            {t.columns.map((col, i) => (
+                              <th key={i} className="text-left py-2 px-2">{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {t.rows.map((row, ri) => (
+                            <tr key={ri} className="border-b border-slate-100">
+                              {row.map((cell, ci) => (
+                                <td key={ci} className="py-1.5 px-2">
+                                  {typeof cell === "number"
+                                    ? (t.columns[ci]?.toLowerCase().includes("venta") || t.columns[ci]?.toLowerCase().includes("saldo") || t.columns[ci]?.toLowerCase().includes("margen") || t.columns[ci]?.toLowerCase().includes("cop")
+                                      ? formatCop(cell)
+                                      : cell.toLocaleString("es-CO"))
+                                    : cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="text-slate-500 text-xs">Sin filas.</p>
+                    )}
+                  </div>
+                ))
               ) : (
-                <p className="text-xs text-slate-500">Sin resultados para el periodo.</p>
+                <p className="text-xs text-slate-500">Sin tablas. Si no hay datos, amplía el rango de fechas o relaja filtros.</p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">Sin respuesta aún.</p>
+            <p className="text-slate-500 text-sm">Haz una pregunta para ver la respuesta aquí.</p>
           )}
         </CardContent>
       </Card>

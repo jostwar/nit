@@ -2,7 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { AiChatDto } from './dto/ai-chat.dto';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
-import { parseDate } from '../common/utils/date-range';
+import { parseRange } from '../common/utils/date-range';
 
 @Controller('ai')
 export class AiController {
@@ -10,8 +10,7 @@ export class AiController {
 
   @Post('chat')
   chat(@TenantId() tenantId: string, @Body() dto: AiChatDto) {
-    const from = parseDate(dto.from);
-    const to = parseDate(dto.to);
+    const { from, to } = parseRange(dto.from, dto.to);
     return this.aiService.answer(
       tenantId,
       dto.question,

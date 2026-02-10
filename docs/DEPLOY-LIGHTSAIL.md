@@ -84,6 +84,13 @@ El scheduler está integrado en la API (NestJS `@Cron`):
 
 No hace falta cron del sistema; el proceso de la API debe estar levantado (Docker o PM2).
 
+## Copilot BI
+
+- **POST /api/copilot/ask** – Pregunta en lenguaje natural (ventas, cartera, marcas, clases, vendedores). Requiere JWT. Parámetros: `question`, `start` (opcional, ISO YYYY-MM-DD), `end` (opcional), `city`, `vendor`, `brand`, `class` (opcionales).
+- **GET /api/copilot/export/:queryId** – Descarga CSV del resultado de una consulta (válido 1 h).
+
+En el servidor, configura `OPENAI_API_KEY` en `.env` para usar el modelo (tool calling). Si no está definida, el copilot responde con lógica interna sin LLM. Ventas y cartera se consultan siempre a la BD local (issuedAt / FECHA de negocio), no al ERP en tiempo real.
+
 ## Endpoints útiles
 
 - **GET /api/source/sync/status** – Estado del sync (último sync, duración, unmapped %, errores).

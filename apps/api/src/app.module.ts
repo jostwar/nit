@@ -18,6 +18,7 @@ import { CollectionsModule } from './collections/collections.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AiModule } from './ai/ai.module';
+import { CopilotModule } from './copilot/copilot.module';
 import { SourceModule } from './source/source.module';
 import { UsersModule } from './users/users.module';
 
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     MetricsModule,
     AlertsModule,
     AiModule,
+    CopilotModule,
     SourceModule,
     UsersModule,
   ],
