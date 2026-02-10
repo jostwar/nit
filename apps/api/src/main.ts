@@ -19,6 +19,7 @@ async function bootstrap() {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();

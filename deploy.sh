@@ -20,7 +20,9 @@ sudo BUILD_ID=$BUILD_ID $COMPOSE build --no-cache web api
 echo ">>> $COMPOSE up -d"
 sudo $COMPOSE up -d
 echo ">>> prisma migrate"
-sudo $COMPOSE exec -T api pnpm prisma migrate deploy
+if ! sudo $COMPOSE exec -T api pnpm prisma migrate deploy 2>/dev/null; then
+  echo ">>> Aviso: no se pudo ejecutar migrate (¿contenedor api en marcha?). Si la API reinicia en bucle, revisa: sudo $COMPOSE logs api"
+fi
 echo ">>> load-mappings (clase/marca)"
-sudo $COMPOSE exec -T api pnpm run load-mappings || true
+sudo $COMPOSE exec -T api pnpm run load-mappings 2>/dev/null || true
 echo ">>> Deploy completado. Refresca el navegador con Ctrl+Shift+R"
