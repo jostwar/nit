@@ -94,6 +94,7 @@ export default function CustomersPage() {
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
+    params.set("limit", "10000");
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [search, searchParams]);

@@ -206,7 +206,7 @@ export default function DashboardPage() {
         if (vendor) params.set("vendor", vendor);
         if (brand) params.set("brand", brand);
         if (classFilter) params.set("class", classFilter);
-        params.set("limit", "50");
+        params.set("limit", "10000");
         const current = await apiGet<CustomerRow[]>(`/customers?${params.toString()}`);
 
         const compareParams = new URLSearchParams();
@@ -215,7 +215,7 @@ export default function DashboardPage() {
         if (vendor) compareParams.set("vendor", vendor);
         if (brand) compareParams.set("brand", brand);
         if (classFilter) compareParams.set("class", classFilter);
-        compareParams.set("limit", "50");
+        compareParams.set("limit", "10000");
         const compare =
           compareRange.compareFrom && compareRange.compareTo
             ? await apiGet<CustomerRow[]>(`/customers?${compareParams.toString()}`)
@@ -296,7 +296,7 @@ export default function DashboardPage() {
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
-    params.set("limit", "1000");
+    params.set("limit", "10000");
     apiGet<CustomerRow[]>(`/customers?${params.toString()}`)
       .then((data) => {
         const sorted = [...(Array.isArray(data) ? data : [])].sort(

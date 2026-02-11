@@ -30,8 +30,8 @@ export class CustomersController {
       ? parsedPageSize
       : Number.isFinite(parsedLimit)
         ? parsedLimit
-        : 1000;
-    const clampedPageSize = Math.max(1, Math.min(1000, safePageSize));
+        : 10000;
+    const clampedPageSize = Math.max(1, Math.min(10000, safePageSize));
     return this.customersService.searchCustomers(
       tenantId,
       search,

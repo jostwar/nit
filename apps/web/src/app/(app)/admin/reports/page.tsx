@@ -186,7 +186,7 @@ export default function AdminReportsPage() {
                 {variation(marginPercent, compareMarginPercent) != null && (
                   <p className={`mt-1 text-xs ${variation(marginPercent, compareMarginPercent)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                     {variation(marginPercent, compareMarginPercent)! >= 0 ? "+" : ""}
-                    {variation(marginPercent, compareMarginPercent)!.toFixed(1)} pts vs periodo principal
+                    {variation(marginPercent, compareMarginPercent)!.toFixed(1)}% vs periodo principal
                   </p>
                 )}
               </CardContent>
@@ -252,8 +252,15 @@ export default function AdminReportsPage() {
                     return date.toISOString().slice(5, 10).replace("-", "/");
                   }}
                 />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => formatCop(Number(v))}
+                />
+                <Tooltip
+                  formatter={(value: number, name: string) =>
+                    name === "totalSales" ? formatCop(value) : value.toLocaleString("es-CO")
+                  }
+                />
                 <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} />
                 <Line type="monotone" dataKey="totalInvoices" stroke="#0ea5e9" strokeWidth={2} />
               </LineChart>
