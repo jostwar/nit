@@ -29,6 +29,7 @@ export default function AlertsPage() {
   const [statusFilter, setStatusFilter] = useState<"OPEN" | "CLOSED" | "ALL">("OPEN");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
   const [form, setForm] = useState({
     name: "",
     type: "NO_PURCHASE_DAYS" as AlertRule["type"],
@@ -177,6 +178,19 @@ export default function AlertsPage() {
     }
   };
 
+  const handleRunRules = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      await apiPost("/alerts/run", {});
+      await loadEvents();
+    } catch {
+      setError("No se pudo ejecutar la evaluación de reglas.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const handleCloseEvent = async (eventId: string) => {
     try {
       await apiPatch(`/alerts/events/${eventId}`, { status: "CLOSED" });
@@ -308,8 +322,17 @@ export default function AlertsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Eventos</CardTitle>
+          <Button
+            onClick={handleRunRules}
+            disabled={running}
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+          >
+            {running ? "Ejecutando…" : "Ejecutar reglas ahora"}
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">

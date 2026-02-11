@@ -73,7 +73,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'ar_summary',
-      description: 'Resumen de cartera (cuentas por cobrar): saldo, vencido, DSO por cliente.',
+      description: 'Resumen de cartera (cuentas por cobrar): saldo, vencido, DSO por cliente. Si piden "más vencidos" o "más vencido", usa only_overdue true y order_by overdue.',
       parameters: {
         type: 'object',
         properties: {
@@ -81,6 +81,8 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           end: { type: 'string' },
           group_by: { type: 'string', enum: ['customer', 'vendor'] },
           limit: { type: 'number' },
+          only_overdue: { type: 'boolean', description: 'Solo clientes con saldo vencido > 0.' },
+          order_by: { type: 'string', enum: ['balance', 'overdue'], description: 'Ordenar por saldo o por vencido (desc).' },
         },
         required: ['start', 'end'],
       },
@@ -117,7 +119,7 @@ export class CopilotService {
     private readonly tools: CopilotToolsService,
     private readonly exportStore: ExportStoreService,
   ) {
-    const key = process.env.OPENAI_API_KEY;
+    const key = process.env.OPENAI_API_KEY?.trim();
     this.openai = key ? new OpenAI({ apiKey: key }) : null;
   }
 
@@ -345,6 +347,8 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
           end,
           group_by: (args.group_by as any),
           limit,
+          only_overdue: args.only_overdue === true,
+          order_by: args.order_by === 'overdue' ? 'overdue' : 'balance',
         });
       case 'customer_lookup':
         return this.tools.customer_lookup(tenantId, { query: (args.query as string) || '' });
@@ -368,9 +372,16 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
   ): Promise<{ answer: string; tables: CopilotTable[]; warnings: string[] }> {
     const warnings = ['OPENAI_API_KEY no configurado; usando lógica interna.'];
     const q = question.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    const masVencido = /vencid|más?\s*vencid|mayor\s*vencid|overdue/i.test(question);
     let result: { columns: string[]; rows: (string | number)[][] };
     if (q.includes('cartera') || q.includes('ar ') || q.includes('cuentas por cobrar')) {
-      result = await this.tools.ar_summary(tenantId, { start, end, limit: 10 });
+      result = await this.tools.ar_summary(tenantId, {
+        start,
+        end,
+        limit: 10,
+        only_overdue: masVencido,
+        order_by: masVencido ? 'overdue' : 'balance',
+      });
     } else if (q.includes('sync') || q.includes('sincroniz')) {
       const status = await this.tools.sync_status(tenantId);
       result = { columns: ['Última sync', 'Duración (ms)', 'Error'], rows: [[status.lastSyncAt ?? '-', status.lastSyncDurationMs ?? '-', status.lastSyncError ?? '-']] };

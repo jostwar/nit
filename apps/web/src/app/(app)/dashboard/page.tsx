@@ -296,7 +296,7 @@ export default function DashboardPage() {
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
-    params.set("limit", "100");
+    params.set("limit", "1000");
     apiGet<CustomerRow[]>(`/customers?${params.toString()}`)
       .then((data) => {
         const sorted = [...(Array.isArray(data) ? data : [])].sort(
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                   {tipomov.map((row) => (
                     <tr
                       key={row.documentType}
-                      className={`border-b border-slate-100 text-slate-900 ${row.documentType === "N/A" ? "bg-amber-50" : ""}`}
+                      className="border-b border-slate-100 text-slate-900"
                     >
                       <td className="py-2 pr-4 font-mono">{row.documentType}</td>
                       <td className="py-2 pr-4">{row.concept}</td>
@@ -464,11 +464,6 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
-            {tipomov.some((r) => r.documentType === "N/A") && (
-              <p className="text-xs text-amber-700 mt-2">
-                Si aparece fila «N/A» con valores, el ERP no está enviando el campo TIPMOV (o TIPOMOV) en GenerarInfoVentas. Esos registros se suman como SUMA. Por defecto se busca TIPMOV primero; si tu API usa otro nombre, configúralo en <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_TIPOMOV_FIELDS</code> (ej. TIPMOV,TIPOMOV).
-              </p>
-            )}
             {(tipomovDetail !== null || tipomovDetailError) && (
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <p className="text-sm font-medium text-slate-700 mb-2">

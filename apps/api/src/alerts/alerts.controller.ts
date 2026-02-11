@@ -10,6 +10,11 @@ import { UpdateAlertEventDto } from './dto/update-alert-event.dto';
 export class AlertsController {
   constructor(private readonly alertsService: AlertsService) {}
 
+  @Post('run')
+  runEvaluation(@TenantId() tenantId: string) {
+    return this.alertsService.evaluateRules(tenantId).then(() => ({ ok: true }));
+  }
+
   @Get('rules')
   listRules(@TenantId() tenantId: string) {
     return this.alertsService.listRules(tenantId);

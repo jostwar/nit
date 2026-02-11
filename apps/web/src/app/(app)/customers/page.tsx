@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -54,6 +54,8 @@ type CustomerCollections = {
 
 export default function CustomersPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -86,8 +88,7 @@ export default function CustomersPage() {
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
-    const searchParam = searchParams.get("search") ?? search;
-    if (searchParam.trim()) params.set("search", searchParam.trim());
+    if (search.trim()) params.set("search", search.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (vendor) params.set("vendor", vendor);
@@ -168,12 +169,28 @@ export default function CustomersPage() {
           <CardTitle>Buscar cliente</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="NIT o nombre"
-            className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
-          />
+          <div className="flex gap-2">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="NIT o nombre (vacío = todos)"
+              className="flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                const q = new URLSearchParams(searchParams.toString());
+                q.delete("search");
+                q.delete("customerId");
+                const qs = q.toString();
+                router.replace(qs ? `${pathname}?${qs}` : pathname);
+              }}
+              className="shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Ver todos
+            </button>
+          </div>
           <div className="space-y-2">
             {customers.map((customer) => (
               <button

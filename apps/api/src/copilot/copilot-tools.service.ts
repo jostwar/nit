@@ -45,6 +45,10 @@ export interface ArSummaryInput {
   city?: string;
   vendor?: string;
   limit?: number;
+  /** Si true, solo clientes con saldo vencido > 0. */
+  only_overdue?: boolean;
+  /** Ordenar por balance (default) o por vencido (overdue) desc. */
+  order_by?: 'balance' | 'overdue';
 }
 
 export interface CustomerLookupInput {
@@ -68,6 +72,7 @@ export class CopilotToolsService {
     const w: Prisma.InvoiceWhereInput = {
       tenantId,
       issuedAt: { gte: start, lte: end },
+      documentType: { not: null },
     };
     if (filters?.city?.trim()) {
       w.city = { contains: filters.city.trim(), mode: 'insensitive' };
@@ -304,9 +309,14 @@ export class CopilotToolsService {
   }
 
   async ar_summary(tenantId: string, input: ArSummaryInput): Promise<{ columns: string[]; rows: (string | number)[][] }> {
+    const onlyOverdue = input.only_overdue === true;
+    const orderByOverdue = input.order_by === 'overdue';
     const credits = await this.prisma.credit.findMany({
-      where: { tenantId },
-      orderBy: { balance: 'desc' },
+      where: {
+        tenantId,
+        ...(onlyOverdue ? { overdue: { gt: 0 } } : {}),
+      },
+      orderBy: orderByOverdue ? { overdue: 'desc' } : { balance: 'desc' },
       take: Math.min(input.limit ?? 20, 100),
     });
     const customers = await this.prisma.customer.findMany({

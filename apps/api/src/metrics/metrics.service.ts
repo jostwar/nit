@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Condición para excluir facturas sin tipo (ERP no envía TIPMOV): no se muestran ni suman en ventas. */
+const EXCLUDE_UNTYPED_INVOICES: Prisma.InvoiceWhereInput = { documentType: { not: null } };
+
 @Injectable()
 export class MetricsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -204,6 +207,7 @@ export class MetricsService {
       const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
+        ...EXCLUDE_UNTYPED_INVOICES,
         ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
         ...itemsWhere,
@@ -211,6 +215,7 @@ export class MetricsService {
       const compareWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: compareFrom, lte: compareTo },
+        ...EXCLUDE_UNTYPED_INVOICES,
         ...cityWhere,
         ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
         ...itemsWhere,
@@ -262,6 +267,7 @@ export class MetricsService {
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}
+                    AND i."documentType" IS NOT NULL
                     AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}
                   GROUP BY date(i."issuedAt")
                   ORDER BY 1
@@ -273,11 +279,12 @@ export class MetricsService {
                     COUNT(*)::bigint as "totalInvoices",
                     COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
                     SUM(i."signedMargin")::text as "totalMargin"
-                  FROM "Invoice" i
-                  INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}${classJoinCond}
+                FROM "Invoice" i
+                INNER JOIN "InvoiceItem" it ON it."invoiceId" = i.id${brandJoinCond}${classJoinCond}
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
-                    AND i."issuedAt" <= ${to}${vendorAnd}
+                    AND i."issuedAt" <= ${to}
+                    AND i."documentType" IS NOT NULL${vendorAnd}
                   GROUP BY date(i."issuedAt")
                   ORDER BY 1
                 `,
@@ -309,10 +316,11 @@ export class MetricsService {
                   COALESCE(SUM(i."signedUnits"), 0)::text as "totalUnits",
                   SUM(i."signedMargin")::text as "totalMargin"
                 FROM "Invoice" i
-                WHERE i."tenantId" = ${tenantId}
-                  AND i."issuedAt" >= ${from}
-                  AND i."issuedAt" <= ${to}
-                  AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}
+                  WHERE i."tenantId" = ${tenantId}
+                    AND i."issuedAt" >= ${from}
+                    AND i."issuedAt" <= ${to}
+                    AND i."documentType" IS NOT NULL
+                    AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}
                 GROUP BY date(i."issuedAt")
                 ORDER BY 1
               `
@@ -326,7 +334,8 @@ export class MetricsService {
                 FROM "Invoice" i
                 WHERE i."tenantId" = ${tenantId}
                   AND i."issuedAt" >= ${from}
-                  AND i."issuedAt" <= ${to}${vendorAnd}
+                  AND i."issuedAt" <= ${to}
+                  AND i."documentType" IS NOT NULL${vendorAnd}
                 GROUP BY date(i."issuedAt")
                 ORDER BY 1
               `,
@@ -540,6 +549,7 @@ export class MetricsService {
         where: {
           tenantId,
           issuedAt: { gte: from, lte: to },
+          ...EXCLUDE_UNTYPED_INVOICES,
           ...cityWhere,
           ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
           ...itemsWhere,
@@ -608,6 +618,7 @@ export class MetricsService {
         AND (it."className" IS NOT NULL OR it."classCode" IS NOT NULL)
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
+        AND i."documentType" IS NOT NULL
         ${cityCond}${vendorCond}${brandCond}${classCond}
       GROUP BY it."className", it."classCode"
       ORDER BY SUM(it.total * i."saleSign") DESC
@@ -676,6 +687,7 @@ export class MetricsService {
       WHERE it."tenantId" = ${tenantId}
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
+        AND i."documentType" IS NOT NULL
         ${cityCond}${vendorCond}${brandCond}${classCond}
       GROUP BY i."vendor"
       ORDER BY SUM(it.total * i."saleSign") DESC
@@ -734,6 +746,7 @@ export class MetricsService {
       WHERE it."tenantId" = ${tenantId}
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
+        AND i."documentType" IS NOT NULL
         ${cityCond}${vendorCond}${brandCond}${classCond}
       GROUP BY COALESCE(NULLIF(TRIM(it.brand), ''), 'Sin marca')
       ORDER BY SUM(it.total * i."saleSign") DESC
@@ -784,6 +797,7 @@ export class MetricsService {
       WHERE i."tenantId" = ${tenantId}
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
+        AND i."documentType" IS NOT NULL
       GROUP BY i."documentType"
       ORDER BY i."documentType"
     `);
@@ -797,22 +811,14 @@ export class MetricsService {
       const isResta = code !== '__NULL__' && restaCodes.includes(code);
       return {
         documentType: code,
-        concept:
-          code === '__NULL__'
-            ? 'Sin tipo (ERP no envía TIPMOV/TIPOMOV)'
-            : MetricsService.TIPOMOV_CONCEPTS[code] ?? 'Otro',
+        concept: MetricsService.TIPOMOV_CONCEPTS[code] ?? 'Otro',
         sign: isResta ? 'RESTA' : 'SUMA',
         count: Number(r.count ?? 0),
         totalSigned: Number(r.totalSigned ?? 0),
         unitsSigned: Number(r.unitsSigned ?? 0),
       };
     });
-    const withNull = mapped.filter((r) => r.documentType === '__NULL__');
-    const withoutNull = mapped.filter((r) => r.documentType !== '__NULL__');
-    return [
-      ...withoutNull.sort((a, b) => (a.documentType < b.documentType ? -1 : 1)),
-      ...withNull.map((r) => ({ ...r, documentType: 'N/A' })),
-    ];
+    return mapped.sort((a, b) => (a.documentType < b.documentType ? -1 : 1));
   }
 
   /**
