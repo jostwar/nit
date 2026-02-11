@@ -404,6 +404,16 @@ export function DateFilters() {
           >
             Sincronizar rango
           </Button>
+          {syncRunning && (
+            <Button
+              type="button"
+              onClick={() => apiPost("/source/sync/cancel", {}).catch(() => {})}
+              className="h-8 px-3 text-xs border border-red-300 text-red-700 bg-white hover:bg-red-50"
+              title="Solicitar detener la sincronización en curso"
+            >
+              Detener sincronización
+            </Button>
+          )}
         </div>
         {syncRunning && syncProgress && (
           <div className="flex flex-col gap-1">

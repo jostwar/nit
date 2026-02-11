@@ -50,6 +50,7 @@ export class SourceController {
   private readonly logger = new Logger(SourceController.name);
   private readonly runningTenants = new Set<string>();
   private readonly syncProgress = new Map<string, SyncProgress>();
+  private readonly syncCancelRequested = new Set<string>();
 
   constructor(
     private readonly syncService: SyncService,
@@ -90,6 +91,10 @@ export class SourceController {
           pageSize,
         );
         this.logger.log(`[sync] Clientes sincronizados: ${customers.synced}`);
+        if (this.syncCancelRequested.has(user.tenantId)) {
+          this.syncCancelRequested.delete(user.tenantId);
+          return;
+        }
 
         const fromDate = new Date(from);
         const toDate = new Date(to);
@@ -130,6 +135,11 @@ export class SourceController {
         const fullRange = byMonth || from === to;
         let chunkIndex = 0;
         for (const [rangeFrom, rangeTo] of chunks) {
+          if (this.syncCancelRequested.has(user.tenantId)) {
+            this.logger.log(`[sync] Cancelado por usuario en ${user.tenantId}`);
+            this.syncCancelRequested.delete(user.tenantId);
+            break;
+          }
           chunkIndex++;
           const label = `${rangeFrom} → ${rangeTo}`;
           let countInvoices = 0;
@@ -203,10 +213,22 @@ export class SourceController {
       } finally {
         this.runningTenants.delete(user.tenantId);
         this.syncProgress.delete(user.tenantId);
+        this.syncCancelRequested.delete(user.tenantId);
       }
     });
 
     return { status: 'started', from, to, page, pageSize };
+  }
+
+  @Post('sync/cancel')
+  @HttpCode(202)
+  @Roles('ADMIN')
+  async cancelSync(@CurrentUser() user: { tenantId: string }) {
+    if (this.runningTenants.has(user.tenantId)) {
+      this.syncCancelRequested.add(user.tenantId);
+      this.logger.log(`[sync] Solicitud de cancelación para tenant ${user.tenantId}`);
+    }
+    return { status: 'cancel_requested' };
   }
 
   @Get('sync/status')
