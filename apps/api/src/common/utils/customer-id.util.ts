@@ -1,9 +1,11 @@
 /**
- * Llave canónica para cruce entre APIs del ERP:
- * - ListadoClientes: CLI_CEDULA, CLI_NOMBRE
- * - GenerarInfoVentas: CEDULA, NOMCED
- * - EstadoDeCuentaCartera: CEDULA, NOMCED
+ * Llave canónica para cruce entre APIs del ERP (tercero = cliente):
  *
+ * - ListadoClientes: usar CLI_CEDULA y CLI_NOMBRE como identificador del tercero.
+ * - EstadoDeCuentaCartera: cruce por CEDULA y NOMCED (mismo tercero que ListadoClientes).
+ * - GenerarInfoVentas: cruce por CEDULA y NOMCED (mismo tercero).
+ *
+ * Las consultas y cruces por cliente/tercero deben usar este identificador normalizado.
  * Normaliza NIT/Cédula para joins y upserts consistentes.
  */
 export function normalizeCustomerId(value: string | undefined | null): string {

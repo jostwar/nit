@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { apiGet, apiPost } from "@/lib/api";
+import { formatDateLocal } from "@/lib/utils";
 
 export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
@@ -111,8 +112,7 @@ export function DateFilters() {
   const coverageLabel = useMemo(() => {
     if (!dataCoverage) return null;
     if (dataCoverage.totalInvoices === 0) return "Sin datos de ventas";
-    const fmt = (d: string) =>
-      new Date(d).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+    const fmt = (d: string) => formatDateLocal(d.slice(0, 10), "es-CO");
     return `En BD: ${dataCoverage.earliestDate ? fmt(dataCoverage.earliestDate) : "?"} – ${dataCoverage.latestDate ? fmt(dataCoverage.latestDate) : "?"} (${dataCoverage.totalInvoices.toLocaleString("es-CO")} facturas)`;
   }, [dataCoverage]);
 

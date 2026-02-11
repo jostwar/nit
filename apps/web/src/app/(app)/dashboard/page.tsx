@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { formatCop } from "@/lib/utils";
+import { formatCop, formatDateLocal } from "@/lib/utils";
 import {
   LineChart,
   Line,
@@ -46,6 +46,7 @@ type CustomerRow = {
   nit: string;
   name: string;
   totalSales: number;
+  totalInvoices?: number;
 };
 
 type CustomerTask = {
@@ -83,6 +84,7 @@ export default function DashboardPage() {
   const [salesByClass, setSalesByClass] = useState<
     Array<{ classCode: string; className: string; totalSales: number; count: number }>
   >([]);
+  const [salesByCustomer, setSalesByCustomer] = useState<CustomerRow[]>([]);
   const [tipomov, setTipomov] = useState<TipomovRow[]>([]);
   const [tipomovDetail, setTipomovDetail] = useState<TipomovDetailRow[] | null>(null);
   const [tipomovDetailType, setTipomovDetailType] = useState<string | null>(null);
@@ -252,6 +254,33 @@ export default function DashboardPage() {
       .catch(() => setSalesByClass([]));
   }, [query, refreshKey]);
 
+  useEffect(() => {
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (!from || !to) {
+      setSalesByCustomer([]);
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("from", from);
+    params.set("to", to);
+    const vendor = searchParams.get("vendor");
+    const brand = searchParams.get("brand");
+    const classFilter = searchParams.get("class");
+    if (vendor) params.set("vendor", vendor);
+    if (brand) params.set("brand", brand);
+    if (classFilter) params.set("class", classFilter);
+    params.set("limit", "100");
+    apiGet<CustomerRow[]>(`/customers?${params.toString()}`)
+      .then((data) => {
+        const sorted = [...(Array.isArray(data) ? data : [])].sort(
+          (a, b) => (b.totalSales ?? 0) - (a.totalSales ?? 0),
+        );
+        setSalesByCustomer(sorted);
+      })
+      .catch(() => setSalesByCustomer([]));
+  }, [searchParams, refreshKey]);
+
   const cards = [
     { label: "Ventas totales", value: summary?.current.totalSales ?? 0, currency: true },
     { label: "Margen", value: summary?.current.totalMargin ?? 0, currency: true },
@@ -329,18 +358,9 @@ export default function DashboardPage() {
       )}
       {!loading && summary && searchParams.get("from") && searchParams.get("to") && (
         <p className="text-xs text-slate-500">
-          Rango aplicado en esta consulta:{" "}
-          {new Date(searchParams.get("from")!).toLocaleDateString("es-CO", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}{" "}
-          –{" "}
-          {new Date(searchParams.get("to")!).toLocaleDateString("es-CO", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
+          Rango aplicado en esta consulta (FECHA de negocio / issuedAt):{" "}
+          {formatDateLocal(searchParams.get("from")!)}{" "}
+          – {formatDateLocal(searchParams.get("to")!)}
         </p>
       )}
 
@@ -349,7 +369,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base">Detalle de facturación por tipo de documento</CardTitle>
             <p className="text-xs text-slate-500 font-normal">
-              Totales por tipo de documento en el rango seleccionado. El signo del monto indica si suma o resta.
+              Totales por tipo de documento en el rango seleccionado (filtro por FECHA de GenerarInfoVentas / issuedAt). El signo del monto indica si suma o resta.
             </p>
           </CardHeader>
           <CardContent>
@@ -621,7 +641,67 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Venta por cliente</CardTitle>
+          <p className="text-xs text-slate-500 font-normal mt-1">
+            Totales por tercero en el rango. El tercero se identifica con{" "}
+            <strong>CLI_CEDULA</strong> y <strong>CLI_NOMBRE</strong> en ListadoClientes; ese mismo identificador se cruza con <strong>CEDULA</strong> y <strong>NOMCED</strong> en EstadoDeCuentaCartera y en GenerarInfoVentas.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {salesByCustomer.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No hay datos por cliente para este rango. Revisa los filtros o sincroniza ventas y clientes (ListadoClientes).
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-slate-600">
+                    <th className="py-2 pr-4 font-medium">Cliente (tercero)</th>
+                    <th className="py-2 pr-4 font-medium font-mono">NIT / Cédula</th>
+                    <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                    <th className="py-2 pr-4 font-medium text-right">Facturas</th>
+                    <th className="py-2 pl-2 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesByCustomer.map((row) => (
+                    <tr key={row.id} className="border-b border-slate-100">
+                      <td className="py-2 pr-4 text-slate-800">{row.name || "—"}</td>
+                      <td className="py-2 pr-4 font-mono text-slate-700">{row.nit}</td>
+                      <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                        {formatCop(row.totalSales)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-slate-600">
+                        {(row.totalInvoices ?? 0).toLocaleString("es-CO")}
+                      </td>
+                      <td className="py-2 pl-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            window.location.href = `/customers?search=${encodeURIComponent(row.nit)}`;
+                          }}
+                        >
+                          Ver
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Tareas</CardTitle>
+          <p className="text-xs text-slate-500 font-normal mt-1">
+            Top clientes (terceros) con variación vs período a comparar. Mismo identificador: ListadoClientes → CLI_CEDULA/CLI_NOMBRE; EstadoDeCuentaCartera y GenerarInfoVentas → CEDULA/NOMCED.
+          </p>
         </CardHeader>
         <CardContent>
           <DataTable columns={taskColumns} data={tasks} />

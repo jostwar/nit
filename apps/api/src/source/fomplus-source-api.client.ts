@@ -290,9 +290,27 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return payload.replace(/^\uFEFF/, '');
   }
 
+  /** Cliente activo en ListadoClientes: CLI_ACTIVO responde false (activo = false). */
+  private isClientActive(activoRaw: unknown): boolean {
+    if (activoRaw == null || activoRaw === '') return true;
+    if (typeof activoRaw === 'boolean') return !activoRaw;
+    const s = String(activoRaw).trim().toLowerCase();
+    if (s === 'false' || s === '0' || s === 'no') return true;
+    if (s === 'true' || s === '1' || s === 'si' || s === 'sí' || s === 'yes') return false;
+    return true;
+  }
+
+  /**
+   * Mapea ListadoClientes a SourceCustomer.
+   * Solo se incluyen clientes activos: CLI_ACTIVO debe ser false (activo = el campo responde false).
+   * Tercero identificado por CLI_CEDULA y CLI_NOMBRE (mismo criterio que CEDULA/NOMCED en EstadoDeCuentaCartera y GenerarInfoVentas).
+   */
   private mapCustomers(records: FlatRecord[]): SourceCustomer[] {
     const customers: SourceCustomer[] = [];
     for (const record of records) {
+      const activoRaw = this.pick(record, ['cli_activo', 'activo', 'active']);
+      if (!this.isClientActive(activoRaw)) continue;
+
       const nitRaw = this.pick(record, ['cli_cedula', 'nit', 'cedula', 'documento', 'idcliente']);
       const nit = normalizeCustomerId(nitRaw);
       const name = this.pick(record, [
