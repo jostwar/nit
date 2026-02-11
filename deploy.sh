@@ -20,6 +20,9 @@ sudo docker rm -f nit-db-1 nit-api-1 nit-web-1 2>/dev/null || true
 for c in $(sudo docker ps -aq --filter "name=nit-" --format "{{.Names}}" 2>/dev/null); do
   sudo docker rm -f "$c" 2>/dev/null || true
 done
+echo ">>> Liberando espacio (prune build cache e imágenes no usadas)"
+sudo docker builder prune -af 2>/dev/null || true
+sudo docker image prune -af 2>/dev/null || true
 echo ">>> $COMPOSE build --no-cache (puede tardar varios minutos)"
 sudo BUILD_ID=$BUILD_ID $COMPOSE build --no-cache web api
 echo ">>> Quitando contenedores previos antes de up"
