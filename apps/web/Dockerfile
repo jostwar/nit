@@ -15,6 +15,8 @@ ARG NEXT_PUBLIC_API_URL
 ARG BUILD_ID=dev
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_BUILD_ID=${BUILD_ID}
+# Evita que el build worker de Next.js falle por OOM en servidores con poca RAM
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 RUN pnpm build
 
