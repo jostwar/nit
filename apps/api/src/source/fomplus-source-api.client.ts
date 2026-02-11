@@ -480,6 +480,17 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const itemTotal = this.toNumber(
         this.pick(record, ['valtot', 'totalitem', 'subtotal', 'valoritem', 'totaldetalle']),
       );
+      const discountKeys = (
+        process.env.SOURCE_VENTAS_DISCOUNT_FIELDS ?? 'VALDES,valdes,descuento,discount,vrdes,valordes'
+      )
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const lineDiscount = this.toNumber(
+        discountKeys.length > 0 ? this.pick(record, discountKeys) : undefined,
+      );
+      const lineTotalBeforeSign =
+        (itemTotal ?? total ?? 0) - (lineDiscount != null && Number.isFinite(lineDiscount) ? lineDiscount : 0);
 
       const nomven =
         this.pick(record, ['nomven', 'nomvendedor', 'vendedor', 'cli_nomven', 'vended']) ?? undefined;
@@ -495,13 +506,25 @@ export class FomplusSourceApiClient implements SourceApiClient {
         undefined;
       const key = invoiceId || `${nit}-${prefijo}${numdoc || ''}-${issuedAt}`;
       const existing = grouped.get(key);
+      const docTotalKeys = (
+        process.env.SOURCE_VENTAS_DOCUMENT_TOTAL_FIELDS ?? 'totalfactura,total_documento,vrtotal_doc,total_doc'
+      )
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const documentTotal =
+        docTotalKeys.length > 0
+          ? this.toNumber(this.pick(record, docTotalKeys))
+          : undefined;
       if (!existing) {
+        const groupTotal =
+          documentTotal != null && Number.isFinite(documentTotal) ? documentTotal : 0;
         grouped.set(key, {
           externalId: invoiceId || key,
           customerNit: nit,
           customerName,
           issuedAt,
-          total: 0,
+          total: groupTotal,
           margin: 0,
           units: quantity ?? 0,
           vendor: nomven,
@@ -509,13 +532,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
           documentType,
           saleSign,
           items: [],
+          _useDocTotal: documentTotal != null && Number.isFinite(documentTotal),
         });
       }
       const target = grouped.get(key);
       if (!target) return;
       if (ciudad?.trim() && !target.city?.trim()) target.city = ciudad;
       const resolvedQty = quantity ?? 0;
-      const resolvedTotal = itemTotal ?? total ?? 0;
+      const resolvedTotal = lineTotalBeforeSign;
       target.items.push({
         productName: productRef || productName,
         brand,
@@ -528,7 +552,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
         margin,
       });
       target.units += resolvedQty;
-      target.total += resolvedTotal;
+      if (!(target as { _useDocTotal?: boolean })._useDocTotal) {
+        target.total += resolvedTotal;
+      }
       target.margin += margin;
     });
     const invoices = Array.from(grouped.values()).filter((invoice) => invoice.customerNit);
