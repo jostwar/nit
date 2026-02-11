@@ -13,10 +13,13 @@ echo ">>> git pull"
 git pull
 export BUILD_ID=$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)
 echo ">>> BUILD_ID=$BUILD_ID"
-echo ">>> $COMPOSE down"
-sudo $COMPOSE down --remove-orphans
-echo ">>> Eliminando contenedores huérfanos (por si down no los quitó)"
+echo ">>> Limpiando contenedores previos (evita conflicto de nombres)"
+sudo $COMPOSE down --remove-orphans 2>/dev/null || true
 sudo docker rm -f nit-db-1 nit-api-1 nit-web-1 2>/dev/null || true
+# Fallback: eliminar cualquier contenedor del proyecto por nombre
+for c in $(sudo docker ps -aq --filter "name=nit-" --format "{{.Names}}" 2>/dev/null); do
+  sudo docker rm -f "$c" 2>/dev/null || true
+done
 echo ">>> $COMPOSE build --no-cache (puede tardar varios minutos)"
 sudo BUILD_ID=$BUILD_ID $COMPOSE build --no-cache web api
 echo ">>> Quitando contenedores previos antes de up"
