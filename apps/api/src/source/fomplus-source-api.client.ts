@@ -450,8 +450,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
         productRef && brandMap.has(productRef) ? brandMap.get(productRef) : undefined;
       const mappedClass =
         productRef ? classMap.get(productRef) : undefined;
+      // Solo directorio cargado por CSV en la plataforma (REFER→MARCA). No usar campo MARCA del API.
       const brand =
-        brandFromRecord ??
         mappedBrand ??
         (productRef ? UNMAPPED_BRAND : null) ??
         'Sin marca';
@@ -602,61 +602,15 @@ export class FomplusSourceApiClient implements SourceApiClient {
     tenantExternalId: string,
     tenantId?: string,
   ): Promise<{ brandMap: Map<string, string>; classMap: Map<string, string> }> {
-    const brandMap = this.loadRefBrandMapFromCsv();
-    const classMap = this.loadRefClassMapFromCsv();
-    // Directorio en BD: REFER → MARCA, CLASE (prioridad sobre CSV y API inventario)
+    // Solo directorio cargado por CSV en la plataforma (InventoryDirectory). No usar CSV en disco ni API inventario.
     if (tenantId && this.inventoryDirectory) {
       try {
-        const db = await this.inventoryDirectory.getRefBrandClassMap(tenantId);
-        db.brandMap.forEach((v, k) => brandMap.set(k, v));
-        db.classMap.forEach((v, k) => classMap.set(k, v));
+        return await this.inventoryDirectory.getRefBrandClassMap(tenantId);
       } catch {
-        // sigue con CSV/API si falla
+        // si falla BD, devolver mapas vacíos
       }
     }
-    if (!this.config.inventarioBaseUrl || !this.config.inventarioToken) {
-      return { brandMap, classMap };
-    }
-    try {
-      const fecha = new Date().toISOString().slice(0, 10);
-      const xml = await this.getXml(
-        `${this.config.inventarioBaseUrl}/srvAPI.asmx/GenerarInformacionInventariosGet`,
-        {
-          strPar_Basedatos: this.config.database || tenantExternalId,
-          strPar_Token: this.config.inventarioToken,
-          datPar_Fecha: fecha,
-          strPar_Bodega: process.env.SOURCE_INVENTARIO_BODEGA ?? '0001',
-          bolPar_ConSaldo: process.env.SOURCE_INVENTARIO_CON_SALDO ?? 'False',
-          bolPar_Conlmg: process.env.SOURCE_INVENTARIO_CON_IMG ?? 'False',
-          bolPar_ConSer: process.env.SOURCE_INVENTARIO_CON_SER ?? 'False',
-          strError: '-',
-          intPar_Filas: Number(process.env.SOURCE_INVENTARIO_FILAS ?? 10000),
-          intPar_Pagina: 1,
-          intPar_LisPre: 0,
-        },
-      );
-      const records = this.extractRecords(xml);
-      const brandKeys = (process.env.SOURCE_INVENTARIO_BRAND_FIELDS ?? 'MARCA,marca,nommar,nommarca,brand')
-        .split(',')
-        .map((k) => k.trim())
-        .filter(Boolean);
-      const classKeys = (process.env.SOURCE_INVENTARIO_CLASS_FIELDS ?? 'CLASE,clase,codclase,class')
-        .split(',')
-        .map((k) => k.trim())
-        .filter(Boolean);
-      records.forEach((record) => {
-        const ref = normalizeRefer(
-          this.pick(record, ['refer', 'referencia', 'codigo', 'codref']),
-        );
-        const brand = this.pick(record, brandKeys.length > 0 ? brandKeys : ['marca', 'brand']);
-        const classCode = this.pick(record, classKeys.length > 0 ? classKeys : ['clase', 'codclase']);
-        if (ref && brand && !brandMap.has(ref)) brandMap.set(ref, brand);
-        if (ref && classCode && !classMap.has(ref)) classMap.set(ref, classCode);
-      });
-      return { brandMap, classMap };
-    } catch {
-      return { brandMap, classMap };
-    }
+    return { brandMap: new Map(), classMap: new Map() };
   }
 
   /** Marcas únicas desde inventario; cruce por referencia con ventas. */
