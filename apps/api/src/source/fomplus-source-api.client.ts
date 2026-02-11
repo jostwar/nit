@@ -414,6 +414,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const nit = normalizeCustomerId(nitRaw);
       const customerName =
         this.pick(record, ['nomced', 'cliente', 'nombre', 'razonsocial']) ?? undefined;
+      // FECHA = Fecha Documento del ERP (GenerarInfoVentas). Las ventas se suman por esta fecha en la plataforma.
       const issuedAt =
         this.normalizeDate(
           this.pick(record, ['fecha', 'fechafac', 'fechafactura', 'fechaemision', 'fecfac']),

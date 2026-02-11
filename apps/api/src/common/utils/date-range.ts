@@ -55,6 +55,7 @@ export function parseDate(value?: string, fallback?: Date): Date {
   return parsed;
 }
 
+/** Rango de fechas del calendario (desde 00:00:00 del "from" hasta 23:59:59 del "to"). Coincide con Fecha Documento (FECHA de GenerarInfoVentas). */
 export function parseRange(from?: string, to?: string, days = 30) {
   const end = parseDate(to, new Date());
   const start = parseDate(from, new Date(end.getTime() - days * 24 * 60 * 60 * 1000));
