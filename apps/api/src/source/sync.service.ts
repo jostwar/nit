@@ -176,13 +176,6 @@ export class SyncService {
         cached.city = cityFromInvoice;
       }
       const issuedAt = new Date(invoice.issuedAt);
-      const existing = await this.prisma.invoice.findFirst({
-        where: {
-          tenantId,
-          customerId: customer.id,
-          invoiceNumber: invoice.externalId,
-        },
-      });
       const vendor = invoice.vendor?.trim() || null;
       const sign = invoice.saleSign === -1 ? -1 : 1;
       const unitsRounded = Math.round(invoice.units);
@@ -192,41 +185,44 @@ export class SyncService {
       const documentType = invoice.documentType?.trim() || null;
       const saleSign = sign;
       const city = invoice.city?.trim() || null;
-      const saved = existing
-        ? await this.prisma.invoice.update({
-            where: { id: existing.id },
-            data: {
-              issuedAt,
-              total: invoice.total,
-              margin: invoice.margin,
-              units: unitsRounded,
-              vendor,
-              city,
-              documentType,
-              saleSign,
-              signedTotal,
-              signedMargin,
-              signedUnits,
-            },
-          })
-        : await this.prisma.invoice.create({
-            data: {
-              tenantId,
-              customerId: customer.id,
-              invoiceNumber: invoice.externalId,
-              issuedAt,
-              total: invoice.total,
-              margin: invoice.margin,
-              units: unitsRounded,
-              vendor,
-              city,
-              documentType,
-              saleSign,
-              signedTotal,
-              signedMargin,
-              signedUnits,
-            },
-          });
+      const saved = await this.prisma.invoice.upsert({
+        where: {
+          tenantId_customerId_invoiceNumber: {
+            tenantId,
+            customerId: customer.id,
+            invoiceNumber: invoice.externalId,
+          },
+        },
+        create: {
+          tenantId,
+          customerId: customer.id,
+          invoiceNumber: invoice.externalId,
+          issuedAt,
+          total: invoice.total,
+          margin: invoice.margin,
+          units: unitsRounded,
+          vendor,
+          city,
+          documentType,
+          saleSign,
+          signedTotal,
+          signedMargin,
+          signedUnits,
+        },
+        update: {
+          issuedAt,
+          total: invoice.total,
+          margin: invoice.margin,
+          units: unitsRounded,
+          vendor,
+          city,
+          documentType,
+          saleSign,
+          signedTotal,
+          signedMargin,
+          signedUnits,
+        },
+      });
       await this.prisma.invoiceItem.deleteMany({
         where: { tenantId, invoiceId: saved.id },
       });

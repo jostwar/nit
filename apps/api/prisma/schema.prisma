@@ -124,6 +124,7 @@ model Invoice {
   items    InvoiceItem[]
   payments Payment[]
 
+  @@unique([tenantId, customerId, invoiceNumber])
   @@index([tenantId])
   @@index([customerId])
   @@index([tenantId, issuedAt])
