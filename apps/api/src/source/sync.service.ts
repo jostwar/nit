@@ -100,8 +100,45 @@ export class SyncService {
       !opts?.fullRange &&
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
+    const concurrency = Math.min(10, Math.max(1, Number(process.env.SYNC_INVOICE_CONCURRENCY) || 8));
     let synced = 0;
     let unmappedRefsCount = 0;
+
+    const customerCache = new Map<string, { id: string; city?: string | null }>();
+    const existingCustomers = await this.prisma.customer.findMany({
+      where: { tenantId },
+      select: { id: true, nit: true, city: true },
+    });
+    for (const c of existingCustomers) {
+      customerCache.set(c.nit, { id: c.id, city: c.city });
+    }
+
+    const getOrCreateCustomer = async (
+      nit: string,
+      city?: string | null,
+    ): Promise<{ id: string }> => {
+      const cached = customerCache.get(nit);
+      if (cached) return { id: cached.id };
+      try {
+        const created = await this.prisma.customer.create({
+          data: { tenantId, nit, name: 'Cliente sin nombre', fromListadoClientes: false },
+          select: { id: true },
+        });
+        customerCache.set(nit, { id: created.id, city: null });
+        return created;
+      } catch {
+        const existing = await this.prisma.customer.findFirst({
+          where: { tenantId, nit },
+          select: { id: true, city: true },
+        });
+        if (existing) {
+          customerCache.set(nit, { id: existing.id, city: existing.city });
+          return { id: existing.id };
+        }
+        throw new Error(`No se pudo obtener cliente NIT ${nit}`);
+      }
+    };
+
     const processInvoice = async (invoice: {
       externalId: string;
       customerNit: string;
@@ -128,25 +165,15 @@ export class SyncService {
     }) => {
       const normalizedNit = normalizeCustomerId(invoice.customerNit) || invoice.customerNit;
       if (!normalizedNit || !invoice.externalId) return 0;
-      const existingCustomer = await this.prisma.customer.findFirst({
-        where: { tenantId, nit: normalizedNit },
-      });
-      const customer = existingCustomer
-        ? existingCustomer
-        : await this.prisma.customer.create({
-            data: {
-              tenantId,
-              nit: normalizedNit,
-              name: 'Cliente sin nombre',
-              fromListadoClientes: false,
-            },
-          });
+      const customer = await getOrCreateCustomer(normalizedNit, invoice.city);
       const cityFromInvoice = invoice.city?.trim();
-      if (cityFromInvoice && !customer.city?.trim()) {
+      const cached = customerCache.get(normalizedNit);
+      if (cityFromInvoice && cached && !cached.city?.trim()) {
         await this.prisma.customer.update({
           where: { id: customer.id },
           data: { city: cityFromInvoice },
         });
+        cached.city = cityFromInvoice;
       }
       const issuedAt = new Date(invoice.issuedAt);
       const existing = await this.prisma.invoice.findFirst({
@@ -249,8 +276,10 @@ export class SyncService {
       if (invoices.length === 0) {
         return { synced: 0, unmappedRefsCount };
       }
-      for (const invoice of invoices) {
-        synced += await processInvoice(invoice);
+      for (let i = 0; i < invoices.length; i += concurrency) {
+        const batch = invoices.slice(i, i + concurrency);
+        const results = await Promise.all(batch.map((inv) => processInvoice(inv)));
+        synced += results.reduce((a, b) => a + b, 0);
       }
       return { synced, unmappedRefsCount };
     }
@@ -267,11 +296,13 @@ export class SyncService {
       });
       const { invoices: records, unmapped } = unwrap(result);
       unmappedRefsCount += unmapped;
-      for (const record of records) {
-        synced += await processInvoice({
-          ...record,
-          customerNit: record.customerNit || customer.nit,
-        });
+      for (let i = 0; i < records.length; i += concurrency) {
+        const batch = records.slice(i, i + concurrency).map((r) => ({
+          ...r,
+          customerNit: r.customerNit || customer.nit,
+        }));
+        const results = await Promise.all(batch.map((inv) => processInvoice(inv)));
+        synced += results.reduce((a, b) => a + b, 0);
       }
     }
     return { synced, unmappedRefsCount };
@@ -288,6 +319,36 @@ export class SyncService {
       !opts?.fullRange &&
       process.env.SOURCE_API_PROVIDER === 'fomplus' &&
       process.env.SOURCE_SYNC_BY_CUSTOMER !== 'false';
+    const customerCache = new Map<string, { id: string }>();
+    const existingCustomers = await this.prisma.customer.findMany({
+      where: { tenantId },
+      select: { id: true, nit: true },
+    });
+    for (const c of existingCustomers) {
+      customerCache.set(c.nit, { id: c.id });
+    }
+    const getOrCreateCustomer = async (nit: string): Promise<{ id: string }> => {
+      const cached = customerCache.get(nit);
+      if (cached) return cached;
+      try {
+        const created = await this.prisma.customer.create({
+          data: { tenantId, nit, name: 'Cliente sin nombre', fromListadoClientes: false },
+          select: { id: true },
+        });
+        customerCache.set(nit, created);
+        return created;
+      } catch {
+        const existing = await this.prisma.customer.findFirst({
+          where: { tenantId, nit },
+          select: { id: true },
+        });
+        if (existing) {
+          customerCache.set(nit, existing);
+          return existing;
+        }
+        throw new Error(`No se pudo obtener cliente NIT ${nit}`);
+      }
+    };
     const creditMap = new Map<
       string,
       {
@@ -313,19 +374,7 @@ export class SyncService {
     }) => {
       const normalizedNit = normalizeCustomerId(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) return 0;
-      const existingCustomer = await this.prisma.customer.findFirst({
-        where: { tenantId, nit: normalizedNit },
-      });
-      const customer = existingCustomer
-        ? existingCustomer
-        : await this.prisma.customer.create({
-            data: {
-              tenantId,
-              nit: normalizedNit,
-              name: 'Cliente sin nombre',
-              fromListadoClientes: false,
-            },
-          });
+      const customer = await getOrCreateCustomer(normalizedNit);
 
       const balance = payment.balance ?? 0;
       if (balance > 0) {
@@ -387,13 +436,16 @@ export class SyncService {
       return 0;
     };
 
+    const payConcurrency = Math.min(5, Math.max(1, Number(process.env.SYNC_PAYMENT_CONCURRENCY) || 4));
     if (!usePerCustomer) {
       const payments = await this.sourceApi.fetchPayments(tenantExternalId, from, to);
       if (payments.length === 0) {
         return { synced: 0 };
       }
-      for (const payment of payments) {
-        synced += await processPayment(payment);
+      for (let i = 0; i < payments.length; i += payConcurrency) {
+        const batch = payments.slice(i, i + payConcurrency);
+        const results = await Promise.all(batch.map((p) => processPayment(p)));
+        synced += results.reduce((a, b) => a + b, 0);
       }
     } else {
       const customerList = await this.prisma.customer.findMany({
@@ -405,20 +457,22 @@ export class SyncService {
           cedula: customer.nit,
           vendor: customer.vendor ?? '',
         });
-        for (const record of records) {
-          synced += await processPayment({
-            ...record,
-            customerNit: record.customerNit || customer.nit,
-          });
+        for (let i = 0; i < records.length; i += payConcurrency) {
+          const batch = records.slice(i, i + payConcurrency).map((r) => ({
+            ...r,
+            customerNit: r.customerNit || customer.nit,
+          }));
+          const results = await Promise.all(batch.map((p) => processPayment(p)));
+          synced += results.reduce((a, b) => a + b, 0);
         }
       }
     }
 
-    for (const [customerId, summary] of creditMap.entries()) {
+    const creditUpdates = Array.from(creditMap.entries()).map(([customerId, summary]) => {
       const dsoDays =
         summary.overdueCount > 0 ? Math.round(summary.overdueDaysSum / summary.overdueCount) : 0;
       const creditLimit = summary.creditLimit ?? 0;
-      await this.prisma.credit.upsert({
+      return this.prisma.credit.upsert({
         where: { customerId },
         update: {
           balance: summary.balance,
@@ -435,6 +489,9 @@ export class SyncService {
           dsoDays,
         },
       });
+    });
+    if (creditUpdates.length > 0) {
+      await Promise.all(creditUpdates);
     }
 
     return { synced };

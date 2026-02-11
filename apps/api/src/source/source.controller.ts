@@ -133,57 +133,83 @@ export class SourceController {
         });
         // Un solo día (ej. "Actualizar hoy"): una sola llamada de ventas, sin iterar por cliente.
         const fullRange = byMonth || from === to;
+        const chunkConcurrency = Math.min(
+          3,
+          Math.max(1, Number(process.env.SYNC_CHUNK_CONCURRENCY) || 2),
+        );
         let chunkIndex = 0;
-        for (const [rangeFrom, rangeTo] of chunks) {
+        for (let i = 0; i < chunks.length; i += chunkConcurrency) {
           if (this.syncCancelRequested.has(user.tenantId)) {
             this.logger.log(`[sync] Cancelado por usuario en ${user.tenantId}`);
             this.syncCancelRequested.delete(user.tenantId);
             break;
           }
-          chunkIndex++;
-          const label = `${rangeFrom} → ${rangeTo}`;
-          let countInvoices = 0;
-          let countPayments = 0;
-          try {
-            const result = await this.syncService.syncInvoices(
-              user.tenantId,
-              tenantExternalId,
-              rangeFrom,
-              rangeTo,
-              { fullRange, brandCodeToName, classCodeToName },
-            );
-            countInvoices = result.synced;
-            invoicesSynced += result.synced;
-            totalUnmappedRefs += result.unmappedRefsCount ?? 0;
-          } catch (error) {
-            const msg = (error as Error).message ?? 'Error sincronizando ventas';
-            errors.push({ date: label, stage: 'invoices', message: msg });
-            this.logger.warn(`[sync] ${label} ventas: ${msg}`);
-          }
-          try {
-            const result = await this.syncService.syncPayments(
-              user.tenantId,
-              tenantExternalId,
-              rangeFrom,
-              rangeTo,
-              { fullRange },
-            );
-            countPayments = result.synced;
-            paymentsSynced += result.synced;
-          } catch (error) {
-            const msg = (error as Error).message ?? 'Error sincronizando cartera';
-            errors.push({ date: label, stage: 'payments', message: msg });
-            this.logger.warn(`[sync] ${label} cartera: ${msg}`);
+          const batch = chunks.slice(i, i + chunkConcurrency);
+          const results = await Promise.all(
+            batch.map(async ([rangeFrom, rangeTo]) => {
+              const label = `${rangeFrom} → ${rangeTo}`;
+              let countInvoices = 0;
+              let countPayments = 0;
+              const errs: Array<{ date: string; stage: 'invoices' | 'payments'; message: string }> =
+                [];
+              let unmapped = 0;
+              try {
+                const invResult = await this.syncService.syncInvoices(
+                  user.tenantId,
+                  tenantExternalId,
+                  rangeFrom,
+                  rangeTo,
+                  { fullRange, brandCodeToName, classCodeToName },
+                );
+                countInvoices = invResult.synced;
+                unmapped = invResult.unmappedRefsCount ?? 0;
+                try {
+                  const payResult = await this.syncService.syncPayments(
+                    user.tenantId,
+                    tenantExternalId,
+                    rangeFrom,
+                    rangeTo,
+                    { fullRange },
+                  );
+                  countPayments = payResult.synced;
+                } catch (payErr) {
+                  const msg = (payErr as Error).message ?? 'Error sincronizando cartera';
+                  errs.push({ date: label, stage: 'payments', message: msg });
+                }
+              } catch (invErr) {
+                const msg = (invErr as Error).message ?? 'Error sincronizando ventas';
+                errs.push({ date: label, stage: 'invoices', message: msg });
+              }
+              return {
+                label,
+                countInvoices,
+                countPayments,
+                unmappedRefs: unmapped,
+                errs,
+              };
+            }),
+          );
+          for (const r of results) {
+            chunkIndex++;
+            invoicesSynced += r.countInvoices;
+            paymentsSynced += r.countPayments;
+            totalUnmappedRefs += r.unmappedRefs;
+            errors.push(...r.errs);
+            if (r.errs.length > 0) {
+              for (const e of r.errs) this.logger.warn(`[sync] ${r.label} ${e.stage}: ${e.message}`);
+            }
+            if (r.countInvoices > 0 || r.countPayments > 0) {
+              this.logger.log(
+                `[sync]   ${r.label}  ventas=${r.countInvoices}  cartera=${r.countPayments}`,
+              );
+            }
           }
           this.syncProgress.set(user.tenantId, {
             percent: 5 + Math.round((95 * chunkIndex) / totalChunks),
-            stage: label,
+            stage: batch.map(([a, b]) => `${a}→${b}`).join(' | '),
             current: chunkIndex,
             total: totalChunks,
           });
-          if (countInvoices > 0 || countPayments > 0) {
-            this.logger.log(`[sync]   ${label}  ventas=${countInvoices}  cartera=${countPayments}`);
-          }
         }
 
         const syncDurationMs = Date.now() - syncStartedAt;

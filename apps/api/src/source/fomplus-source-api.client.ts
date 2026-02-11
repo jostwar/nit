@@ -51,8 +51,8 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const normalizedCedula = options?.cedula ? normalizeCustomerId(options.cedula) : '';
     const chunkDays = Number(process.env.SOURCE_VENTAS_CHUNK_DAYS ?? 7);
     const ranges = this.splitDateRange(from, to, Number.isFinite(chunkDays) ? chunkDays : 7);
-    const payload: FlatRecord[] = [];
-    for (const range of ranges) {
+    const rangeConcurrency = Math.min(3, Math.max(1, Number(process.env.SOURCE_VENTAS_RANGE_CONCURRENCY) || 2));
+    const fetchRange = async (range: { from: Date; to: Date }) => {
       const params: Record<string, string | number> = {
         strPar_Empresa: this.config.database || tenantExternalId,
         datPar_FecIni: this.formatDateOnly(range.from),
@@ -70,8 +70,13 @@ export class FomplusSourceApiClient implements SourceApiClient {
         'GenerarInfoVentas',
         params,
       );
-      const records = this.extractRecords(xml);
-      payload.push(...records);
+      return this.extractRecords(xml);
+    };
+    const payload: FlatRecord[] = [];
+    for (let i = 0; i < ranges.length; i += rangeConcurrency) {
+      const batch = ranges.slice(i, i + rangeConcurrency);
+      const results = await Promise.all(batch.map(fetchRange));
+      for (const records of results) payload.push(...records);
     }
     const { brandMap, classMap } = await this.fetchInventoryMaps(
       tenantExternalId,
@@ -128,10 +133,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return this.mapCustomers(records);
   }
 
+  private readonly apiTimeoutMs = Number(process.env.SOURCE_API_TIMEOUT_MS) || 90000;
+
   private async getXml(url: string, params: Record<string, string | number>) {
     const response = await axios.get(url, {
       params,
-      timeout: 0,
+      timeout: this.apiTimeoutMs,
     });
     const raw = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
     if (raw.includes('System.InvalidOperationException')) {
@@ -216,7 +223,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         'Content-Type': 'text/xml; charset=utf-8',
         SOAPAction: `"${action}"`,
       },
-      timeout: 0,
+      timeout: this.apiTimeoutMs,
     });
     return response.data;
   }
@@ -598,19 +605,32 @@ export class FomplusSourceApiClient implements SourceApiClient {
     return map;
   }
 
+  private inventoryMapsCache = new Map<
+    string,
+    { brandMap: Map<string, string>; classMap: Map<string, string>; ts: number }
+  >();
+  private readonly inventoryMapsCacheTtlMs = 60000;
+
   private async fetchInventoryMaps(
     tenantExternalId: string,
     tenantId?: string,
   ): Promise<{ brandMap: Map<string, string>; classMap: Map<string, string> }> {
-    // Solo directorio cargado por CSV en la plataforma (InventoryDirectory). No usar CSV en disco ni API inventario.
+    const key = tenantId ?? tenantExternalId;
+    const cached = this.inventoryMapsCache.get(key);
+    if (cached && Date.now() - cached.ts < this.inventoryMapsCacheTtlMs) {
+      return { brandMap: cached.brandMap, classMap: cached.classMap };
+    }
     if (tenantId && this.inventoryDirectory) {
       try {
-        return await this.inventoryDirectory.getRefBrandClassMap(tenantId);
+        const maps = await this.inventoryDirectory.getRefBrandClassMap(tenantId);
+        this.inventoryMapsCache.set(key, { ...maps, ts: Date.now() });
+        return maps;
       } catch {
         // si falla BD, devolver mapas vacíos
       }
     }
-    return { brandMap: new Map(), classMap: new Map() };
+    const empty = { brandMap: new Map<string, string>(), classMap: new Map<string, string>() };
+    return empty;
   }
 
   /** Marcas únicas desde inventario; cruce por referencia con ventas. */
