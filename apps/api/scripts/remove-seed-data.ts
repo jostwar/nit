@@ -11,11 +11,10 @@
  */
 
 import * as path from 'path';
-try {
-  require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
-} catch {
-  // ignore
-}
+const dotenv = require('dotenv');
+// Cargar .env del monorepo (nit/.env) o de apps/api (nit/apps/api/.env)
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 import { PrismaClient } from '@prisma/client';
 
@@ -24,10 +23,13 @@ const prisma = new PrismaClient();
 const SEED_NITS = ['900001', '900002', '900003', '900004', '900005', '900006', '900007', '900008'];
 
 async function main() {
+  console.log('remove-seed-data: iniciando...');
   const tenantName = process.env.TENANT_NAME ?? null;
+  console.log('Conectando a la BD...');
   const tenants = tenantName
     ? await prisma.tenant.findMany({ where: { name: tenantName } })
     : await prisma.tenant.findMany();
+  console.log(`Tenants encontrados: ${tenants.length}`);
 
   if (tenants.length === 0) {
     console.log('No hay tenants. Nada que limpiar.');

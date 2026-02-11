@@ -85,6 +85,12 @@ export class SyncService {
     return false;
   }
 
+  /** Nombre para cliente usando solo datos de la API: nombre si es válido, si no el NIT. */
+  private nameFromApi(apiName: string | undefined, nit: string): string {
+    if (apiName && !this.isInvalidName(apiName, nit)) return apiName.trim();
+    return nit;
+  }
+
   async syncInvoices(
     tenantId: string,
     tenantExternalId: string,
@@ -116,12 +122,14 @@ export class SyncService {
     const getOrCreateCustomer = async (
       nit: string,
       city?: string | null,
+      customerName?: string,
     ): Promise<{ id: string }> => {
       const cached = customerCache.get(nit);
       if (cached) return { id: cached.id };
       try {
+        const name = this.nameFromApi(customerName, nit);
         const created = await this.prisma.customer.create({
-          data: { tenantId, nit, name: 'Cliente sin nombre', fromListadoClientes: false },
+          data: { tenantId, nit, name, fromListadoClientes: false },
           select: { id: true },
         });
         customerCache.set(nit, { id: created.id, city: null });
@@ -165,7 +173,7 @@ export class SyncService {
     }) => {
       const normalizedNit = normalizeCustomerId(invoice.customerNit) || invoice.customerNit;
       if (!normalizedNit || !invoice.externalId) return 0;
-      const customer = await getOrCreateCustomer(normalizedNit, invoice.city);
+      const customer = await getOrCreateCustomer(normalizedNit, invoice.city, invoice.customerName);
       const cityFromInvoice = invoice.city?.trim();
       const cached = customerCache.get(normalizedNit);
       if (cityFromInvoice && cached && !cached.city?.trim()) {
@@ -323,12 +331,16 @@ export class SyncService {
     for (const c of existingCustomers) {
       customerCache.set(c.nit, { id: c.id });
     }
-    const getOrCreateCustomer = async (nit: string): Promise<{ id: string }> => {
+    const getOrCreateCustomer = async (
+      nit: string,
+      customerName?: string,
+    ): Promise<{ id: string }> => {
       const cached = customerCache.get(nit);
       if (cached) return cached;
       try {
+        const name = this.nameFromApi(customerName, nit);
         const created = await this.prisma.customer.create({
-          data: { tenantId, nit, name: 'Cliente sin nombre', fromListadoClientes: false },
+          data: { tenantId, nit, name, fromListadoClientes: false },
           select: { id: true },
         });
         customerCache.set(nit, created);
@@ -370,7 +382,7 @@ export class SyncService {
     }) => {
       const normalizedNit = normalizeCustomerId(payment.customerNit) || payment.customerNit;
       if (!normalizedNit) return 0;
-      const customer = await getOrCreateCustomer(normalizedNit);
+      const customer = await getOrCreateCustomer(normalizedNit, payment.customerName);
 
       const balance = payment.balance ?? 0;
       if (balance > 0) {
@@ -518,9 +530,7 @@ export class SyncService {
           });
         }
       }
-      const safeName = this.isInvalidName(customer.name, normalizedNit)
-        ? 'Cliente sin nombre'
-        : customer.name.trim();
+      const safeName = this.nameFromApi(customer.name, normalizedNit);
       const saved = await this.prisma.customer.upsert({
         where: { tenantId_nit: { tenantId, nit: normalizedNit } },
         update: {
