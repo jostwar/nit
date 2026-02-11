@@ -257,8 +257,10 @@ export default function AdminReportsPage() {
                   tickFormatter={(v) => formatCop(Number(v))}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) =>
-                    name === "totalSales" ? formatCop(value) : value.toLocaleString("es-CO")
+                  formatter={(value, name) =>
+                    name === "totalSales"
+                      ? formatCop(Number(value))
+                      : Number(value).toLocaleString("es-CO")
                   }
                 />
                 <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} />
