@@ -332,6 +332,7 @@ export class CopilotToolsService {
     const list = await this.prisma.customer.findMany({
       where: {
         tenantId,
+        fromListadoClientes: true,
         OR: [
           { nit: { contains: q, mode: 'insensitive' } },
           { name: { contains: q, mode: 'insensitive' } },

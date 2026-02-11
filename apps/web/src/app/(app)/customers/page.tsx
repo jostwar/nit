@@ -53,6 +53,7 @@ type CustomerCollections = {
 };
 
 export default function CustomersPage() {
+  const searchParams = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -61,7 +62,6 @@ export default function CustomersPage() {
   const [products, setProducts] = useState<CustomerProduct[]>([]);
   const [collections, setCollections] = useState<CustomerCollections | null>(null);
   const [tab, setTab] = useState<"resumen" | "marcas" | "productos" | "cartera">("resumen");
-  const searchParams = useSearchParams();
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }),
     [],
@@ -86,7 +86,8 @@ export default function CustomersPage() {
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
-    if (search.trim()) params.set("search", search.trim());
+    const searchParam = searchParams.get("search") ?? search;
+    if (searchParam.trim()) params.set("search", searchParam.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (vendor) params.set("vendor", vendor);
@@ -107,14 +108,27 @@ export default function CustomersPage() {
     ? Math.max(0, Math.floor((toDate.getTime() - lastPurchaseDate.getTime()) / 86400000))
     : null;
 
+  // Sincronizar search desde URL (p. ej. al llegar desde dashboard con ?search=NIT&customerId=xxx)
   useEffect(() => {
+    const q = searchParams.get("search");
+    if (q != null && q !== search) setSearch(q);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const customerIdFromUrl = searchParams.get("customerId");
     apiGet<Customer[]>(`/customers${listQueryString}`).then((data) => {
       setCustomers(data);
-      if (!selectedId && data.length > 0) {
-        setSelectedId(data[0].id);
+      if (customerIdFromUrl && data.some((c) => c.id === customerIdFromUrl)) {
+        setSelectedId(customerIdFromUrl);
+      } else if (data.length > 0) {
+        setSelectedId((prev) =>
+          prev && data.some((c) => c.id === prev) ? prev : data[0].id,
+        );
+      } else {
+        setSelectedId(null);
       }
     });
-  }, [listQueryString, selectedId]);
+  }, [listQueryString, searchParams]);
 
   useEffect(() => {
     if (!selectedId) return;

@@ -67,6 +67,7 @@ export class CustomersService {
         const scopedCustomers = await this.prisma.customer.findMany({
           where: {
             tenantId,
+            fromListadoClientes: true,
             ...(trimmedCity ? { city: { contains: trimmedCity, mode: 'insensitive' } } : {}),
             ...(trimmedVendor
               ? { vendor: { contains: trimmedVendor, mode: 'insensitive' } }
@@ -137,6 +138,7 @@ export class CustomersService {
       const customers = await this.prisma.customer.findMany({
         where: {
           tenantId,
+          fromListadoClientes: true,
           ...idFilter,
           ...(trimmedCity ? { city: { contains: trimmedCity, mode: 'insensitive' } } : {}),
           ...(trimmedVendor

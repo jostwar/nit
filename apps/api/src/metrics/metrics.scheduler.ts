@@ -16,7 +16,7 @@ export class MetricsScheduler {
 
     for (const tenant of tenants) {
       const customers = await this.prisma.customer.findMany({
-        where: { tenantId: tenant.id },
+        where: { tenantId: tenant.id, fromListadoClientes: true },
         select: { id: true },
       });
       for (const customer of customers) {

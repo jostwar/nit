@@ -84,6 +84,12 @@ export default function DashboardPage() {
   const [salesByClass, setSalesByClass] = useState<
     Array<{ classCode: string; className: string; totalSales: number; count: number }>
   >([]);
+  const [salesByVendor, setSalesByVendor] = useState<
+    Array<{ vendor: string; totalSales: number; count: number }>
+  >([]);
+  const [salesByBrand, setSalesByBrand] = useState<
+    Array<{ brand: string; totalSales: number; count: number }>
+  >([]);
   const [salesByCustomer, setSalesByCustomer] = useState<CustomerRow[]>([]);
   const [tipomov, setTipomov] = useState<TipomovRow[]>([]);
   const [tipomovDetail, setTipomovDetail] = useState<TipomovDetailRow[] | null>(null);
@@ -94,6 +100,10 @@ export default function DashboardPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const searchParams = useSearchParams();
+
+  const totalSales = summary?.current?.totalSales ?? 0;
+  const pctOfTotal = (val: number) =>
+    totalSales > 0 ? ((val / totalSales) * 100).toFixed(1) + "%" : "—";
 
   useEffect(() => {
     const onSyncCompleted = () => setRefreshKey((k) => k + 1);
@@ -255,6 +265,22 @@ export default function DashboardPage() {
   }, [query, refreshKey]);
 
   useEffect(() => {
+    apiGet<Array<{ vendor: string; totalSales: number; count: number }>>(
+      `/dashboard/sales-by-vendor${query}`,
+    )
+      .then(setSalesByVendor)
+      .catch(() => setSalesByVendor([]));
+  }, [query, refreshKey]);
+
+  useEffect(() => {
+    apiGet<Array<{ brand: string; totalSales: number; count: number }>>(
+      `/dashboard/sales-by-brand${query}`,
+    )
+      .then(setSalesByBrand)
+      .catch(() => setSalesByBrand([]));
+  }, [query, refreshKey]);
+
+  useEffect(() => {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     if (!from || !to) {
@@ -316,6 +342,10 @@ export default function DashboardPage() {
         cell: ({ row }) => formatCop(row.original.totalSales),
       },
       {
+        header: "% total",
+        cell: ({ row }) => pctOfTotal(row.original.totalSales),
+      },
+      {
         header: "Comparación % vs mes anterior",
         accessorKey: "changePercent",
         cell: ({ row }) => `${row.original.changePercent.toFixed(1)}%`,
@@ -336,7 +366,7 @@ export default function DashboardPage() {
         ),
       },
     ],
-    [],
+    [totalSales],
   );
 
   return (
@@ -615,6 +645,7 @@ export default function DashboardPage() {
                   <tr className="border-b border-slate-200 text-left text-slate-600">
                     <th className="py-2 pr-4 font-medium">Clase</th>
                     <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                    <th className="py-2 pr-4 font-medium text-right">% total</th>
                     <th className="py-2 pr-4 font-medium text-right">Líneas</th>
                   </tr>
                 </thead>
@@ -628,6 +659,9 @@ export default function DashboardPage() {
                         {formatCop(row.totalSales)}
                       </td>
                       <td className="py-2 pr-4 text-right text-slate-600">
+                        {pctOfTotal(row.totalSales)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-slate-600">
                         {row.count.toLocaleString("es-CO")}
                       </td>
                     </tr>
@@ -639,13 +673,101 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Venta por vendedor</CardTitle>
+            <p className="text-xs text-slate-500 font-normal mt-1">
+              Totales por NOMVEN (GenerarInfoVentas) en el rango seleccionado.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {salesByVendor.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No hay datos por vendedor para este rango.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-600">
+                      <th className="py-2 pr-4 font-medium">Vendedor</th>
+                      <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                      <th className="py-2 pr-4 font-medium text-right">% total</th>
+                      <th className="py-2 pr-4 font-medium text-right">Líneas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesByVendor.map((row) => (
+                      <tr key={row.vendor} className="border-b border-slate-100">
+                        <td className="py-2 pr-4 text-slate-800">{row.vendor || "—"}</td>
+                        <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                          {formatCop(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {pctOfTotal(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {row.count.toLocaleString("es-CO")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Venta por marca</CardTitle>
+            <p className="text-xs text-slate-500 font-normal mt-1">
+              Totales por MARCA (GenerarInfoVentas) en el rango seleccionado.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {salesByBrand.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No hay datos por marca para este rango. Carga el directorio REFER→MARCA en inventario y sincroniza.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-600">
+                      <th className="py-2 pr-4 font-medium">Marca</th>
+                      <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                      <th className="py-2 pr-4 font-medium text-right">% total</th>
+                      <th className="py-2 pr-4 font-medium text-right">Líneas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesByBrand.map((row) => (
+                      <tr key={row.brand} className="border-b border-slate-100">
+                        <td className="py-2 pr-4 text-slate-800">{row.brand || "—"}</td>
+                        <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                          {formatCop(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {pctOfTotal(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {row.count.toLocaleString("es-CO")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Venta por cliente</CardTitle>
-          <p className="text-xs text-slate-500 font-normal mt-1">
-            Totales por tercero en el rango. El tercero se identifica con{" "}
-            <strong>CLI_CEDULA</strong> y <strong>CLI_NOMBRE</strong> en ListadoClientes; ese mismo identificador se cruza con <strong>CEDULA</strong> y <strong>NOMCED</strong> en EstadoDeCuentaCartera y en GenerarInfoVentas.
-          </p>
         </CardHeader>
         <CardContent>
           {salesByCustomer.length === 0 ? (
@@ -660,6 +782,7 @@ export default function DashboardPage() {
                     <th className="py-2 pr-4 font-medium">Cliente (tercero)</th>
                     <th className="py-2 pr-4 font-medium font-mono">NIT / Cédula</th>
                     <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                    <th className="py-2 pr-4 font-medium text-right">% total</th>
                     <th className="py-2 pr-4 font-medium text-right">Facturas</th>
                     <th className="py-2 pl-2 w-20"></th>
                   </tr>
@@ -673,6 +796,9 @@ export default function DashboardPage() {
                         {formatCop(row.totalSales)}
                       </td>
                       <td className="py-2 pr-4 text-right text-slate-600">
+                        {pctOfTotal(row.totalSales)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-slate-600">
                         {(row.totalInvoices ?? 0).toLocaleString("es-CO")}
                       </td>
                       <td className="py-2 pl-2">
@@ -681,7 +807,20 @@ export default function DashboardPage() {
                           size="sm"
                           className="h-7 text-xs"
                           onClick={() => {
-                            window.location.href = `/customers?search=${encodeURIComponent(row.nit)}`;
+                            const params = new URLSearchParams();
+                            params.set("search", row.nit);
+                            params.set("customerId", row.id);
+                            const from = searchParams.get("from");
+                            const to = searchParams.get("to");
+                            const vendor = searchParams.get("vendor");
+                            const brand = searchParams.get("brand");
+                            const classFilter = searchParams.get("class");
+                            if (from) params.set("from", from);
+                            if (to) params.set("to", to);
+                            if (vendor) params.set("vendor", vendor);
+                            if (brand) params.set("brand", brand);
+                            if (classFilter) params.set("class", classFilter);
+                            window.location.href = `/customers?${params.toString()}`;
                           }}
                         >
                           Ver
@@ -699,9 +838,6 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Tareas</CardTitle>
-          <p className="text-xs text-slate-500 font-normal mt-1">
-            Top clientes (terceros) con variación vs período a comparar. Mismo identificador: ListadoClientes → CLI_CEDULA/CLI_NOMBRE; EstadoDeCuentaCartera y GenerarInfoVentas → CEDULA/NOMCED.
-          </p>
         </CardHeader>
         <CardContent>
           <DataTable columns={taskColumns} data={tasks} />

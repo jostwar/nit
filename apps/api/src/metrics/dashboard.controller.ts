@@ -103,4 +103,42 @@ export class DashboardController {
       class: classFilter,
     });
   }
+
+  @Get('sales-by-vendor')
+  getSalesByVendor(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('city') city?: string,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
+    @Query('class') classFilter?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getSalesByVendor(tenantId, current.from, current.to, {
+      city,
+      vendor,
+      brand,
+      class: classFilter,
+    });
+  }
+
+  @Get('sales-by-brand')
+  getSalesByBrand(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('city') city?: string,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
+    @Query('class') classFilter?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getSalesByBrand(tenantId, current.from, current.to, {
+      city,
+      vendor,
+      brand,
+      class: classFilter,
+    });
+  }
 }

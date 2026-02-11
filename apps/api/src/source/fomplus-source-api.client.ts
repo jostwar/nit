@@ -684,7 +684,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const dueAt = this.normalizeDate(this.pick(record, ['fecven', 'fechaven', 'fechavenc']));
       const overdueDays = this.toNumber(this.pick(record, ['daiaven'])) ?? undefined;
       const creditLimit = this.toNumber(
-        this.pick(record, ['cupo', 'cupocredito', 'credito', 'creditlimit', 'cupo_credito', 'limite']),
+        this.pick(record, ['cli_cupcre', 'cupcre', 'cupo', 'cupocredito', 'credito', 'creditlimit', 'cupo_credito', 'limite']),
       );
       if (!customerNit) continue;
       payments.push({

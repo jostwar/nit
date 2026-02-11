@@ -32,6 +32,7 @@ export class MetricsService {
     const customers = await this.prisma.customer.findMany({
       where: {
         tenantId,
+        fromListadoClientes: true,
         city: { contains: city, mode: 'insensitive' },
       },
       select: { id: true },
@@ -404,7 +405,7 @@ export class MetricsService {
           this.prisma.customer
             .groupBy({
               by: ['city'],
-              where: { tenantId, city: { not: null } },
+              where: { tenantId, fromListadoClientes: true, city: { not: null } },
             })
             .then((rows) =>
               rows
@@ -626,6 +627,122 @@ export class MetricsService {
       totalSales: Number(r.totalSales ?? 0),
       count: Number(r.lineCount ?? 0),
     })).sort((a, b) => b.totalSales - a.totalSales);
+  }
+
+  /** Ventas agregadas por vendedor (Invoice.vendor = NOMVEN de GenerarInfoVentas). */
+  async getSalesByVendor(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+  ) {
+    const scopedCustomerIds = await this.resolveCustomerScope(tenantId, { city: filters?.city });
+    const trimmedVendor = filters?.vendor?.trim();
+    const trimmedBrand = filters?.brand?.trim();
+    const trimmedClass = filters?.class?.trim();
+    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
+    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
+    const classCond =
+      trimmedClass
+        ? classCodes.length > 0
+          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
+          : Prisma.sql` AND it."className" = ${trimmedClass}`
+        : Prisma.empty;
+    const brandCond =
+      trimmedBrand ?
+        (brandValues.length > 0
+          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
+          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`) :
+        Prisma.empty;
+    const vendorCond =
+      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const city = filters?.city?.trim();
+    const cityCond =
+      city ?
+        scopedCustomerIds?.length
+          ? Prisma.sql` AND (i."customerId" IN (${Prisma.join(scopedCustomerIds)}) OR i."city" ILIKE ${`%${city}%`})`
+          : Prisma.sql` AND i."city" ILIKE ${`%${city}%`}`
+      : scopedCustomerIds?.length
+        ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
+        : Prisma.empty;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ vendor: string | null; totalSales: string; lineCount: bigint }>
+    >(Prisma.sql`
+      SELECT COALESCE(i."vendor", 'Sin vendedor') as "vendor",
+        SUM(it.total * i."saleSign")::text as "totalSales",
+        COUNT(*)::bigint as "lineCount"
+      FROM "InvoiceItem" it
+      INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+      WHERE it."tenantId" = ${tenantId}
+        AND i."issuedAt" >= ${from}
+        AND i."issuedAt" <= ${to}
+        ${cityCond}${vendorCond}${brandCond}${classCond}
+      GROUP BY i."vendor"
+      ORDER BY SUM(it.total * i."saleSign") DESC
+    `);
+    return rows.map((r) => ({
+      vendor: r.vendor?.trim() || 'Sin vendedor',
+      totalSales: Number(r.totalSales ?? 0),
+      count: Number(r.lineCount ?? 0),
+    }));
+  }
+
+  /** Ventas agregadas por marca (InvoiceItem.brand = MARCA de GenerarInfoVentas). */
+  async getSalesByBrand(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+  ) {
+    const scopedCustomerIds = await this.resolveCustomerScope(tenantId, { city: filters?.city });
+    const trimmedVendor = filters?.vendor?.trim();
+    const trimmedBrand = filters?.brand?.trim();
+    const trimmedClass = filters?.class?.trim();
+    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
+    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
+    const classCond =
+      trimmedClass
+        ? classCodes.length > 0
+          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
+          : Prisma.sql` AND it."className" = ${trimmedClass}`
+        : Prisma.empty;
+    const brandCond =
+      trimmedBrand ?
+        (brandValues.length > 0
+          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
+          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`) :
+        Prisma.empty;
+    const vendorCond =
+      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const city = filters?.city?.trim();
+    const cityCond =
+      city ?
+        scopedCustomerIds?.length
+          ? Prisma.sql` AND (i."customerId" IN (${Prisma.join(scopedCustomerIds)}) OR i."city" ILIKE ${`%${city}%`})`
+          : Prisma.sql` AND i."city" ILIKE ${`%${city}%`}`
+      : scopedCustomerIds?.length
+        ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
+        : Prisma.empty;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ brand: string; totalSales: string; lineCount: bigint }>
+    >(Prisma.sql`
+      SELECT COALESCE(NULLIF(TRIM(it.brand), ''), 'Sin marca') as "brand",
+        SUM(it.total * i."saleSign")::text as "totalSales",
+        COUNT(*)::bigint as "lineCount"
+      FROM "InvoiceItem" it
+      INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+      WHERE it."tenantId" = ${tenantId}
+        AND i."issuedAt" >= ${from}
+        AND i."issuedAt" <= ${to}
+        ${cityCond}${vendorCond}${brandCond}${classCond}
+      GROUP BY COALESCE(NULLIF(TRIM(it.brand), ''), 'Sin marca')
+      ORDER BY SUM(it.total * i."saleSign") DESC
+    `);
+    return rows.map((r) => ({
+      brand: r.brand?.trim() || 'Sin marca',
+      totalSales: Number(r.totalSales ?? 0),
+      count: Number(r.lineCount ?? 0),
+    }));
   }
 
   /** Tabla TIPOMOV para validar contra ERP: código, concepto, SUMA/RESTA, facturas, total. */

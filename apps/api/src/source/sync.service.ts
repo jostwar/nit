@@ -138,6 +138,7 @@ export class SyncService {
               tenantId,
               nit: normalizedNit,
               name: 'Cliente sin nombre',
+              fromListadoClientes: false,
             },
           });
       const cityFromInvoice = invoice.city?.trim();
@@ -322,6 +323,7 @@ export class SyncService {
               tenantId,
               nit: normalizedNit,
               name: 'Cliente sin nombre',
+              fromListadoClientes: false,
             },
           });
 
@@ -473,6 +475,7 @@ export class SyncService {
           segment: customer.segment ?? undefined,
           city: customer.city ?? undefined,
           vendor: customer.vendor ?? undefined,
+          fromListadoClientes: true,
         },
         create: {
           tenantId,
@@ -481,6 +484,7 @@ export class SyncService {
           segment: customer.segment ?? undefined,
           city: customer.city ?? undefined,
           vendor: customer.vendor ?? undefined,
+          fromListadoClientes: true,
         },
       });
       if (

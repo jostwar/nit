@@ -80,14 +80,15 @@ model RefreshToken {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  tenantId  String
-  nit       String
-  name      String
-  segment   String?
-  city      String?
-  vendor    String?
-  createdAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  tenantId           String
+  nit                String
+  name               String
+  segment            String?
+  city               String?
+  vendor             String?
+  fromListadoClientes Boolean @default(false) // true = existe en ListadoClientes; false = auto-creado desde ventas/cartera (no existe)
+  createdAt          DateTime @default(now())
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id])
   invoices Invoice[]
