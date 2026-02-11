@@ -382,6 +382,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
     classMap: Map<string, string> = new Map(),
   ): FetchInvoicesResult {
     const grouped = new Map<string, SourceInvoice>();
+    const useDocTotalKeys = new Set<string>();
     let unmappedRefsCount = 0;
     // Solo TIPMOV/TIPOMOV definen el tipo de movimiento. No usar TIPDOC (puede ser otro concepto y hace que 06/13 se muestren como 05/Otro).
     const tipomovKeys = (
@@ -519,6 +520,9 @@ export class FomplusSourceApiClient implements SourceApiClient {
       if (!existing) {
         const groupTotal =
           documentTotal != null && Number.isFinite(documentTotal) ? documentTotal : 0;
+        if (documentTotal != null && Number.isFinite(documentTotal)) {
+          useDocTotalKeys.add(key);
+        }
         grouped.set(key, {
           externalId: invoiceId || key,
           customerNit: nit,
@@ -532,7 +536,6 @@ export class FomplusSourceApiClient implements SourceApiClient {
           documentType,
           saleSign,
           items: [],
-          _useDocTotal: documentTotal != null && Number.isFinite(documentTotal),
         });
       }
       const target = grouped.get(key);
@@ -552,7 +555,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         margin,
       });
       target.units += resolvedQty;
-      if (!(target as { _useDocTotal?: boolean })._useDocTotal) {
+      if (!useDocTotalKeys.has(key)) {
         target.total += resolvedTotal;
       }
       target.margin += margin;
