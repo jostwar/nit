@@ -22,7 +22,8 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
-    "load-mappings": "ts-node -r tsconfig-paths/register scripts/load-mappings.ts"
+    "load-mappings": "ts-node -r tsconfig-paths/register scripts/load-mappings.ts",
+    "remove-seed-data": "ts-node -r tsconfig-paths/register scripts/remove-seed-data.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
