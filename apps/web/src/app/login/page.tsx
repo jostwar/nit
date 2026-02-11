@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { apiPost, setTokens, setSavedLoginEmail, getSavedLoginEmail, clearSavedLoginEmail } from "@/lib/api";
 
@@ -50,8 +51,11 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mb-6 flex justify-center">
+          <Image src={(typeof process !== "undefined" && process.env.NEXT_PUBLIC_LOGO) || "/logo.png"} alt="NITIQ" width={140} height={42} priority className="h-10 w-auto object-contain" />
+        </div>
         <h1 className="text-xl font-semibold text-slate-900">Ingresar</h1>
-        <p className="mt-1 text-sm text-slate-500">Acceso a NITIQ</p>
+        <p className="mt-1 text-sm text-slate-500">Acceso a la plataforma</p>
         <div className="mt-6 space-y-4">
           <div>
             <label className="text-xs font-medium text-slate-600">Email</label>

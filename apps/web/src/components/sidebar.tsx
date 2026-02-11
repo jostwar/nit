@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const navItems = [
@@ -16,6 +17,8 @@ const adminItems = [
   { key: "adminCatalog", href: "/admin/catalog", label: "Catálogo referencias" },
   { key: "adminReports", href: "/admin/reports", label: "Reportes de Ventas" },
 ];
+
+const LOGO_SRC = (typeof process !== "undefined" && process.env.NEXT_PUBLIC_LOGO) || "/logo.png";
 
 const DEFAULT_FILTERS: Record<string, boolean> = {
   dashboard: true,
@@ -47,9 +50,9 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-64 flex-col gap-6 border-r border-slate-200 bg-white px-6 py-8">
-      <div className="text-xl font-semibold tracking-tight text-slate-900">
-        NITIQ
-      </div>
+      <Link href="/dashboard" className="flex items-center gap-2">
+        <Image src={LOGO_SRC} alt="NITIQ" width={120} height={36} priority className="h-9 w-auto object-contain" />
+      </Link>
       <nav className="flex flex-col gap-2 text-sm text-slate-600">
         {visibleNav.map((item) => (
           <Link
