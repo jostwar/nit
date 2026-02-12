@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const navItems = [
@@ -9,6 +10,7 @@ const navItems = [
   { key: "customers", href: "/customers", label: "Cliente 360" },
   { key: "alerts", href: "/alerts", label: "Alertas" },
   { key: "ai", href: "/ai", label: "AI Copilot" },
+  { key: "dataUpdate", href: "/data-update", label: "Actualización de datos" },
 ];
 
 const adminItems = [
@@ -25,6 +27,7 @@ const DEFAULT_FILTERS: Record<string, boolean> = {
   customers: true,
   alerts: true,
   ai: true,
+  dataUpdate: true,
   adminUsers: true,
   adminFilters: true,
   adminCatalog: true,
@@ -32,7 +35,9 @@ const DEFAULT_FILTERS: Record<string, boolean> = {
 };
 
 export function Sidebar() {
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<Record<string, boolean>>(DEFAULT_FILTERS);
+  const queryString = searchParams.toString();
 
   useEffect(() => {
     const raw = window.localStorage.getItem("appFilters");
@@ -47,17 +52,19 @@ export function Sidebar() {
 
   const visibleNav = navItems.filter((item) => filters[item.key] !== false);
   const visibleAdmin = adminItems.filter((item) => filters[item.key] !== false);
+  const hrefWithParams = (path: string) =>
+    queryString ? `${path}?${queryString}` : path;
 
   return (
     <aside className="flex h-screen w-56 flex-shrink-0 flex-col gap-6 border-r border-slate-200 bg-white px-4 py-6 sm:px-6 sm:py-8 lg:w-64">
-      <Link href="/dashboard" className="flex items-center gap-2">
+      <Link href={hrefWithParams("/dashboard")} className="flex items-center gap-2">
         <Image src={LOGO_SRC} alt="NITIQ" width={120} height={36} priority className="h-9 w-auto object-contain" />
       </Link>
       <nav className="flex flex-col gap-2 text-sm text-slate-600">
         {visibleNav.map((item) => (
           <Link
             key={item.href}
-            href={item.href}
+            href={hrefWithParams(item.href)}
             className="rounded-md px-3 py-2 transition hover:bg-slate-100 hover:text-slate-900"
           >
             {item.label}
@@ -71,7 +78,7 @@ export function Sidebar() {
         {visibleAdmin.map((item) => (
           <Link
             key={item.href}
-            href={item.href}
+            href={hrefWithParams(item.href)}
             className="rounded-md px-3 py-2 transition hover:bg-slate-100 hover:text-slate-900"
           >
             {item.label}

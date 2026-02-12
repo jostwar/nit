@@ -44,6 +44,7 @@ export class AlertsController {
     @TenantId() tenantId: string,
     @Query('status') status?: string,
     @Query('ruleType') ruleType?: string,
+    @Query('vendor') vendor?: string,
   ) {
     const normalized = status?.toUpperCase();
     const statusFilter =
@@ -51,7 +52,7 @@ export class AlertsController {
     const validRuleTypes = ['NO_PURCHASE_DAYS', 'DROP_PERCENT', 'BRAND_LOST', 'DSO_HIGH'];
     const ruleTypeFilter =
       ruleType && validRuleTypes.includes(ruleType) ? (ruleType as AlertRuleType) : undefined;
-    return this.alertsService.listEvents(tenantId, statusFilter, ruleTypeFilter);
+    return this.alertsService.listEvents(tenantId, statusFilter, ruleTypeFilter, vendor);
   }
 
   @Patch('events/:id')

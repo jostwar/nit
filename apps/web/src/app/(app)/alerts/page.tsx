@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -26,6 +27,7 @@ type AlertEvent = {
 };
 
 export default function AlertsPage() {
+  const searchParams = useSearchParams();
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [events, setEvents] = useState<AlertEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState<"OPEN" | "CLOSED" | "ALL">("OPEN");
@@ -65,6 +67,8 @@ export default function AlertsPage() {
       const params = new URLSearchParams();
       if (statusFilter !== "ALL") params.set("status", statusFilter);
       if (ruleTypeFilter) params.set("ruleType", ruleTypeFilter);
+      const vendor = searchParams.get("vendor");
+      if (vendor) params.set("vendor", vendor);
       const query = params.toString() ? `?${params.toString()}` : "";
       const data = await apiGet<AlertEvent[]>(`/alerts/events${query}`);
       setEvents(data);
@@ -79,7 +83,7 @@ export default function AlertsPage() {
 
   useEffect(() => {
     loadEvents();
-  }, [statusFilter, ruleTypeFilter]);
+  }, [statusFilter, ruleTypeFilter, searchParams.get("vendor")]);
 
   const buildParams = () => {
     if (form.type === "NO_PURCHASE_DAYS" || form.type === "DSO_HIGH") {
@@ -341,6 +345,11 @@ export default function AlertsPage() {
           </Button>
         </CardHeader>
         <CardContent>
+          {searchParams.get("vendor") && (
+            <p className="mb-3 text-xs text-slate-600">
+              Mostrando solo eventos de clientes del vendedor: <strong>{searchParams.get("vendor")}</strong>
+            </p>
+          )}
           <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
             <span className="flex items-center gap-2">
               Estado

@@ -673,7 +673,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Venta por vendedor</CardTitle>
             <p className="text-xs text-slate-500 font-normal mt-1">
-              Totales por NOMVEN (GenerarInfoVentas) en el rango seleccionado.
+              Totales por vendedor en el rango seleccionado.
             </p>
           </CardHeader>
           <CardContent>
@@ -718,13 +718,13 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Venta por marca</CardTitle>
             <p className="text-xs text-slate-500 font-normal mt-1">
-              Totales por MARCA (GenerarInfoVentas) en el rango seleccionado.
+              Totales por marca en el rango seleccionado.
             </p>
           </CardHeader>
           <CardContent>
             {salesByBrand.length === 0 ? (
               <p className="text-sm text-slate-500">
-                No hay datos por marca para este rango. Carga el directorio REFER→MARCA en inventario y sincroniza.
+                No hay datos por marca para este rango.
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -763,69 +763,89 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Venta por cliente</CardTitle>
+          <p className="text-xs text-slate-500 font-normal mt-1">
+            Totales por cliente en el rango seleccionado.
+          </p>
         </CardHeader>
         <CardContent>
           {salesByCustomer.length === 0 ? (
             <p className="text-sm text-slate-500">
-              No hay datos por cliente para este rango. Revisa los filtros o sincroniza ventas y clientes (ListadoClientes).
+              No hay datos por cliente para este rango. Revisa los filtros o actualiza los datos.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-600">
-                    <th className="py-2 pr-4 font-medium">Cliente (tercero)</th>
-                    <th className="py-2 pr-4 font-medium font-mono">NIT / Cédula</th>
-                    <th className="py-2 pr-4 font-medium text-right">Ventas</th>
-                    <th className="py-2 pr-4 font-medium text-right">% total</th>
-                    <th className="py-2 pr-4 font-medium text-right">Facturas</th>
-                    <th className="py-2 pl-2 w-20"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {salesByCustomer.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-100">
-                      <td className="py-2 pr-4 text-slate-800">{row.name || "—"}</td>
-                      <td className="py-2 pr-4 font-mono text-slate-700">{row.nit}</td>
-                      <td className="py-2 pr-4 text-right font-medium text-slate-800">
-                        {formatCop(row.totalSales)}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-slate-600">
-                        {pctOfTotal(row.totalSales)}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-slate-600">
-                        {(row.totalInvoices ?? 0).toLocaleString("es-CO")}
-                      </td>
-                      <td className="py-2 pl-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => {
-                            const params = new URLSearchParams();
-                            params.set("search", row.nit);
-                            params.set("customerId", row.id);
-                            const from = searchParams.get("from");
-                            const to = searchParams.get("to");
-                            const vendor = searchParams.get("vendor");
-                            const brand = searchParams.get("brand");
-                            const classFilter = searchParams.get("class");
-                            if (from) params.set("from", from);
-                            if (to) params.set("to", to);
-                            if (vendor) params.set("vendor", vendor);
-                            if (brand) params.set("brand", brand);
-                            if (classFilter) params.set("class", classFilter);
-                            window.location.href = `/customers?${params.toString()}`;
-                          }}
-                        >
-                          Ver
-                        </Button>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-600">
+                      <th className="py-2 pr-4 font-medium">Cliente</th>
+                      <th className="py-2 pr-4 font-medium font-mono">NIT / Cédula</th>
+                      <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                      <th className="py-2 pr-4 font-medium text-right">% total</th>
+                      <th className="py-2 pr-4 font-medium text-right">Facturas</th>
+                      <th className="py-2 pl-2 w-20"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {salesByCustomer.slice(0, 30).map((row) => (
+                      <tr key={row.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-4 text-slate-800">{row.name || "—"}</td>
+                        <td className="py-2 pr-4 font-mono text-slate-700">{row.nit}</td>
+                        <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                          {formatCop(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {pctOfTotal(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {(row.totalInvoices ?? 0).toLocaleString("es-CO")}
+                        </td>
+                        <td className="py-2 pl-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              params.set("search", row.nit);
+                              params.set("customerId", row.id);
+                              const from = searchParams.get("from");
+                              const to = searchParams.get("to");
+                              const vendor = searchParams.get("vendor");
+                              const brand = searchParams.get("brand");
+                              const classFilter = searchParams.get("class");
+                              if (from) params.set("from", from);
+                              if (to) params.set("to", to);
+                              if (vendor) params.set("vendor", vendor);
+                              if (brand) params.set("brand", brand);
+                              if (classFilter) params.set("class", classFilter);
+                              window.location.href = `/customers?${params.toString()}`;
+                            }}
+                          >
+                            Ver
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {salesByCustomer.length > 30 && (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-slate-700"
+                    onClick={() => {
+                      const params = new URLSearchParams(searchParams.toString());
+                      window.location.href = `/dashboard/sales-by-customer?${params.toString()}`;
+                    }}
+                  >
+                    Ver más
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
