@@ -427,11 +427,13 @@ export default function CustomersPage() {
                     </thead>
                     <tbody>
                       {carteraDocuments.map((doc, i) => {
+                        // Por vencer: saldo con fecha aún no vencida (daiaven >= 0)
                         const porVencer = doc.daiaven >= 0 ? doc.saldo : 0;
-                        const r0_30 = doc.daiaven >= 0 && doc.daiaven <= 30 ? doc.saldo : 0;
-                        const r31_60 = doc.daiaven >= 31 && doc.daiaven <= 60 ? doc.saldo : 0;
-                        const r61_90 = doc.daiaven >= 61 && doc.daiaven <= 90 ? doc.saldo : 0;
-                        const r90 = doc.daiaven > 90 ? doc.saldo : 0;
+                        // Vencido: columnas por días vencidos (daiaven negativo → 1-30, 31-60, 61-90, >90)
+                        const r0_30 = doc.daiaven >= -30 && doc.daiaven <= -1 ? doc.saldo : 0;
+                        const r31_60 = doc.daiaven >= -60 && doc.daiaven < -30 ? doc.saldo : 0;
+                        const r61_90 = doc.daiaven >= -90 && doc.daiaven < -60 ? doc.saldo : 0;
+                        const r90 = doc.daiaven < -90 ? doc.saldo : 0;
                         return (
                           <tr key={i} className="border-b border-slate-100">
                             <td className="p-2 font-medium">
