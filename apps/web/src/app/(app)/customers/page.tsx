@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { formatCop } from "@/lib/utils";
+import { useTableSort, TableThSort } from "@/hooks/use-table-sort";
 
 type Customer = {
   id: string;
@@ -79,6 +80,10 @@ export default function CustomersPage() {
     () => new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }),
     [],
   );
+  const carteraSort = useTableSort<CarteraDocumentLine>(carteraDocuments, {
+    defaultKey: "fecven",
+    defaultDir: "asc",
+  });
   const detailQueryString = useMemo(() => {
     const params = new URLSearchParams();
     const from = searchParams.get("from");
@@ -414,10 +419,10 @@ export default function CustomersPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-slate-600">
-                        <th className="p-2">Prefijo + Documento</th>
-                        <th className="p-2">Fecha factura</th>
-                        <th className="p-2">Fecha vencimiento</th>
-                        <th className="p-2">Días</th>
+                        <TableThSort sortKey="prefij" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Prefijo + Documento" className="p-2" />
+                        <TableThSort sortKey="fecha" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Fecha factura" className="p-2" />
+                        <TableThSort sortKey="fecven" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Fecha vencimiento" className="p-2" />
+                        <TableThSort sortKey="daiaven" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Días" className="p-2" align="right" />
                         <th className="p-2">Por vencer</th>
                         <th className="p-2">0–30</th>
                         <th className="p-2">31–60</th>
@@ -426,7 +431,7 @@ export default function CustomersPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {carteraDocuments.map((doc, i) => {
+                      {carteraSort.sortedData.map((doc, i) => {
                         // Por vencer: saldo con fecha aún no vencida (daiaven >= 0)
                         const porVencer = doc.daiaven >= 0 ? doc.saldo : 0;
                         // Vencido: columnas por días vencidos (daiaven negativo → 1-30, 31-60, 61-90, >90)

@@ -7,6 +7,7 @@ import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCop, formatDateLocal } from "@/lib/utils";
+import { useTableSort, TableThSort } from "@/hooks/use-table-sort";
 
 type CustomerRow = {
   id: string;
@@ -58,6 +59,11 @@ export default function SalesByCustomerPage() {
   const pctOfTotal = (val: number) =>
     totalSales > 0 ? ((val / totalSales) * 100).toFixed(1) + "%" : "—";
 
+  const customerSort = useTableSort<CustomerRow>(list, {
+    defaultKey: "totalSales",
+    defaultDir: "desc",
+  });
+
   const dashboardUrl = useMemo(() => {
     const q = searchParams.toString();
     return q ? `/dashboard?${q}` : "/dashboard";
@@ -98,16 +104,16 @@ export default function SalesByCustomerPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-600">
-                    <th className="py-2 pr-4 font-medium">Cliente</th>
-                    <th className="py-2 pr-4 font-medium font-mono">NIT / Cédula</th>
-                    <th className="py-2 pr-4 font-medium text-right">Ventas</th>
+                    <TableThSort sortKey="name" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Cliente" className="py-2 pr-4" />
+                    <TableThSort sortKey="nit" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="NIT / Cédula" className="py-2 pr-4 font-mono" />
+                    <TableThSort sortKey="totalSales" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Ventas" className="py-2 pr-4" align="right" />
                     <th className="py-2 pr-4 font-medium text-right">% total</th>
-                    <th className="py-2 pr-4 font-medium text-right">Facturas</th>
+                    <TableThSort sortKey="totalInvoices" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Facturas" className="py-2 pr-4" align="right" />
                     <th className="py-2 pl-2 w-20"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((row) => (
+                  {customerSort.sortedData.map((row) => (
                     <tr key={row.id} className="border-b border-slate-100">
                       <td className="py-2 pr-4 text-slate-800">{row.name || "—"}</td>
                       <td className="py-2 pr-4 font-mono text-slate-700">{row.nit}</td>
