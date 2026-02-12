@@ -5,6 +5,15 @@ import { PrismaService } from '../prisma/prisma.service';
 /** Condición para excluir facturas sin tipo (ERP no envía TIPMOV): no se muestran ni suman en ventas. */
 const EXCLUDE_UNTYPED_INVOICES: Prisma.InvoiceWhereInput = { documentType: { not: null } };
 
+/** Parsea vendor/brand/class desde query (acepta "A" o "A,B,C"). */
+function parseMulti(value?: string | null): string[] {
+  if (!value || typeof value !== 'string') return [];
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 @Injectable()
 export class MetricsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -118,20 +127,97 @@ export class MetricsService {
     };
   }
 
-  /** Filtro combinado marca + clase: un solo items.some con AND para que no se pisen. */
+  /** Filtro combinado marca + clase (acepta uno o varios: "A" o "A,B,C"). */
   private async itemsBrandClassWhere(
     tenantId: string,
     brandFilter: string | undefined,
     classFilter: string | undefined,
   ): Promise<Prisma.InvoiceWhereInput> {
+    const brandList = parseMulti(brandFilter);
+    const classList = parseMulti(classFilter);
     const [brandCond, classCond] = await Promise.all([
-      this.brandItemCondition(tenantId, brandFilter),
-      this.classItemCondition(tenantId, classFilter),
+      brandList.length > 0 ? this.brandItemConditionMulti(tenantId, brandList) : null,
+      classList.length > 0 ? this.classItemConditionMulti(tenantId, classList) : null,
     ]);
     if (!brandCond && !classCond) return {};
     if (brandCond && !classCond) return { items: { some: brandCond } };
     if (!brandCond && classCond) return { items: { some: classCond } };
     return { items: { some: { AND: [brandCond!, classCond!] } } };
+  }
+
+  private async brandItemConditionMulti(
+    tenantId: string,
+    brands: string[],
+  ): Promise<Prisma.InvoiceItemWhereInput | null> {
+    if (brands.length === 0) return null;
+    const conditions = await Promise.all(
+      brands.map((b) => this.brandItemCondition(tenantId, b)),
+    );
+    const valid = conditions.filter((c): c is Prisma.InvoiceItemWhereInput => c != null);
+    if (valid.length === 0) return null;
+    if (valid.length === 1) return valid[0];
+    return { OR: valid };
+  }
+
+  private async classItemConditionMulti(
+    tenantId: string,
+    classes: string[],
+  ): Promise<Prisma.InvoiceItemWhereInput | null> {
+    if (classes.length === 0) return null;
+    const conditions = await Promise.all(
+      classes.map((c) => this.classItemCondition(tenantId, c)),
+    );
+    const valid = conditions.filter((c): c is Prisma.InvoiceItemWhereInput => c != null);
+    if (valid.length === 0) return null;
+    if (valid.length === 1) return valid[0];
+    return { OR: valid };
+  }
+
+  /** Condiciones SQL raw para vendor/brand/class (múltiples valores). */
+  private async buildRawVendorBrandClass(
+    tenantId: string,
+    filters?: { vendor?: string; brand?: string; class?: string },
+  ): Promise<{
+    vendorCond: Prisma.Sql;
+    brandCond: Prisma.Sql;
+    classCond: Prisma.Sql;
+  }> {
+    const vendorList = parseMulti(filters?.vendor);
+    const brandList = parseMulti(filters?.brand);
+    const classList = parseMulti(filters?.class);
+
+    const vendorCond =
+      vendorList.length > 0
+        ? Prisma.sql` AND i."vendor" IN (${Prisma.join(vendorList.map((v) => Prisma.sql`${v}`))})`
+        : Prisma.empty;
+
+    let brandCond: Prisma.Sql = Prisma.empty;
+    if (brandList.length > 0) {
+      const allValues = new Set<string>();
+      for (const b of brandList) {
+        (await this.getBrandMatchValues(tenantId, b)).forEach((v) => allValues.add(v));
+      }
+      const arr = [...allValues];
+      brandCond =
+        arr.length > 0
+          ? Prisma.sql` AND (it.brand IN (${Prisma.join(arr.map((b) => Prisma.sql`${b}`))}) OR ${Prisma.join(brandList.map((b) => Prisma.sql`it.brand ILIKE ${`%${b}%`}`), ' OR ')})`
+          : Prisma.sql` AND (${Prisma.join(brandList.map((b) => Prisma.sql`it.brand ILIKE ${`%${b}%`}`), ' OR ')})`;
+    }
+
+    let classCond: Prisma.Sql = Prisma.empty;
+    if (classList.length > 0) {
+      const allCodes = new Set<string>();
+      for (const c of classList) {
+        (await this.getClassMatchCodes(tenantId, c)).forEach((code) => allCodes.add(code));
+      }
+      const codes = [...allCodes];
+      classCond =
+        codes.length > 0
+          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(codes.map((c) => Prisma.sql`${c}`))}) OR it."className" IN (${Prisma.join(classList.map((c) => Prisma.sql`${c}`))}))`
+          : Prisma.sql` AND it."className" IN (${Prisma.join(classList.map((c) => Prisma.sql`${c}`))})`;
+    }
+
+    return { vendorCond, brandCond, classCond };
   }
 
   /** @deprecated Usar itemsBrandClassWhere para combinar con clase. */
@@ -195,21 +281,19 @@ export class MetricsService {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
         city: filters?.city,
       });
-      const trimmedVendor = filters?.vendor?.trim();
-      const trimmedBrand = filters?.brand?.trim();
-      const trimmedClass = filters?.class?.trim();
+      const vendorList = parseMulti(filters?.vendor);
+      const brandList = parseMulti(filters?.brand);
+      const classList = parseMulti(filters?.class);
       const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
       const itemsWhere = await this.itemsBrandClassWhere(tenantId, filters?.brand, filters?.class);
-      const [brandValues, classCodes] = await Promise.all([
-        trimmedBrand ? this.getBrandMatchValues(tenantId, trimmedBrand) : [],
-        trimmedClass ? this.getClassMatchCodes(tenantId, trimmedClass) : [],
-      ]);
+      const vendorWhere =
+        vendorList.length > 0 ? { vendor: { in: vendorList } } : {};
       const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
         ...EXCLUDE_UNTYPED_INVOICES,
         ...cityWhere,
-        ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
+        ...vendorWhere,
         ...itemsWhere,
       };
       const compareWhere: Prisma.InvoiceWhereInput = {
@@ -217,9 +301,11 @@ export class MetricsService {
         issuedAt: { gte: compareFrom, lte: compareTo },
         ...EXCLUDE_UNTYPED_INVOICES,
         ...cityWhere,
-        ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
+        ...vendorWhere,
         ...itemsWhere,
       };
+
+      const rawFilters = await this.buildRawVendorBrandClass(tenantId, filters);
 
       // Serie por día: siempre desde Invoice para que sum(serie) = total (misma fuente)
       const seriesPromise: Promise<
@@ -231,20 +317,11 @@ export class MetricsService {
           totalMargin: number;
         }>
       > = (async () => {
-        const vendorAnd = trimmedVendor
-          ? Prisma.sql` AND i."vendor" = ${trimmedVendor}`
-          : Prisma.sql``;
-        if (trimmedBrand || classCodes.length > 0) {
-          const brandPattern = trimmedBrand ? `%${trimmedBrand}%` : '';
-          const brandJoinCond = trimmedBrand
-            ? (brandValues.length > 0
-                ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${brandPattern})`
-                : Prisma.sql` AND it.brand ILIKE ${brandPattern}`)
-            : Prisma.sql``;
-          const classJoinCond =
-            classCodes.length > 0
-              ? Prisma.sql` AND it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))})`
-              : Prisma.sql``;
+        const { vendorCond, brandCond, classCond } = rawFilters;
+        const vendorAnd = vendorCond;
+        const brandJoinCond = brandCond;
+        const classJoinCond = classCond;
+        if (brandList.length > 0 || classList.length > 0) {
           const rows = await this.prisma.$queryRaw<
             Array<{
               date: Date;
@@ -542,16 +619,18 @@ export class MetricsService {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
         city: filters?.city,
       });
-      const trimmedVendor = filters?.vendor?.trim();
+      const vendorList = parseMulti(filters?.vendor);
       const cityWhere = this.cityFilterWhere(scopedCustomerIds ?? [], filters?.city);
       const itemsWhere = await this.itemsBrandClassWhere(tenantId, filters?.brand, filters?.class);
+      const vendorWhere =
+        vendorList.length > 0 ? { vendor: { in: vendorList } } : {};
       const totals = await this.prisma.invoice.aggregate({
         where: {
           tenantId,
           issuedAt: { gte: from, lte: to },
           ...EXCLUDE_UNTYPED_INVOICES,
           ...cityWhere,
-          ...(trimmedVendor ? { vendor: { equals: trimmedVendor } } : {}),
+          ...vendorWhere,
           ...itemsWhere,
         },
         _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
@@ -578,25 +657,8 @@ export class MetricsService {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
-    const trimmedVendor = filters?.vendor?.trim();
-    const trimmedBrand = filters?.brand?.trim();
-    const trimmedClass = filters?.class?.trim();
-    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
-    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
-    const classCond =
-      trimmedClass
-        ? classCodes.length > 0
-          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
-          : Prisma.sql` AND it."className" = ${trimmedClass}`
-        : Prisma.empty;
-    const brandCond =
-      trimmedBrand ?
-        (brandValues.length > 0
-          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
-          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`) :
-        Prisma.empty;
-    const vendorCond =
-      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const { vendorCond, brandCond, classCond } =
+      await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
       city ?
@@ -648,25 +710,8 @@ export class MetricsService {
     filters?: { city?: string; vendor?: string; brand?: string; class?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, { city: filters?.city });
-    const trimmedVendor = filters?.vendor?.trim();
-    const trimmedBrand = filters?.brand?.trim();
-    const trimmedClass = filters?.class?.trim();
-    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
-    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
-    const classCond =
-      trimmedClass
-        ? classCodes.length > 0
-          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
-          : Prisma.sql` AND it."className" = ${trimmedClass}`
-        : Prisma.empty;
-    const brandCond =
-      trimmedBrand ?
-        (brandValues.length > 0
-          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
-          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`) :
-        Prisma.empty;
-    const vendorCond =
-      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const { vendorCond, brandCond, classCond } =
+      await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
       city ?
@@ -707,25 +752,8 @@ export class MetricsService {
     filters?: { city?: string; vendor?: string; brand?: string; class?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, { city: filters?.city });
-    const trimmedVendor = filters?.vendor?.trim();
-    const trimmedBrand = filters?.brand?.trim();
-    const trimmedClass = filters?.class?.trim();
-    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
-    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
-    const classCond =
-      trimmedClass
-        ? classCodes.length > 0
-          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
-          : Prisma.sql` AND it."className" = ${trimmedClass}`
-        : Prisma.empty;
-    const brandCond =
-      trimmedBrand ?
-        (brandValues.length > 0
-          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
-          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`) :
-        Prisma.empty;
-    const vendorCond =
-      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const { vendorCond, brandCond, classCond } =
+      await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
       city ?
@@ -768,25 +796,8 @@ export class MetricsService {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
-    const trimmedVendor = filters?.vendor?.trim();
-    const trimmedBrand = filters?.brand?.trim();
-    const trimmedClass = filters?.class?.trim();
-    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
-    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
-    const classCond =
-      trimmedClass
-        ? classCodes.length > 0
-          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
-          : Prisma.sql` AND it."className" = ${trimmedClass}`
-        : Prisma.empty;
-    const brandCond =
-      trimmedBrand
-        ? brandValues.length > 0
-          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
-          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`
-        : Prisma.empty;
-    const vendorCond =
-      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const { vendorCond, brandCond, classCond } =
+      await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
       city
@@ -829,25 +840,8 @@ export class MetricsService {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
-    const trimmedVendor = filters?.vendor?.trim();
-    const trimmedBrand = filters?.brand?.trim();
-    const trimmedClass = filters?.class?.trim();
-    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
-    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
-    const classCond =
-      trimmedClass
-        ? classCodes.length > 0
-          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
-          : Prisma.sql` AND it."className" = ${trimmedClass}`
-        : Prisma.empty;
-    const brandCond =
-      trimmedBrand
-        ? brandValues.length > 0
-          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
-          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`
-        : Prisma.empty;
-    const vendorCond =
-      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const { vendorCond, brandCond, classCond } =
+      await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
       city

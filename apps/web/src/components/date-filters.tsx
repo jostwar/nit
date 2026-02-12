@@ -3,8 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FilterSelect } from "@/components/filter-select";
 import { apiGet, apiPost } from "@/lib/api";
 import { formatDateLocal } from "@/lib/utils";
+
+function parseMultiParam(v: string | null): string[] {
+  if (!v || !v.trim()) return [];
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
 
 export function DateFilters() {
   const today = new Date().toISOString().slice(0, 10);
@@ -37,18 +43,18 @@ export function DateFilters() {
       to,
       compareFrom: searchParams.get("compareFrom") ?? compareDefaults.compareFrom,
       compareTo: searchParams.get("compareTo") ?? compareDefaults.compareTo,
-      vendor: searchParams.get("vendor") ?? "",
-      brand: searchParams.get("brand") ?? "",
-      class: searchParams.get("class") ?? "",
+      vendor: parseMultiParam(searchParams.get("vendor")),
+      brand: parseMultiParam(searchParams.get("brand")),
+      class: parseMultiParam(searchParams.get("class")),
     };
   }, [searchParams, today, defaultFrom]);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [compareFrom, setCompareFrom] = useState(initial.compareFrom);
   const [compareTo, setCompareTo] = useState(initial.compareTo);
-  const [vendor, setVendor] = useState(initial.vendor);
-  const [brand, setBrand] = useState(initial.brand);
-  const [classFilter, setClassFilter] = useState(initial.class);
+  const [vendor, setVendor] = useState<string[]>(initial.vendor);
+  const [brand, setBrand] = useState<string[]>(initial.brand);
+  const [classFilter, setClassFilter] = useState<string[]>(initial.class);
 
   // Mantener filtros en sync con la URL (p. ej. al volver atrás o al cargar con query)
   useEffect(() => {
@@ -131,18 +137,18 @@ export function DateFilters() {
       params.delete("compareFrom");
       params.delete("compareTo");
     }
-    if (vendor.trim()) {
-      params.set("vendor", vendor.trim());
+    if (vendor.length > 0) {
+      params.set("vendor", vendor.join(","));
     } else {
       params.delete("vendor");
     }
-    if (brand.trim()) {
-      params.set("brand", brand.trim());
+    if (brand.length > 0) {
+      params.set("brand", brand.join(","));
     } else {
       params.delete("brand");
     }
-    if (classFilter.trim()) {
-      params.set("class", classFilter.trim());
+    if (classFilter.length > 0) {
+      params.set("class", classFilter.join(","));
     } else {
       params.delete("class");
     }
@@ -176,11 +182,11 @@ export function DateFilters() {
     params.set("to", to);
     params.set("compareFrom", cf);
     params.set("compareTo", ct);
-    if (vendor.trim()) params.set("vendor", vendor.trim());
+    if (vendor.length > 0) params.set("vendor", vendor.join(","));
     else params.delete("vendor");
-    if (brand.trim()) params.set("brand", brand.trim());
+    if (brand.length > 0) params.set("brand", brand.join(","));
     else params.delete("brand");
-    if (classFilter.trim()) params.set("class", classFilter.trim());
+    if (classFilter.length > 0) params.set("class", classFilter.join(","));
     else params.delete("class");
     router.replace(`?${params.toString()}`);
   };
@@ -304,8 +310,6 @@ export function DateFilters() {
     };
   }, []);
 
-  const selectClass =
-    "min-w-[8rem] cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
   const inputClass =
     "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
 
@@ -344,34 +348,34 @@ export function DateFilters() {
             </div>
           </div>
           <div className="h-8 w-px bg-slate-200" aria-hidden />
-          {/* Vendedor, Marca, Clase */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Vendedor</span>
-            <select value={vendor} onChange={(e) => setVendor(e.target.value)} className={selectClass}>
-              <option value="">Todos</option>
-              {(filterOptions?.vendors ?? []).map((v) => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Marca</span>
-            <select value={brand} onChange={(e) => setBrand(e.target.value)} className={selectClass}>
-              <option value="">Todas</option>
-              {(filterOptions?.brands ?? []).map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Clase</span>
-            <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)} className={selectClass}>
-              <option value="">Todas</option>
-              {(filterOptions?.classes ?? []).map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+          {/* Vendedor, Marca, Clase: búsqueda y selección única o múltiple */}
+          <FilterSelect
+            label="Vendedor"
+            options={filterOptions?.vendors ?? []}
+            value={vendor}
+            onChange={setVendor}
+            placeholder="Todos"
+            emptyLabel="Todos"
+            multiple
+          />
+          <FilterSelect
+            label="Marca"
+            options={filterOptions?.brands ?? []}
+            value={brand}
+            onChange={setBrand}
+            placeholder="Todas"
+            emptyLabel="Todas"
+            multiple
+          />
+          <FilterSelect
+            label="Clase"
+            options={filterOptions?.classes ?? []}
+            value={classFilter}
+            onChange={setClassFilter}
+            placeholder="Todas"
+            emptyLabel="Todas"
+            multiple
+          />
           <Button
             onClick={applyFilters}
             disabled={syncing}

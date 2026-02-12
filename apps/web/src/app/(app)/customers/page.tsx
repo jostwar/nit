@@ -439,6 +439,8 @@ export default function CustomersPage() {
                         const r31_60 = doc.daiaven >= -60 && doc.daiaven < -30 ? doc.saldo : 0;
                         const r61_90 = doc.daiaven >= -90 && doc.daiaven < -60 ? doc.saldo : 0;
                         const r90 = doc.daiaven < -90 ? doc.saldo : 0;
+                        // Días: solo para clasificar vencido; por vencer no muestra número aquí
+                        const diasLabel = doc.daiaven < 0 ? Math.abs(doc.daiaven) : "—";
                         return (
                           <tr key={i} className="border-b border-slate-100">
                             <td className="p-2 font-medium">
@@ -446,7 +448,7 @@ export default function CustomersPage() {
                             </td>
                             <td className="p-2">{dateFormatter.format(new Date(doc.fecha))}</td>
                             <td className="p-2">{dateFormatter.format(new Date(doc.fecven))}</td>
-                            <td className="p-2">{doc.daiaven}</td>
+                            <td className="p-2 text-right">{diasLabel}</td>
                             <td className="p-2">{formatCop(porVencer)}</td>
                             <td className="p-2">{formatCop(r0_30)}</td>
                             <td className="p-2">{formatCop(r31_60)}</td>
