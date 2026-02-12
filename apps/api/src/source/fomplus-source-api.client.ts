@@ -452,7 +452,13 @@ export class FomplusSourceApiClient implements SourceApiClient {
         this.normalizeDate(
           this.pick(record, ['fecha', 'fechafac', 'fechafactura', 'fechaemision', 'fecfac']),
         ) ?? fallbackDate;
-      const horaRaw = this.pick(record, ['hora', 'HORA', 'hour', 'horafac', 'HORAFAC']);
+      const horaKeys = (
+        process.env.SOURCE_VENTAS_HORA_FIELDS ?? 'hora,HORA,Hora,hour,horafac,HORAFAC,horafactura,hora_fac,hora_factura'
+      )
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+      const horaRaw = this.pick(record, horaKeys.length > 0 ? horaKeys : ['hora', 'HORA', 'hour']);
       const timePart = this.normalizeTime(horaRaw);
       const issuedAt = timePart ? `${datePart}T${timePart}` : `${datePart}T00:00:00`;
       const total = this.toNumber(

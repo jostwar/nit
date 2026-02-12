@@ -748,7 +748,7 @@ export default function DashboardPage() {
                       <TableThSort sortKey="dayOfWeek" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Día" thClassName="py-2 pr-4" />
                       <TableThSort sortKey="totalSales" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
                       <th className="py-2 pr-4 text-right font-medium">% total</th>
-                      <TableThSort sortKey="invoiceCount" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Número de facturas con conteo indistinto" thClassName="py-2 pr-4" align="right" />
+                      <TableThSort sortKey="invoiceCount" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Tickets" thClassName="py-2 pr-4" align="right" />
                     </tr>
                   </thead>
                   <tbody>
