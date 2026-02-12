@@ -89,7 +89,7 @@ export default function AiPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error de conexión";
       setResponse({
-        answer: "No se pudo consultar el copilot. Revisa el rango de fechas (ISO YYYY-MM-DD) y la conexión.",
+        answer: "No se pudo obtener la respuesta. Comprueba el rango de fechas y tu conexión.",
         tables: [],
         download_available: false,
         download_query_id: null,
@@ -142,7 +142,7 @@ export default function AiPage() {
             />
           </div>
           <p className="text-xs text-slate-500">
-            Fechas del header (ISO YYYY-MM-DD) o escribe en la pregunta &quot;último trimestre&quot;, &quot;mes actual&quot;, etc. Ventas filtradas por FECHA de negocio (issuedAt).
+            Usa las fechas del período principal o escribe en la pregunta &quot;último trimestre&quot;, &quot;mes actual&quot;, etc. Las ventas se filtran por fecha de factura.
           </p>
           <Button onClick={sendQuestion} disabled={loading || !question.trim()}>
             {loading ? "Consultando…" : "Enviar"}

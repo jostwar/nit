@@ -79,4 +79,17 @@ export interface SourceApiClient {
   ): Promise<SourceCustomer[]>;
   /** Marcas únicas desde API inventarios (GenerarInformacionInventariosGet). Opcional. */
   getInventoryBrandNames?(tenantExternalId: string): Promise<string[]>;
+  /** Detalle por documento de EstadoDeCuentaCartera para un tercero. Opcional. */
+  fetchCarteraDocuments?(tenantExternalId: string, cedula: string): Promise<CarteraDocumentLine[]>;
 }
+
+/** Línea de EstadoDeCuentaCartera para detalle por documento. */
+export type CarteraDocumentLine = {
+  prefij: string;
+  numdoc: string;
+  fecha: string;
+  fecven: string;
+  ultpag?: string;
+  daiaven: number;
+  saldo: number;
+};

@@ -317,6 +317,19 @@ export class SourceController {
     return { brands };
   }
 
+  @Get('cartera-documents')
+  @Roles('ADMIN', 'ANALYST')
+  async getCarteraDocuments(
+    @CurrentUser() user: { tenantId: string },
+    @Query('cedula') cedula: string,
+  ) {
+    const cedulaTrim = cedula?.trim();
+    if (!cedulaTrim) return { documents: [] };
+    const documents =
+      (await this.sourceApi.fetchCarteraDocuments?.(user.tenantId, cedulaTrim)) ?? [];
+    return { documents };
+  }
+
   @Get('class-mapping')
   @Roles('ADMIN', 'ANALYST')
   async getClassMapping(@CurrentUser() user: { tenantId: string }) {

@@ -14,19 +14,22 @@ type AlertRule = {
   isActive: boolean;
 };
 
+type AlertRuleType = AlertRule["type"];
+
 type AlertEvent = {
   id: string;
   message: string;
   status: "OPEN" | "CLOSED";
   createdAt: string;
   customer?: { name?: string | null } | null;
-  rule?: { name?: string | null } | null;
+  rule?: { name?: string | null; type?: AlertRuleType } | null;
 };
 
 export default function AlertsPage() {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [events, setEvents] = useState<AlertEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState<"OPEN" | "CLOSED" | "ALL">("OPEN");
+  const [ruleTypeFilter, setRuleTypeFilter] = useState<AlertRuleType | "">("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
@@ -59,7 +62,10 @@ export default function AlertsPage() {
 
   const loadEvents = async () => {
     try {
-      const query = statusFilter === "ALL" ? "" : `?status=${statusFilter}`;
+      const params = new URLSearchParams();
+      if (statusFilter !== "ALL") params.set("status", statusFilter);
+      if (ruleTypeFilter) params.set("ruleType", ruleTypeFilter);
+      const query = params.toString() ? `?${params.toString()}` : "";
       const data = await apiGet<AlertEvent[]>(`/alerts/events${query}`);
       setEvents(data);
     } catch {
@@ -73,7 +79,7 @@ export default function AlertsPage() {
 
   useEffect(() => {
     loadEvents();
-  }, [statusFilter]);
+  }, [statusFilter, ruleTypeFilter]);
 
   const buildParams = () => {
     if (form.type === "NO_PURCHASE_DAYS" || form.type === "DSO_HIGH") {
@@ -335,19 +341,37 @@ export default function AlertsPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
-            <span>Estado</span>
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as typeof statusFilter)
-              }
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-            >
-              <option value="OPEN">Abiertos</option>
-              <option value="CLOSED">Cerrados</option>
-              <option value="ALL">Todos</option>
-            </select>
+          <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+            <span className="flex items-center gap-2">
+              Estado
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as typeof statusFilter)
+                }
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+              >
+                <option value="OPEN">Abiertos</option>
+                <option value="CLOSED">Cerrados</option>
+                <option value="ALL">Todos</option>
+              </select>
+            </span>
+            <span className="flex items-center gap-2">
+              Tipo de regla
+              <select
+                value={ruleTypeFilter}
+                onChange={(event) =>
+                  setRuleTypeFilter(event.target.value as AlertRuleType | "")
+                }
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+              >
+                <option value="">Todos</option>
+                <option value="NO_PURCHASE_DAYS">Sin compra</option>
+                <option value="DROP_PERCENT">Caída %</option>
+                <option value="BRAND_LOST">Marca perdida</option>
+                <option value="DSO_HIGH">DSO alto</option>
+              </select>
+            </span>
           </div>
           <DataTable
             columns={[

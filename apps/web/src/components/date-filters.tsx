@@ -104,17 +104,21 @@ export function DateFilters() {
     };
   } | null>(null);
   const lastSyncLabel = useMemo(() => {
-    if (!lastSyncedAt) return "Última sincronización: pendiente";
+    if (!lastSyncedAt) return "Última actualización: pendiente";
     const parsed = new Date(lastSyncedAt);
-    if (Number.isNaN(parsed.getTime())) return "Última sincronización: pendiente";
-    return `Última sincronización: ${parsed.toLocaleString("es-CO")}`;
+    if (Number.isNaN(parsed.getTime())) return "Última actualización: pendiente";
+    return `Última actualización: ${parsed.toLocaleString("es-CO")}`;
   }, [lastSyncedAt]);
   const coverageLabel = useMemo(() => {
     if (!dataCoverage) return null;
     if (dataCoverage.totalInvoices === 0) return "Sin datos de ventas";
     const fmt = (d: string) => formatDateLocal(d.slice(0, 10), "es-CO");
-    return `En BD: ${dataCoverage.earliestDate ? fmt(dataCoverage.earliestDate) : "?"} – ${dataCoverage.latestDate ? fmt(dataCoverage.latestDate) : "?"} (${dataCoverage.totalInvoices.toLocaleString("es-CO")} facturas)`;
+    return `Datos disponibles: ${dataCoverage.earliestDate ? fmt(dataCoverage.earliestDate) : "?"} – ${dataCoverage.latestDate ? fmt(dataCoverage.latestDate) : "?"} (${dataCoverage.totalInvoices.toLocaleString("es-CO")} facturas)`;
   }, [dataCoverage]);
+
+  /** Fechas permitidas en el calendario: desde el primer dato disponible (o 2024) hasta hoy */
+  const minDate = dataCoverage?.earliestDate?.slice(0, 10) ?? "2024-01-01";
+  const maxDate = today;
 
   const updateQuery = (enableCompare: boolean) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -214,7 +218,7 @@ export function DateFilters() {
     } catch (err) {
       clearSafety();
       setSyncRunning(false);
-      setSyncError(err instanceof Error ? err.message : "Error al sincronizar");
+      setSyncError(err instanceof Error ? err.message : "Error al actualizar los datos");
     }
   };
 
@@ -310,6 +314,8 @@ export function DateFilters() {
           <input
             type="date"
             value={from}
+            min={minDate}
+            max={maxDate}
             onChange={(event) => setFrom(event.target.value)}
             className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
@@ -319,6 +325,8 @@ export function DateFilters() {
           <input
             type="date"
             value={to}
+            min={minDate}
+            max={maxDate}
             onChange={(event) => setTo(event.target.value)}
             className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
@@ -373,10 +381,10 @@ export function DateFilters() {
         </Button>
       </div>
 
-      {/* Sincronización */}
+      {/* Actualización de datos */}
       <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-slate-700">Sincronización</span>
+          <span className="font-medium text-slate-700">Actualización de datos</span>
           <Button
             type="button"
             onClick={() => runSyncNow("today")}
@@ -384,7 +392,7 @@ export function DateFilters() {
             className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
             title="Actualizar solo el día actual"
           >
-            {syncRunning ? "Sincronizando…" : "Actualizar hoy"}
+            {syncRunning ? "Actualizando…" : "Actualizar hoy"}
           </Button>
           <Button
             type="button"
@@ -400,25 +408,25 @@ export function DateFilters() {
             onClick={() => runSyncNow("range")}
             disabled={syncRunning}
             className="h-8 px-3 text-xs border border-slate-300 text-slate-600 bg-white hover:bg-slate-50"
-            title="Sincronizar el rango Desde–Hasta"
+            title="Actualizar el rango Desde–Hasta"
           >
-            Sincronizar rango
+            Actualizar rango
           </Button>
           {syncRunning && (
             <Button
               type="button"
               onClick={() => apiPost("/source/sync/cancel", {}).catch(() => {})}
               className="h-8 px-3 text-xs border border-red-300 text-red-700 bg-white hover:bg-red-50"
-              title="Solicitar detener la sincronización en curso"
+              title="Detener la actualización en curso"
             >
-              Detener sincronización
+              Detener actualización
             </Button>
           )}
         </div>
         {syncRunning && syncProgress && (
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600">{syncProgress.stage}</span>
+              <span className="text-slate-600">Procesando…</span>
               <span className="font-medium text-slate-700">{syncProgress.percent}%</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
@@ -429,13 +437,13 @@ export function DateFilters() {
             </div>
             {syncProgress.total > 0 && (
               <span className="text-slate-500">
-                Bloque {syncProgress.current} de {syncProgress.total}
+                Paso {syncProgress.current} de {syncProgress.total}
               </span>
             )}
           </div>
         )}
         {syncRunning && !syncProgress && (
-          <span className="text-slate-500">Sincronizando… (preparando)</span>
+          <span className="text-slate-500">Actualizando… (preparando)</span>
         )}
         {!syncRunning && <span className="text-slate-500">{lastSyncLabel}</span>}
         {syncRunning && (
@@ -445,7 +453,7 @@ export function DateFilters() {
         )}
         {syncLongRunningHint && (
           <span className="text-amber-700 text-xs font-medium">
-            La carga se ejecuta en el servidor. Puedes cerrar la pestaña; al terminar, recarga para ver los datos.
+            La actualización puede tardar. Puedes cerrar la pestaña; al terminar, recarga para ver los datos.
           </span>
         )}
         {coverageLabel && !syncRunning && (
@@ -455,19 +463,17 @@ export function DateFilters() {
         )}
         {syncError && <span className="text-red-600 text-xs">{syncError}</span>}
         <span className="text-slate-400 text-xs">
-          Primera vez: «Cargar datos históricos». Luego el sistema actualiza solo el día cada hora.
+          Primera vez: «Cargar datos históricos». Luego el sistema actualiza el día automáticamente.
         </span>
         {filterOptions?.itemDiagnostic &&
           filterOptions.itemDiagnostic.totalItems > 0 &&
           (filterOptions.itemDiagnostic.itemsWithBrand === 0 ||
             filterOptions.itemDiagnostic.itemsWithClass === 0) && (
             <span className="block text-amber-700 text-xs mt-1">
-              Para que los filtros de marca y clase muestren datos, las líneas deben tener marca y clase. Actualmente{" "}
+              Para que los filtros de marca y clase muestren opciones, los datos deben incluir marca y clase. Actualmente{" "}
               {filterOptions.itemDiagnostic.itemsWithBrand.toLocaleString("es-CO")} de{" "}
-              {filterOptions.itemDiagnostic.totalItems.toLocaleString("es-CO")} ítems tienen marca;{" "}
-              {filterOptions.itemDiagnostic.itemsWithClass.toLocaleString("es-CO")} tienen clase. Sin subir CSV: que GenerarInfoVentas envíe MARCA y CLASE en cada línea (configura{" "}
-              <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_BRAND_FIELDS</code> y{" "}
-              <code className="bg-amber-100 px-0.5">SOURCE_VENTAS_CLASS_FIELDS</code> en el servidor con los nombres de campo de tu API) o ten configurado el API de inventario para cruce por referencia. Luego ejecuta una sincronización.
+              {filterOptions.itemDiagnostic.totalItems.toLocaleString("es-CO")} registros tienen marca;{" "}
+              {filterOptions.itemDiagnostic.itemsWithClass.toLocaleString("es-CO")} tienen clase. Contacta al administrador si los filtros no muestran datos.
             </span>
           )}
       </div>
@@ -481,6 +487,8 @@ export function DateFilters() {
           <input
             type="date"
             value={compareFrom}
+            min={minDate}
+            max={maxDate}
             onChange={(event) => setCompareFrom(event.target.value)}
             className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />
@@ -490,6 +498,8 @@ export function DateFilters() {
           <input
             type="date"
             value={compareTo}
+            min={minDate}
+            max={maxDate}
             onChange={(event) => setCompareTo(event.target.value)}
             className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
           />

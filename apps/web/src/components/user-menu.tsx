@@ -65,9 +65,6 @@ export function UserMenu() {
           <div className="px-3 py-2 text-xs text-slate-500">
             {user?.role ?? "Cuenta"}
           </div>
-          <div className="px-3 py-1 text-[10px] text-slate-400" title="Para verificar que el deploy aplicó">
-            Build: {typeof process.env.NEXT_PUBLIC_BUILD_ID !== "undefined" ? process.env.NEXT_PUBLIC_BUILD_ID : "?"}
-          </div>
           <div className="border-t border-slate-100" />
           <button
             type="button"

@@ -3,7 +3,7 @@ import { AlertsService } from './alerts.service';
 import { TenantId } from '../common/decorators/tenant-id.decorator';
 import { CreateAlertRuleDto } from './dto/create-alert-rule.dto';
 import { UpdateAlertRuleDto } from './dto/update-alert-rule.dto';
-import { AlertStatus } from '@prisma/client';
+import { AlertRuleType, AlertStatus } from '@prisma/client';
 import { UpdateAlertEventDto } from './dto/update-alert-event.dto';
 
 @Controller('alerts')
@@ -40,11 +40,18 @@ export class AlertsController {
   }
 
   @Get('events')
-  listEvents(@TenantId() tenantId: string, @Query('status') status?: string) {
+  listEvents(
+    @TenantId() tenantId: string,
+    @Query('status') status?: string,
+    @Query('ruleType') ruleType?: string,
+  ) {
     const normalized = status?.toUpperCase();
-    const filter =
+    const statusFilter =
       normalized === 'OPEN' || normalized === 'CLOSED' ? (normalized as AlertStatus) : undefined;
-    return this.alertsService.listEvents(tenantId, filter);
+    const validRuleTypes = ['NO_PURCHASE_DAYS', 'DROP_PERCENT', 'BRAND_LOST', 'DSO_HIGH'];
+    const ruleTypeFilter =
+      ruleType && validRuleTypes.includes(ruleType) ? (ruleType as AlertRuleType) : undefined;
+    return this.alertsService.listEvents(tenantId, statusFilter, ruleTypeFilter);
   }
 
   @Patch('events/:id')

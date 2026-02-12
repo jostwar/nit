@@ -39,7 +39,7 @@ export default function LoginPage() {
       if (msg.includes("401") || msg.includes("Unauthorized") || msg.toLowerCase().includes("credential")) {
         setError("Correo o contraseña incorrectos.");
       } else if (msg.includes("fetch") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("conectar")) {
-        setError("No se pudo conectar a la API. Revisa que la API esté en marcha y CORS_ORIGIN en el servidor incluya esta URL (ej. http://tu-ip:3000).");
+        setError("No se pudo conectar. Comprueba tu conexión a internet o contacta al administrador.");
       } else {
         setError(msg);
       }

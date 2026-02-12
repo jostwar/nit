@@ -54,9 +54,13 @@ export class AlertsService {
     return { ok: true };
   }
 
-  listEvents(tenantId: string, status?: AlertStatus) {
+  listEvents(tenantId: string, status?: AlertStatus, ruleType?: AlertRuleType) {
     return this.prisma.alertEvent.findMany({
-      where: { tenantId, status: status ?? undefined },
+      where: {
+        tenantId,
+        ...(status ? { status } : {}),
+        ...(ruleType ? { rule: { type: ruleType } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       include: { customer: true, rule: true },
     });

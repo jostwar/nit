@@ -52,6 +52,16 @@ type CustomerCollections = {
   } | null;
 };
 
+type CarteraDocumentLine = {
+  prefij: string;
+  numdoc: string;
+  fecha: string;
+  fecven: string;
+  ultpag?: string;
+  daiaven: number;
+  saldo: number;
+};
+
 export default function CustomersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -63,6 +73,7 @@ export default function CustomersPage() {
   const [brands, setBrands] = useState<CustomerBrand[]>([]);
   const [products, setProducts] = useState<CustomerProduct[]>([]);
   const [collections, setCollections] = useState<CustomerCollections | null>(null);
+  const [carteraDocuments, setCarteraDocuments] = useState<CarteraDocumentLine[]>([]);
   const [tab, setTab] = useState<"resumen" | "marcas" | "productos" | "cartera">("resumen");
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }),
@@ -145,6 +156,23 @@ export default function CustomersPage() {
       setCollections,
     );
   }, [selectedId, detailQueryString]);
+
+  useEffect(() => {
+    if (tab !== "cartera" || !selectedId) {
+      setCarteraDocuments([]);
+      return;
+    }
+    const nit = customers.find((c) => c.id === selectedId)?.nit ?? overview?.customer?.nit;
+    if (!nit) {
+      setCarteraDocuments([]);
+      return;
+    }
+    apiGet<{ documents: CarteraDocumentLine[] }>(
+      `/source/cartera-documents?cedula=${encodeURIComponent(nit)}`,
+    )
+      .then((r) => setCarteraDocuments(r.documents ?? []))
+      .catch(() => setCarteraDocuments([]));
+  }, [tab, selectedId, customers, overview?.customer?.nit]);
 
   const columns = useMemo<ColumnDef<Customer>[]>(
     () => [
@@ -334,37 +362,98 @@ export default function CustomersPage() {
         )}
 
         {tab === "cartera" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Cartera</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2">
-              <div>
-                <div className="text-xs text-slate-500">Cupo</div>
-                <div className="text-lg font-semibold text-slate-900">
-                  {formatCop(collections?.credit?.creditLimit ?? 0)}
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Cartera</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <div className="text-xs text-slate-500">Cupo</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {formatCop(collections?.credit?.creditLimit ?? 0)}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Saldo</div>
-                <div className="text-lg font-semibold text-slate-900">
-                  {formatCop(collections?.credit?.balance ?? 0)}
+                <div>
+                  <div className="text-xs text-slate-500">Saldo</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {formatCop(collections?.credit?.balance ?? 0)}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">Vencido</div>
-                <div className="text-lg font-semibold text-slate-900">
-                  {formatCop(collections?.credit?.overdue ?? 0)}
+                <div>
+                  <div className="text-xs text-slate-500">Por vencer</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {formatCop(
+                      Math.max(
+                        0,
+                        (collections?.credit?.balance ?? 0) - (collections?.credit?.overdue ?? 0),
+                      ),
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500">DSO estimado</div>
-                <div className="text-lg font-semibold text-slate-900">
-                  {collections?.credit?.dsoDays ?? 0} días
+                <div>
+                  <div className="text-xs text-slate-500">Vencido</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {formatCop(collections?.credit?.overdue ?? 0)}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div>
+                  <div className="text-xs text-slate-500">DSO estimado</div>
+                  <div className="text-lg font-semibold text-slate-900">
+                    {collections?.credit?.dsoDays ?? 0} días
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            {carteraDocuments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Detalle documentos</CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-slate-600">
+                        <th className="p-2">Prefijo + Documento</th>
+                        <th className="p-2">Fecha factura</th>
+                        <th className="p-2">Fecha vencimiento</th>
+                        <th className="p-2">Días</th>
+                        <th className="p-2">Por vencer</th>
+                        <th className="p-2">0–30</th>
+                        <th className="p-2">31–60</th>
+                        <th className="p-2">61–90</th>
+                        <th className="p-2">&gt;90</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {carteraDocuments.map((doc, i) => {
+                        const porVencer = doc.daiaven >= 0 ? doc.saldo : 0;
+                        const r0_30 = doc.daiaven >= 0 && doc.daiaven <= 30 ? doc.saldo : 0;
+                        const r31_60 = doc.daiaven >= 31 && doc.daiaven <= 60 ? doc.saldo : 0;
+                        const r61_90 = doc.daiaven >= 61 && doc.daiaven <= 90 ? doc.saldo : 0;
+                        const r90 = doc.daiaven > 90 ? doc.saldo : 0;
+                        return (
+                          <tr key={i} className="border-b border-slate-100">
+                            <td className="p-2 font-medium">
+                              {doc.prefij}-{doc.numdoc}
+                            </td>
+                            <td className="p-2">{dateFormatter.format(new Date(doc.fecha))}</td>
+                            <td className="p-2">{dateFormatter.format(new Date(doc.fecven))}</td>
+                            <td className="p-2">{doc.daiaven}</td>
+                            <td className="p-2">{formatCop(porVencer)}</td>
+                            <td className="p-2">{formatCop(r0_30)}</td>
+                            <td className="p-2">{formatCop(r31_60)}</td>
+                            <td className="p-2">{formatCop(r61_90)}</td>
+                            <td className="p-2">{formatCop(r90)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>

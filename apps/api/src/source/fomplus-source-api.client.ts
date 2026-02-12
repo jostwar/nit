@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import { XMLParser } from 'fast-xml-parser';
-import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment, FetchInvoicesResult } from './source-api.client';
+import { SourceApiClient, SourceCustomer, SourceInvoice, SourcePayment, FetchInvoicesResult, type CarteraDocumentLine } from './source-api.client';
 import type { InventoryDirectoryService } from './inventory-directory.service';
 import { normalizeCustomerId } from '../common/utils/customer-id.util';
 import { normalizeRefer, UNMAPPED_BRAND, UNMAPPED_CLASS } from '../common/utils/refer.util';
@@ -107,6 +107,38 @@ export class FomplusSourceApiClient implements SourceApiClient {
     );
     const records = this.extractRecords(xml);
     return this.mapPayments(records, to);
+  }
+
+  async fetchCarteraDocuments(
+    tenantExternalId: string,
+    cedula: string,
+  ): Promise<CarteraDocumentLine[]> {
+    const to = new Date().toISOString().slice(0, 10);
+    const params = {
+      strPar_Basedatos: this.config.database || tenantExternalId,
+      strPar_Token: this.config.token,
+      datPar_Fecha: this.formatDateTime(to),
+      strPar_Cedula: cedula?.trim() ?? '',
+      strPar_Vended: this.config.vendor ?? '',
+    };
+    const xml = await this.getWithSoapFallback(
+      `${this.config.carteraBaseUrl}/srvCxcPed.asmx/EstadoDeCuentaCartera`,
+      `${this.config.carteraBaseUrl}/srvCxcPed.asmx`,
+      'http://tempuri.org/EstadoDeCuentaCartera',
+      'EstadoDeCuentaCartera',
+      params,
+    );
+    const records = this.extractRecords(xml);
+    return records.map((record) => {
+      const prefij = this.pick(record, ['prefij', 'PREFIJ', 'prefijo']) ?? '';
+      const numdoc = this.pick(record, ['numdoc', 'NUMDOC', 'numero', 'documento']) ?? '';
+      const fecha = this.normalizeDate(this.pick(record, ['fecha', 'FECHA'])) ?? '';
+      const fecven = this.normalizeDate(this.pick(record, ['fecven', 'FECVEN', 'fechaven'])) ?? '';
+      const ultpag = this.normalizeDate(this.pick(record, ['ultpag', 'ULTPAG', 'fechapago']));
+      const daiaven = this.toNumber(this.pick(record, ['daiaven', 'DAIAVEN'])) ?? 0;
+      const saldo = this.toNumber(this.pick(record, ['saldo', 'SALDO'])) ?? 0;
+      return { prefij, numdoc, fecha, fecven, ultpag, daiaven, saldo };
+    }).filter((line) => line.numdoc || line.prefij || line.saldo !== 0);
   }
 
   async fetchCustomers(
