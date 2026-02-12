@@ -358,7 +358,10 @@ export default function DashboardPage() {
           <Button
             className="border border-slate-200 bg-white text-xs text-slate-700 hover:bg-slate-50"
             onClick={() => {
-              window.location.href = `/customers?search=${row.original.nit}`;
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("search", row.original.nit);
+              params.set("customerId", row.original.id);
+              window.location.href = `/customers?${params.toString()}`;
             }}
           >
             Ver
@@ -366,7 +369,7 @@ export default function DashboardPage() {
         ),
       },
     ],
-    [totalSales],
+    [totalSales, searchParams],
   );
 
   return (
@@ -853,9 +856,29 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Tareas</CardTitle>
+          {searchParams.get("vendor") && (
+            <p className="text-xs text-slate-500 font-normal mt-1">
+              Mostrando solo clientes del vendedor: <strong>{searchParams.get("vendor")}</strong>
+            </p>
+          )}
         </CardHeader>
         <CardContent>
-          <DataTable columns={taskColumns} data={tasks} />
+          <DataTable columns={taskColumns} data={tasks.slice(0, 10)} />
+          {tasks.length > 10 && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-slate-700"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  window.location.href = `/dashboard/tasks?${params.toString()}`;
+                }}
+              >
+                Ver más
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
