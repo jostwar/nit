@@ -223,17 +223,18 @@ export default function DashboardPage() {
 
         const compareMap = new Map(compare.map((row) => [row.id, row.totalSales]));
         const actionFor = (change: number, prev: number, curr: number) => {
-          if (prev === 0 && curr > 0) return "🚀 Crecimiento acelerado → Potenciar cuenta";
-          if (prev === 0 && curr === 0) return "➖ Estable bajo → Aumentar ticket";
-          if (change <= -40) return "🔻 Caída fuerte → Recuperar urgente";
-          if (change <= -20) return "🔻 Caída moderada → Reactivar compras";
-          if (change <= -5) return "⚠️ Riesgo inactivo → Contactar cliente";
-          if (change < 5) return "➖ Estable bajo → Aumentar ticket";
-          if (change < 15) return "➖ Estable medio → Ampliar mix";
-          if (change < 30) return "➖ Estable alto → Escalar cuenta";
-          if (change < 60) return "📈 Crecimiento leve → Estimular compra";
-          if (change < 100) return "📈 Crecimiento sostenido → Fidelizar cliente";
-          return "🚀 Crecimiento acelerado → Potenciar cuenta";
+          if (curr === 0 && prev === 0) return "Sin ventas → Activar cuenta o contactar";
+          if (curr === 0 && prev > 0) return "Dejó de comprar → Recuperar urgente";
+          if (prev === 0 && curr > 0) return "Nuevas ventas → Potenciar cuenta";
+          if (change <= -40) return "Caída fuerte → Recuperar urgente";
+          if (change <= -20) return "Caída moderada → Reactivar compras";
+          if (change <= -5) return "Riesgo inactivo → Contactar cliente";
+          if (change < 5) return "Estable bajo → Aumentar ticket";
+          if (change < 15) return "Estable medio → Ampliar mix";
+          if (change < 30) return "Estable alto → Escalar cuenta";
+          if (change < 60) return "Crecimiento leve → Estimular compra";
+          if (change < 100) return "Crecimiento sostenido → Fidelizar cliente";
+          return "Crecimiento fuerte → Potenciar cuenta";
         };
 
         const rows: CustomerTask[] = current.map((row) => {
