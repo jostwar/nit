@@ -304,115 +304,108 @@ export function DateFilters() {
     };
   }, []);
 
-  return (
-    <div className="flex flex-col gap-4 text-xs text-slate-600">
-      {/* Filtros: período principal y consulta */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-medium text-slate-700">Período principal</span>
-        <label className="flex items-center gap-2">
-          Desde
-          <input
-            type="date"
-            value={from}
-            min={minDate}
-            max={maxDate}
-            onChange={(event) => setFrom(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          Hasta
-          <input
-            type="date"
-            value={to}
-            min={minDate}
-            max={maxDate}
-            onChange={(event) => setTo(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          Vendedor
-          <select
-            value={vendor}
-            onChange={(e) => setVendor(e.target.value)}
-            className="min-w-[8rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
-          >
-            <option value="">Todos</option>
-            {(filterOptions?.vendors ?? []).map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          Marca
-          <select
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            className="min-w-[7rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
-          >
-            <option value="">Todas</option>
-            {(filterOptions?.brands ?? []).map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          Clase
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            className="min-w-[7rem] cursor-pointer rounded-md border border-slate-300 bg-white px-2 py-1.5 pr-7 text-xs shadow-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
-          >
-            <option value="">Todas</option>
-            {(filterOptions?.classes ?? []).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button onClick={applyFilters} className="h-8 px-4 text-xs" disabled={syncing}>
-          {syncing ? "Cargando…" : "Consultar"}
-        </Button>
-      </div>
+  const selectClass =
+    "min-w-[8rem] cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
+  const inputClass =
+    "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
 
-      {/* Periodo a comparar (opcional) */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-medium text-slate-700">Periodo a comparar</span>
-        <span className="text-slate-500">(opcional: otro rango para ver variación)</span>
-        <label className="flex items-center gap-2">
-          Desde
+  return (
+    <div className="flex flex-col gap-3 text-sm">
+      {/* Bloque principal: período + filtros por dimensión */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-4">
+          {/* Período */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Período</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={from}
+                min={minDate}
+                max={maxDate}
+                onChange={(e) => setFrom(e.target.value)}
+                className={inputClass}
+                aria-label="Desde"
+              />
+              <span className="text-slate-400">–</span>
+              <input
+                type="date"
+                value={to}
+                min={minDate}
+                max={maxDate}
+                onChange={(e) => setTo(e.target.value)}
+                className={inputClass}
+                aria-label="Hasta"
+              />
+            </div>
+          </div>
+          <div className="h-8 w-px bg-slate-200" aria-hidden />
+          {/* Vendedor, Marca, Clase */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Vendedor</span>
+            <select value={vendor} onChange={(e) => setVendor(e.target.value)} className={selectClass}>
+              <option value="">Todos</option>
+              {(filterOptions?.vendors ?? []).map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Marca</span>
+            <select value={brand} onChange={(e) => setBrand(e.target.value)} className={selectClass}>
+              <option value="">Todas</option>
+              {(filterOptions?.brands ?? []).map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Clase</span>
+            <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)} className={selectClass}>
+              <option value="">Todas</option>
+              {(filterOptions?.classes ?? []).map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={applyFilters}
+            disabled={syncing}
+            className="h-[2.625rem] shrink-0 bg-slate-800 px-5 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            {syncing ? "Cargando…" : "Consultar"}
+          </Button>
+        </div>
+        {/* Periodo a comparar (opcional) */}
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+          <span className="text-xs text-slate-500">Comparar con otro período:</span>
           <input
             type="date"
             value={compareFrom}
             min={minDate}
             max={maxDate}
-            onChange={(event) => setCompareFrom(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
+            onChange={(e) => setCompareFrom(e.target.value)}
+            className={inputClass}
+            aria-label="Comparar desde"
           />
-        </label>
-        <label className="flex items-center gap-2">
-          Hasta
           <input
             type="date"
             value={compareTo}
             min={minDate}
             max={maxDate}
-            onChange={(event) => setCompareTo(event.target.value)}
-            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs"
+            onChange={(e) => setCompareTo(e.target.value)}
+            className={inputClass}
+            aria-label="Comparar hasta"
           />
-        </label>
-        <Button
-          onClick={applyCompare}
-          className="h-8 px-3 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-        >
-          Aplicar comparación
-        </Button>
+          <Button
+            onClick={applyCompare}
+            variant="outline"
+            size="sm"
+            className="border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            Aplicar comparación
+          </Button>
+        </div>
       </div>
     </div>
   );
