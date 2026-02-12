@@ -447,11 +447,14 @@ export class FomplusSourceApiClient implements SourceApiClient {
       const nit = normalizeCustomerId(nitRaw);
       const customerName =
         this.pick(record, ['nomced', 'cliente', 'nombre', 'razonsocial']) ?? undefined;
-      // FECHA = Fecha Documento del ERP (GenerarInfoVentas). Las ventas se suman por esta fecha en la plataforma.
-      const issuedAt =
+      // FECHA + HORA = Fecha Documento y hora del ERP (GenerarInfoVentas). issuedAt con hora real para venta por hora.
+      const datePart =
         this.normalizeDate(
           this.pick(record, ['fecha', 'fechafac', 'fechafactura', 'fechaemision', 'fecfac']),
         ) ?? fallbackDate;
+      const horaRaw = this.pick(record, ['hora', 'HORA', 'hour', 'horafac', 'HORAFAC']);
+      const timePart = this.normalizeTime(horaRaw);
+      const issuedAt = timePart ? `${datePart}T${timePart}` : `${datePart}T00:00:00`;
       const total = this.toNumber(
         this.pick(record, ['valtot', 'total', 'valortotal', 'valor', 'vrtotal', 'totalfactura']),
       );
@@ -770,5 +773,22 @@ export class FomplusSourceApiClient implements SourceApiClient {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return undefined;
     return parsed.toISOString().slice(0, 10);
+  }
+
+  /** Normaliza HORA de GenerarInfoVentas a HH:mm:ss (ej. "09:53" → "09:53:00"). */
+  private normalizeTime(value?: string | number | boolean | null): string | undefined {
+    if (value == null || value === '') return undefined;
+    const s = String(value).trim();
+    if (!s) return undefined;
+    const match = s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+    if (!match) return undefined;
+    const h = match[1].padStart(2, '0');
+    const m = match[2].padStart(2, '0');
+    const sec = match[3] != null ? match[3].padStart(2, '0') : '00';
+    const hour = parseInt(h, 10);
+    const min = parseInt(m, 10);
+    const second = parseInt(sec, 10);
+    if (hour > 23 || min > 59 || second > 59) return undefined;
+    return `${h}:${m}:${sec}`;
   }
 }

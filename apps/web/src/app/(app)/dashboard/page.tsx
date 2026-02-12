@@ -12,6 +12,8 @@ import { useTableSort, TableThSort } from "@/hooks/use-table-sort";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -119,6 +121,16 @@ export default function DashboardPage() {
   const classSort = useTableSort(salesByClass, { defaultKey: "totalSales", defaultDir: "desc" });
   const tipomovSort = useTableSort(tipomov, { defaultKey: "totalSigned", defaultDir: "desc" });
   const customerSort = useTableSort(salesByCustomer, { defaultKey: "totalSales", defaultDir: "desc" });
+
+  /** Gráfico venta por hora: siempre 24 slots (00:00 … 23:00), acumulado por hora para que no sea largo. */
+  const chartDataByHour = useMemo(() => {
+    const slots = Array.from({ length: 24 }, (_, i) => ({
+      hour: `${String(i).padStart(2, "0")}:00`,
+      totalSales: 0,
+    }));
+    const byHour = new Map(salesByHour.map((r) => [r.hour, r.totalSales]));
+    return slots.map((s) => ({ ...s, totalSales: byHour.get(s.hour) ?? 0 }));
+  }, [salesByHour]);
 
   useEffect(() => {
     const onSyncCompleted = () => setRefreshKey((k) => k + 1);
@@ -671,7 +683,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Venta por hora</CardTitle>
             <p className="text-xs text-slate-500 font-normal mt-1">
-              Ventas por hora del día (HH:00) en el rango seleccionado.
+              Ventas por hora del día (GenerarInfoVentas HORA) en el rango seleccionado. Solo monto y % sobre el total.
             </p>
           </CardHeader>
           <CardContent>
@@ -680,33 +692,43 @@ export default function DashboardPage() {
                 No hay datos por hora para este rango.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-600">
-                      <TableThSort sortKey="hour" currentKey={hourSort.sortKey} dir={hourSort.sortDir} setSort={hourSort.setSort} label="Hora" thClassName="py-2 pr-4" />
-                      <TableThSort sortKey="totalSales" currentKey={hourSort.sortKey} dir={hourSort.sortDir} setSort={hourSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
-                      <th className="py-2 pr-4 text-right font-medium">% total</th>
-                      <TableThSort sortKey="count" currentKey={hourSort.sortKey} dir={hourSort.sortDir} setSort={hourSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hourSort.sortedData.map((row) => (
-                      <tr key={row.hour} className="border-b border-slate-100">
-                        <td className="py-2 pr-4 font-mono text-slate-800">{row.hour}</td>
-                        <td className="py-2 pr-4 text-right font-medium text-slate-800">
-                          {formatCop(row.totalSales)}
-                        </td>
-                        <td className="py-2 pr-4 text-right text-slate-600">
-                          {pctOfTotal(row.totalSales)}
-                        </td>
-                        <td className="py-2 pr-4 text-right text-slate-600">
-                          {row.count.toLocaleString("es-CO")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="h-[260px] w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <BarChart
+                    data={chartDataByHour}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <XAxis
+                      dataKey="hour"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => v}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) =>
+                        typeof v === "number" && v >= 1e6
+                          ? `${(v / 1e6).toFixed(0)}M`
+                          : typeof v === "number"
+                            ? formatCop(v)
+                            : String(v)
+                      }
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length || label == null) return null;
+                        const row = payload[0].payload as { hour: string; totalSales: number };
+                        return (
+                          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+                            <div className="font-medium text-slate-800">Hora: {row.hour}</div>
+                            <div className="text-slate-600">Ventas: {formatCop(row.totalSales)}</div>
+                            <div className="text-slate-600">% total: {pctOfTotal(row.totalSales)}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="totalSales" fill="#0f172a" radius={[2, 2, 0, 0]} name="Ventas" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
           </CardContent>
