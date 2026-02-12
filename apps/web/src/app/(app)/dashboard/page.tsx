@@ -781,7 +781,7 @@ export default function DashboardPage() {
                     <TableThSort sortKey="className" currentKey={classSort.sortKey} dir={classSort.sortDir} setSort={classSort.setSort} label="Clase" thClassName="py-2 pr-4" />
                     <TableThSort sortKey="totalSales" currentKey={classSort.sortKey} dir={classSort.sortDir} setSort={classSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
                     <th className="py-2 pr-4 text-right font-medium">% total</th>
-                    <TableThSort sortKey="count" currentKey={classSort.sortKey} dir={classSort.sortDir} setSort={classSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
+                    <TableThSort sortKey="count" currentKey={classSort.sortKey} dir={classSort.sortDir} setSort={classSort.setSort} label="Tickets" thClassName="py-2 pr-4" align="right" />
                   </tr>
                 </thead>
                 <tbody>
@@ -829,7 +829,7 @@ export default function DashboardPage() {
                       <TableThSort sortKey="vendor" currentKey={vendorSort.sortKey} dir={vendorSort.sortDir} setSort={vendorSort.setSort} label="Vendedor" thClassName="py-2 pr-4" />
                       <TableThSort sortKey="totalSales" currentKey={vendorSort.sortKey} dir={vendorSort.sortDir} setSort={vendorSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
                       <th className="py-2 pr-4 text-right font-medium">% total</th>
-                      <TableThSort sortKey="count" currentKey={vendorSort.sortKey} dir={vendorSort.sortDir} setSort={vendorSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
+                      <TableThSort sortKey="count" currentKey={vendorSort.sortKey} dir={vendorSort.sortDir} setSort={vendorSort.setSort} label="Tickets" thClassName="py-2 pr-4" align="right" />
                     </tr>
                   </thead>
                   <tbody>
@@ -874,7 +874,7 @@ export default function DashboardPage() {
                       <TableThSort sortKey="brand" currentKey={brandSort.sortKey} dir={brandSort.sortDir} setSort={brandSort.setSort} label="Marca" thClassName="py-2 pr-4" />
                       <TableThSort sortKey="totalSales" currentKey={brandSort.sortKey} dir={brandSort.sortDir} setSort={brandSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
                       <th className="py-2 pr-4 text-right font-medium">% total</th>
-                      <TableThSort sortKey="count" currentKey={brandSort.sortKey} dir={brandSort.sortDir} setSort={brandSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
+                      <TableThSort sortKey="count" currentKey={brandSort.sortKey} dir={brandSort.sortDir} setSort={brandSort.setSort} label="Tickets" thClassName="py-2 pr-4" align="right" />
                     </tr>
                   </thead>
                   <tbody>
