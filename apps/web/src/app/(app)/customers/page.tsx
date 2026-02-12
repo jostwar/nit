@@ -419,10 +419,10 @@ export default function CustomersPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-slate-600">
-                        <TableThSort sortKey="prefij" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Prefijo + Documento" className="p-2" />
-                        <TableThSort sortKey="fecha" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Fecha factura" className="p-2" />
-                        <TableThSort sortKey="fecven" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Fecha vencimiento" className="p-2" />
-                        <TableThSort sortKey="daiaven" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Días" className="p-2" align="right" />
+                        <TableThSort sortKey="prefij" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Prefijo + Documento" thClassName="p-2" />
+                        <TableThSort sortKey="fecha" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Fecha factura" thClassName="p-2" />
+                        <TableThSort sortKey="fecven" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Fecha vencimiento" thClassName="p-2" />
+                        <TableThSort sortKey="daiaven" currentKey={carteraSort.sortKey} dir={carteraSort.sortDir} setSort={carteraSort.setSort} label="Días" thClassName="p-2" align="right" />
                         <th className="p-2">Por vencer</th>
                         <th className="p-2">0–30</th>
                         <th className="p-2">31–60</th>

@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 export type SortDir = "asc" | "desc";
 
@@ -50,8 +50,8 @@ type TableThSortProps = {
   currentKey: string | null;
   dir: SortDir;
   setSort: (key: string) => void;
-  label: React.ReactNode;
-  className?: string;
+  label: ReactNode;
+  thClassName?: string;
   align?: "left" | "right";
 };
 
@@ -61,12 +61,12 @@ export function TableThSort({
   dir,
   setSort,
   label,
-  className = "",
+  thClassName = "",
   align = "left",
 }: TableThSortProps) {
   const isActive = currentKey === sortKey;
   return (
-    <th className={className}>
+    <th className={thClassName}>
       <button
         type="button"
         onClick={() => setSort(sortKey)}

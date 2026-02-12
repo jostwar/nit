@@ -104,11 +104,11 @@ export default function SalesByCustomerPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-600">
-                    <TableThSort sortKey="name" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Cliente" className="py-2 pr-4" />
-                    <TableThSort sortKey="nit" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="NIT / Cédula" className="py-2 pr-4 font-mono" />
-                    <TableThSort sortKey="totalSales" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Ventas" className="py-2 pr-4" align="right" />
+                    <TableThSort sortKey="name" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Cliente" thClassName="py-2 pr-4" />
+                    <TableThSort sortKey="nit" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="NIT / Cédula" thClassName="py-2 pr-4 font-mono" />
+                    <TableThSort sortKey="totalSales" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
                     <th className="py-2 pr-4 font-medium text-right">% total</th>
-                    <TableThSort sortKey="totalInvoices" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Facturas" className="py-2 pr-4" align="right" />
+                    <TableThSort sortKey="totalInvoices" currentKey={customerSort.sortKey} dir={customerSort.sortDir} setSort={customerSort.setSort} label="Facturas" thClassName="py-2 pr-4" align="right" />
                     <th className="py-2 pl-2 w-20"></th>
                   </tr>
                 </thead>
