@@ -859,11 +859,11 @@ export class MetricsService {
           : Prisma.empty;
     const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const rows = await this.prisma.$queryRaw<
-      Array<{ dayOfWeek: number; totalSales: string; lineCount: bigint }>
+      Array<{ dayOfWeek: number; totalSales: string; invoiceCount: bigint }>
     >(Prisma.sql`
       SELECT EXTRACT(DOW FROM i."issuedAt")::int as "dayOfWeek",
         SUM(it.total * i."saleSign")::text as "totalSales",
-        COUNT(*)::bigint as "lineCount"
+        COUNT(DISTINCT i.id)::bigint as "invoiceCount"
       FROM "InvoiceItem" it
       INNER JOIN "Invoice" i ON i.id = it."invoiceId"
       WHERE it."tenantId" = ${tenantId}
@@ -878,7 +878,7 @@ export class MetricsService {
       dayOfWeek: r.dayOfWeek,
       dayName: dayNames[r.dayOfWeek] ?? `Día ${r.dayOfWeek}`,
       totalSales: Number(r.totalSales ?? 0),
-      count: Number(r.lineCount ?? 0),
+      invoiceCount: Number(r.invoiceCount ?? 0),
     }));
   }
 

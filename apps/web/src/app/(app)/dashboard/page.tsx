@@ -97,7 +97,7 @@ export default function DashboardPage() {
     Array<{ hour: string; totalSales: number; count: number }>
   >([]);
   const [salesByDayOfWeek, setSalesByDayOfWeek] = useState<
-    Array<{ dayOfWeek: number; dayName: string; totalSales: number; count: number }>
+    Array<{ dayOfWeek: number; dayName: string; totalSales: number; invoiceCount: number }>
   >([]);
   const [salesByCustomer, setSalesByCustomer] = useState<CustomerRow[]>([]);
   const [tipomov, setTipomov] = useState<TipomovRow[]>([]);
@@ -317,7 +317,7 @@ export default function DashboardPage() {
   }, [query, refreshKey]);
 
   useEffect(() => {
-    apiGet<Array<{ dayOfWeek: number; dayName: string; totalSales: number; count: number }>>(
+    apiGet<Array<{ dayOfWeek: number; dayName: string; totalSales: number; invoiceCount: number }>>(
       `/dashboard/sales-by-day-of-week${query}`,
     )
       .then(setSalesByDayOfWeek)
@@ -682,9 +682,6 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Venta por hora</CardTitle>
-            <p className="text-xs text-slate-500 font-normal mt-1">
-              Ventas por hora del día (GenerarInfoVentas HORA) en el rango seleccionado. Solo monto y % sobre el total.
-            </p>
           </CardHeader>
           <CardContent>
             {salesByHour.length === 0 ? (
@@ -737,9 +734,6 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Venta por día de la semana</CardTitle>
-            <p className="text-xs text-slate-500 font-normal mt-1">
-              Ventas por día de la semana según fecha de factura.
-            </p>
           </CardHeader>
           <CardContent>
             {salesByDayOfWeek.length === 0 ? (
@@ -754,7 +748,7 @@ export default function DashboardPage() {
                       <TableThSort sortKey="dayOfWeek" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Día" thClassName="py-2 pr-4" />
                       <TableThSort sortKey="totalSales" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
                       <th className="py-2 pr-4 text-right font-medium">% total</th>
-                      <TableThSort sortKey="count" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
+                      <TableThSort sortKey="invoiceCount" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Número de facturas con conteo indistinto" thClassName="py-2 pr-4" align="right" />
                     </tr>
                   </thead>
                   <tbody>
@@ -768,7 +762,7 @@ export default function DashboardPage() {
                           {pctOfTotal(row.totalSales)}
                         </td>
                         <td className="py-2 pr-4 text-right text-slate-600">
-                          {row.count.toLocaleString("es-CO")}
+                          {row.invoiceCount.toLocaleString("es-CO")}
                         </td>
                       </tr>
                     ))}
