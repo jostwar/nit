@@ -141,4 +141,42 @@ export class DashboardController {
       class: classFilter,
     });
   }
+
+  @Get('sales-by-hour')
+  getSalesByHour(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('city') city?: string,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
+    @Query('class') classFilter?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getSalesByHour(tenantId, current.from, current.to, {
+      city,
+      vendor,
+      brand,
+      class: classFilter,
+    });
+  }
+
+  @Get('sales-by-day-of-week')
+  getSalesByDayOfWeek(
+    @TenantId() tenantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('city') city?: string,
+    @Query('vendor') vendor?: string,
+    @Query('brand') brand?: string,
+    @Query('class') classFilter?: string,
+  ) {
+    const current = parseRange(from, to);
+    return this.metricsService.getSalesByDayOfWeek(tenantId, current.from, current.to, {
+      city,
+      vendor,
+      brand,
+      class: classFilter,
+    });
+  }
 }

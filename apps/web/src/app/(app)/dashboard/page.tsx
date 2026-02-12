@@ -91,6 +91,12 @@ export default function DashboardPage() {
   const [salesByBrand, setSalesByBrand] = useState<
     Array<{ brand: string; totalSales: number; count: number }>
   >([]);
+  const [salesByHour, setSalesByHour] = useState<
+    Array<{ hour: string; totalSales: number; count: number }>
+  >([]);
+  const [salesByDayOfWeek, setSalesByDayOfWeek] = useState<
+    Array<{ dayOfWeek: number; dayName: string; totalSales: number; count: number }>
+  >([]);
   const [salesByCustomer, setSalesByCustomer] = useState<CustomerRow[]>([]);
   const [tipomov, setTipomov] = useState<TipomovRow[]>([]);
   const [tipomovDetail, setTipomovDetail] = useState<TipomovDetailRow[] | null>(null);
@@ -108,6 +114,8 @@ export default function DashboardPage() {
 
   const vendorSort = useTableSort(salesByVendor, { defaultKey: "totalSales", defaultDir: "desc" });
   const brandSort = useTableSort(salesByBrand, { defaultKey: "totalSales", defaultDir: "desc" });
+  const hourSort = useTableSort(salesByHour, { defaultKey: "hour", defaultDir: "asc" });
+  const dayOfWeekSort = useTableSort(salesByDayOfWeek, { defaultKey: "dayOfWeek", defaultDir: "asc" });
   const classSort = useTableSort(salesByClass, { defaultKey: "totalSales", defaultDir: "desc" });
   const tipomovSort = useTableSort(tipomov, { defaultKey: "totalSigned", defaultDir: "desc" });
   const customerSort = useTableSort(salesByCustomer, { defaultKey: "totalSales", defaultDir: "desc" });
@@ -286,6 +294,22 @@ export default function DashboardPage() {
     )
       .then(setSalesByBrand)
       .catch(() => setSalesByBrand([]));
+  }, [query, refreshKey]);
+
+  useEffect(() => {
+    apiGet<Array<{ hour: string; totalSales: number; count: number }>>(
+      `/dashboard/sales-by-hour${query}`,
+    )
+      .then(setSalesByHour)
+      .catch(() => setSalesByHour([]));
+  }, [query, refreshKey]);
+
+  useEffect(() => {
+    apiGet<Array<{ dayOfWeek: number; dayName: string; totalSales: number; count: number }>>(
+      `/dashboard/sales-by-day-of-week${query}`,
+    )
+      .then(setSalesByDayOfWeek)
+      .catch(() => setSalesByDayOfWeek([]));
   }, [query, refreshKey]);
 
   useEffect(() => {
@@ -584,9 +608,13 @@ export default function DashboardPage() {
                   formatter={(value) =>
                     typeof value === "number" ? formatCop(value) : formatCop(Number(value))
                   }
-                  labelFormatter={(label) =>
-                    typeof label === "string" ? `Fecha: ${label}` : `Fecha: ${label}`
-                  }
+                  labelFormatter={(label) => {
+                    const str = typeof label === "string" ? label : String(label ?? "");
+                    const part = str.slice(0, 10);
+                    const [y, m, d] = part.split("-");
+                    if (y && m && d) return `Fecha: ${d}/${m}/${y}`;
+                    return `Fecha: ${str}`;
+                  }}
                 />
                 <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} />
               </LineChart>
@@ -622,14 +650,110 @@ export default function DashboardPage() {
                       ? value.toLocaleString("es-CO")
                       : Number(value).toLocaleString("es-CO")
                   }
-                  labelFormatter={(label) =>
-                    typeof label === "string" ? `Fecha: ${label}` : `Fecha: ${label}`
-                  }
+                  labelFormatter={(label) => {
+                    const str = typeof label === "string" ? label : String(label ?? "");
+                    const part = str.slice(0, 10);
+                    const [y, m, d] = part.split("-");
+                    if (y && m && d) return `Fecha: ${d}/${m}/${y}`;
+                    return `Fecha: ${str}`;
+                  }}
                 />
                 <Line type="monotone" dataKey="totalInvoices" stroke="#0ea5e9" strokeWidth={2} />
                 <Line type="monotone" dataKey="totalUnits" stroke="#f97316" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Venta por hora</CardTitle>
+            <p className="text-xs text-slate-500 font-normal mt-1">
+              Ventas por hora del día (HH:00) en el rango seleccionado.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {salesByHour.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No hay datos por hora para este rango.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-600">
+                      <TableThSort sortKey="hour" currentKey={hourSort.sortKey} dir={hourSort.sortDir} setSort={hourSort.setSort} label="Hora" thClassName="py-2 pr-4" />
+                      <TableThSort sortKey="totalSales" currentKey={hourSort.sortKey} dir={hourSort.sortDir} setSort={hourSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
+                      <th className="py-2 pr-4 text-right font-medium">% total</th>
+                      <TableThSort sortKey="count" currentKey={hourSort.sortKey} dir={hourSort.sortDir} setSort={hourSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hourSort.sortedData.map((row) => (
+                      <tr key={row.hour} className="border-b border-slate-100">
+                        <td className="py-2 pr-4 font-mono text-slate-800">{row.hour}</td>
+                        <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                          {formatCop(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {pctOfTotal(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {row.count.toLocaleString("es-CO")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Venta por día de la semana</CardTitle>
+            <p className="text-xs text-slate-500 font-normal mt-1">
+              Ventas por día de la semana según fecha de factura.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {salesByDayOfWeek.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No hay datos por día para este rango.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-slate-600">
+                      <TableThSort sortKey="dayOfWeek" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Día" thClassName="py-2 pr-4" />
+                      <TableThSort sortKey="totalSales" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Ventas" thClassName="py-2 pr-4" align="right" />
+                      <th className="py-2 pr-4 text-right font-medium">% total</th>
+                      <TableThSort sortKey="count" currentKey={dayOfWeekSort.sortKey} dir={dayOfWeekSort.sortDir} setSort={dayOfWeekSort.setSort} label="Líneas" thClassName="py-2 pr-4" align="right" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayOfWeekSort.sortedData.map((row) => (
+                      <tr key={row.dayOfWeek} className="border-b border-slate-100">
+                        <td className="py-2 pr-4 text-slate-800">{row.dayName}</td>
+                        <td className="py-2 pr-4 text-right font-medium text-slate-800">
+                          {formatCop(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {pctOfTotal(row.totalSales)}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-slate-600">
+                          {row.count.toLocaleString("es-CO")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

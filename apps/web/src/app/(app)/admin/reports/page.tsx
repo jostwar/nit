@@ -262,6 +262,13 @@ export default function AdminReportsPage() {
                       ? formatCop(Number(value))
                       : Number(value).toLocaleString("es-CO")
                   }
+                  labelFormatter={(label) => {
+                    const str = typeof label === "string" ? label : String(label ?? "");
+                    const part = str.slice(0, 10);
+                    const [y, m, d] = part.split("-");
+                    if (y && m && d) return `Fecha: ${d}/${m}/${y}`;
+                    return `Fecha: ${str}`;
+                  }}
                 />
                 <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} />
                 <Line type="monotone" dataKey="totalInvoices" stroke="#0ea5e9" strokeWidth={2} />

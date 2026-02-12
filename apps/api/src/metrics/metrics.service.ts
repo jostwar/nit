@@ -758,6 +758,130 @@ export class MetricsService {
     }));
   }
 
+  /** Ventas agregadas por hora del día (0-23), formato "HH:00". */
+  async getSalesByHour(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+  ) {
+    const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
+      city: filters?.city,
+    });
+    const trimmedVendor = filters?.vendor?.trim();
+    const trimmedBrand = filters?.brand?.trim();
+    const trimmedClass = filters?.class?.trim();
+    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
+    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
+    const classCond =
+      trimmedClass
+        ? classCodes.length > 0
+          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
+          : Prisma.sql` AND it."className" = ${trimmedClass}`
+        : Prisma.empty;
+    const brandCond =
+      trimmedBrand
+        ? brandValues.length > 0
+          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
+          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`
+        : Prisma.empty;
+    const vendorCond =
+      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const city = filters?.city?.trim();
+    const cityCond =
+      city
+        ? scopedCustomerIds?.length
+          ? Prisma.sql` AND (i."customerId" IN (${Prisma.join(scopedCustomerIds)}) OR i."city" ILIKE ${`%${city}%`})`
+          : Prisma.sql` AND i."city" ILIKE ${`%${city}%`}`
+        : scopedCustomerIds?.length
+          ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
+          : Prisma.empty;
+    const rows = await this.prisma.$queryRaw<
+      Array<{ hour: number; totalSales: string; lineCount: bigint }>
+    >(Prisma.sql`
+      SELECT EXTRACT(HOUR FROM i."issuedAt")::int as "hour",
+        SUM(it.total * i."saleSign")::text as "totalSales",
+        COUNT(*)::bigint as "lineCount"
+      FROM "InvoiceItem" it
+      INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+      WHERE it."tenantId" = ${tenantId}
+        AND i."issuedAt" >= ${from}
+        AND i."issuedAt" <= ${to}
+        AND i."documentType" IS NOT NULL
+        ${cityCond}${vendorCond}${brandCond}${classCond}
+      GROUP BY EXTRACT(HOUR FROM i."issuedAt")
+      ORDER BY "hour"
+    `);
+    return rows.map((r) => ({
+      hour: String(r.hour).padStart(2, '0') + ':00',
+      totalSales: Number(r.totalSales ?? 0),
+      count: Number(r.lineCount ?? 0),
+    }));
+  }
+
+  /** Ventas agregadas por día de la semana (0=Domingo .. 6=Sábado). */
+  async getSalesByDayOfWeek(
+    tenantId: string,
+    from: Date,
+    to: Date,
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+  ) {
+    const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
+      city: filters?.city,
+    });
+    const trimmedVendor = filters?.vendor?.trim();
+    const trimmedBrand = filters?.brand?.trim();
+    const trimmedClass = filters?.class?.trim();
+    const brandValues = trimmedBrand ? await this.getBrandMatchValues(tenantId, trimmedBrand) : [];
+    const classCodes = trimmedClass ? await this.getClassMatchCodes(tenantId, trimmedClass) : [];
+    const classCond =
+      trimmedClass
+        ? classCodes.length > 0
+          ? Prisma.sql` AND (it."classCode" IN (${Prisma.join(classCodes.map((c) => Prisma.sql`${c}`))}) OR it."className" = ${trimmedClass})`
+          : Prisma.sql` AND it."className" = ${trimmedClass}`
+        : Prisma.empty;
+    const brandCond =
+      trimmedBrand
+        ? brandValues.length > 0
+          ? Prisma.sql` AND (it.brand IN (${Prisma.join(brandValues.map((b) => Prisma.sql`${b}`))}) OR it.brand ILIKE ${`%${trimmedBrand}%`})`
+          : Prisma.sql` AND it.brand ILIKE ${`%${trimmedBrand}%`}`
+        : Prisma.empty;
+    const vendorCond =
+      trimmedVendor ? Prisma.sql` AND i."vendor" = ${trimmedVendor}` : Prisma.empty;
+    const city = filters?.city?.trim();
+    const cityCond =
+      city
+        ? scopedCustomerIds?.length
+          ? Prisma.sql` AND (i."customerId" IN (${Prisma.join(scopedCustomerIds)}) OR i."city" ILIKE ${`%${city}%`})`
+          : Prisma.sql` AND i."city" ILIKE ${`%${city}%`}`
+        : scopedCustomerIds?.length
+          ? Prisma.sql` AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})`
+          : Prisma.empty;
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const rows = await this.prisma.$queryRaw<
+      Array<{ dayOfWeek: number; totalSales: string; lineCount: bigint }>
+    >(Prisma.sql`
+      SELECT EXTRACT(DOW FROM i."issuedAt")::int as "dayOfWeek",
+        SUM(it.total * i."saleSign")::text as "totalSales",
+        COUNT(*)::bigint as "lineCount"
+      FROM "InvoiceItem" it
+      INNER JOIN "Invoice" i ON i.id = it."invoiceId"
+      WHERE it."tenantId" = ${tenantId}
+        AND i."issuedAt" >= ${from}
+        AND i."issuedAt" <= ${to}
+        AND i."documentType" IS NOT NULL
+        ${cityCond}${vendorCond}${brandCond}${classCond}
+      GROUP BY EXTRACT(DOW FROM i."issuedAt")
+      ORDER BY "dayOfWeek"
+    `);
+    return rows.map((r) => ({
+      dayOfWeek: r.dayOfWeek,
+      dayName: dayNames[r.dayOfWeek] ?? `Día ${r.dayOfWeek}`,
+      totalSales: Number(r.totalSales ?? 0),
+      count: Number(r.lineCount ?? 0),
+    }));
+  }
+
   /** Tabla TIPOMOV para validar contra ERP: código, concepto, SUMA/RESTA, facturas, total. */
   private static TIPOMOV_CONCEPTS: Record<string, string> = {
     '01': 'Factura de venta',
