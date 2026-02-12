@@ -9,21 +9,28 @@ export function useTableSort<T>(
   data: T[],
   options?: { defaultKey?: keyof T | string; defaultDir?: SortDir }
 ) {
-  const [sortKey, setSortKey] = useState<keyof T | string | null>(
-    options?.defaultKey ?? null
-  );
-  const [sortDir, setSortDir] = useState<SortDir>(options?.defaultDir ?? "asc");
+  const [state, setState] = useState<{
+    sortKey: keyof T | string | null;
+    sortDir: SortDir;
+  }>({
+    sortKey: options?.defaultKey ?? null,
+    sortDir: options?.defaultDir ?? "asc",
+  });
 
   const setSort = (key: keyof T | string) => {
-    setSortKey((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-        return key;
-      }
-      setSortDir("asc");
-      return key;
-    });
+    setState((prev) => ({
+      sortKey: key,
+      sortDir:
+        prev.sortKey === key
+          ? prev.sortDir === "asc"
+            ? "desc"
+            : "asc"
+          : "asc",
+    }));
   };
+
+  const sortKey = state.sortKey;
+  const sortDir = state.sortDir;
 
   const sortedData = useMemo(() => {
     if (!sortKey || !Array.isArray(data)) return data;
@@ -33,10 +40,16 @@ export function useTableSort<T>(
       const va = rawA ?? "";
       const vb = rawB ?? "";
       if (va === vb) return 0;
-      const cmp =
-        typeof va === "number" && typeof vb === "number"
-          ? va - vb
-          : String(va).localeCompare(String(vb), "es");
+      let cmp: number;
+      if (typeof va === "number" && typeof vb === "number") {
+        cmp = va - vb;
+      } else {
+        try {
+          cmp = String(va).localeCompare(String(vb), "es");
+        } catch {
+          cmp = String(va).localeCompare(String(vb));
+        }
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
