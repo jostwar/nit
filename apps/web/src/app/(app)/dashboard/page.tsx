@@ -181,7 +181,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setLoadError(null);
     setLoading(true);
-    apiGet<DashboardSummary>(`/dashboard/summary${query}`, { timeoutMs: 30000 })
+    apiGet<DashboardSummary>(`/dashboard/summary${query}`, { timeoutMs: 60000 })
       .then((data) => {
         setSummary(data);
         setLoadError(null);
@@ -191,7 +191,7 @@ export default function DashboardPage() {
         const isAbort = err instanceof Error && err.name === "AbortError";
         const isNetwork = err instanceof TypeError && err.message?.includes("fetch");
         let msg = err instanceof Error ? err.message : "Error al cargar";
-        if (isAbort) msg = "La consulta tardó demasiado. Prueba un rango de fechas más corto.";
+        if (isAbort) msg = "La consulta tardó demasiado. Prueba un rango de fechas más corto o menos filtros.";
         else if (isNetwork) msg = "No se pudo conectar. Comprueba tu conexión o contacta al administrador.";
         setLoadError(msg);
       })
