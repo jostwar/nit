@@ -311,8 +311,12 @@ export function DateFilters() {
 
   return (
     <div className="flex flex-col gap-3 text-sm">
-      {/* Bloque principal: período + filtros por dimensión */}
+      {/* Bloque principal: título + período + filtros */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex flex-col gap-0.5">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Panel BI</h1>
+          <p className="text-xs text-slate-500">Insights de ventas y cartera por cliente</p>
+        </div>
         <div className="flex flex-wrap items-end gap-4">
           {/* Período */}
           <div className="flex flex-col gap-1">
