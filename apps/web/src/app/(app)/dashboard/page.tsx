@@ -12,8 +12,6 @@ import { useTableSort, TableThSort } from "@/hooks/use-table-sort";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -122,14 +120,12 @@ export default function DashboardPage() {
   const tipomovSort = useTableSort(tipomov, { defaultKey: "totalSigned", defaultDir: "desc" });
   const customerSort = useTableSort(salesByCustomer, { defaultKey: "totalSales", defaultDir: "desc" });
 
-  /** Gráfico venta por hora: siempre 24 slots (00:00 … 23:00), acumulado por hora para que no sea largo. */
+  /** Gráfico venta por hora: solo horas con ventas (como Evolución de ventas en el eje X). */
   const chartDataByHour = useMemo(() => {
-    const slots = Array.from({ length: 24 }, (_, i) => ({
-      hour: `${String(i).padStart(2, "0")}:00`,
-      totalSales: 0,
-    }));
-    const byHour = new Map(salesByHour.map((r) => [r.hour, r.totalSales]));
-    return slots.map((s) => ({ ...s, totalSales: byHour.get(s.hour) ?? 0 }));
+    return [...salesByHour]
+      .filter((r) => r.totalSales > 0)
+      .sort((a, b) => a.hour.localeCompare(b.hour))
+      .map((r) => ({ hour: r.hour, totalSales: r.totalSales }));
   }, [salesByHour]);
 
   useEffect(() => {
@@ -691,10 +687,7 @@ export default function DashboardPage() {
             ) : (
               <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart
-                    data={chartDataByHour}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
+                  <LineChart data={chartDataByHour} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <XAxis
                       dataKey="hour"
                       tick={{ fontSize: 10 }}
@@ -703,16 +696,12 @@ export default function DashboardPage() {
                     <YAxis
                       tick={{ fontSize: 10 }}
                       tickFormatter={(v) =>
-                        typeof v === "number" && v >= 1e6
-                          ? `${(v / 1e6).toFixed(0)}M`
-                          : typeof v === "number"
-                            ? formatCop(v)
-                            : String(v)
+                        typeof v === "number" ? formatCop(v) : formatCop(Number(v))
                       }
                     />
                     <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length || label == null) return null;
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
                         const row = payload[0].payload as { hour: string; totalSales: number };
                         return (
                           <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
@@ -723,8 +712,8 @@ export default function DashboardPage() {
                         );
                       }}
                     />
-                    <Bar dataKey="totalSales" fill="#0f172a" radius={[2, 2, 0, 0]} name="Ventas" />
-                  </BarChart>
+                    <Line type="monotone" dataKey="totalSales" stroke="#0f172a" strokeWidth={2} name="Ventas" />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             )}
