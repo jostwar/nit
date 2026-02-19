@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FilterSelect } from "@/components/filter-select";
@@ -113,6 +113,45 @@ export function DateFilters() {
       itemsWithClass: number;
     };
   } | null>(null);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [customerSearchResults, setCustomerSearchResults] = useState<Array<{ value: string; label: string }>>([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
+  const customerSearchRef = useRef(0);
+  const handleCustomerSearch = useCallback(
+    (query: string) => {
+      setCustomerSearchQuery(query);
+      if (!query.trim()) {
+        setCustomerSearchResults([]);
+        return;
+      }
+      const id = ++customerSearchRef.current;
+      setCustomerSearchLoading(true);
+      const params = new URLSearchParams();
+      params.set("search", query.trim());
+      params.set("from", from);
+      params.set("to", to);
+      params.set("limit", "150");
+      apiGet<Array<{ id: string; name: string; nit?: string }>>(`/customers?${params.toString()}`)
+        .then((data) => {
+          if (customerSearchRef.current !== id) return;
+          setCustomerSearchResults(
+            (data ?? []).map((c) => ({
+              value: c.id,
+              label: (c.name && c.name.trim()) || c.nit || c.id,
+            })),
+          );
+        })
+        .catch(() => {
+          if (customerSearchRef.current !== id) return;
+          setCustomerSearchResults([]);
+        })
+        .finally(() => {
+          if (customerSearchRef.current !== id) return;
+          setCustomerSearchLoading(false);
+        });
+    },
+    [from, to],
+  );
   const lastSyncLabel = useMemo(() => {
     if (!lastSyncedAt) return "Última actualización: pendiente";
     const parsed = new Date(lastSyncedAt);
@@ -390,12 +429,14 @@ export function DateFilters() {
           />
           <FilterSelect
             label="Cliente"
-            options={filterOptions?.customers ?? []}
+            options={customerSearchQuery ? customerSearchResults : (filterOptions?.customers ?? [])}
             value={customer}
             onChange={setCustomer}
-            placeholder="Todos"
+            placeholder="Escriba para buscar"
             emptyLabel="Todos"
             multiple
+            onSearchChange={handleCustomerSearch}
+            searchLoading={customerSearchLoading}
           />
           <Button
             onClick={applyFilters}

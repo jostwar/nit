@@ -14,6 +14,10 @@ type FilterSelectProps = {
   multiple?: boolean;
   emptyLabel?: string;
   className?: string;
+  /** Llamado al escribir en la búsqueda (con debounce). Útil para cargar opciones desde el servidor. */
+  onSearchChange?: (query: string) => void;
+  /** Muestra "Buscando…" en la lista cuando las opciones se cargan en el servidor. */
+  searchLoading?: boolean;
 };
 
 function normalizeOptions(opts: FilterOption[]): { value: string; label: string }[] {
@@ -31,20 +35,37 @@ export function FilterSelect({
   multiple = true,
   emptyLabel = "Todos",
   className,
+  onSearchChange,
+  searchLoading = false,
 }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const optionsNorm = useMemo(() => normalizeOptions(options), [options]);
 
+  useEffect(() => {
+    if (onSearchChange == null) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onSearchChange(search.trim());
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, onSearchChange]);
+
   const filtered = useMemo(() => {
+    if (onSearchChange) {
+      return optionsNorm;
+    }
     const q = search.trim().toLowerCase();
     if (!q) return optionsNorm;
     return optionsNorm.filter(
       (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
     );
-  }, [optionsNorm, search]);
+  }, [optionsNorm, search, onSearchChange]);
 
   const displayText = useMemo(() => {
     if (value.length === 0) return emptyLabel;
@@ -135,7 +156,12 @@ export function FilterSelect({
             />
           </div>
           <ul className="max-h-52 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
+            {searchLoading ? (
+              <li className="flex items-center gap-2 px-3 py-3 text-sm text-slate-500">
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                Buscando…
+              </li>
+            ) : filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-slate-500">Sin resultados</li>
             ) : (
               filtered.map((opt) => (

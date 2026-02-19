@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,12 @@ import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { formatCop } from "@/lib/utils";
 import { useTableSort, TableThSort } from "@/hooks/use-table-sort";
+import { FilterSelect } from "@/components/filter-select";
+
+function parseMultiParam(v: string | null): string[] {
+  if (!v || !v.trim()) return [];
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
 
 type Customer = {
   id: string;
@@ -70,10 +76,12 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [customerSearchResults, setCustomerSearchResults] = useState<Array<{ value: string; label: string }>>([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
+  const customerSearchRef = useRef(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const customerIdsFromUrl = useMemo(() => parseMultiParam(searchParams.get("customer")), [searchParams]);
   const [overview, setOverview] = useState<CustomerOverview | null>(null);
   const [brands, setBrands] = useState<CustomerBrand[]>([]);
   const [products, setProducts] = useState<CustomerProduct[]>([]);
@@ -109,7 +117,6 @@ export default function CustomersPage() {
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
     const customer = searchParams.get("customer");
-    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (vendor) params.set("vendor", vendor);
@@ -119,7 +126,7 @@ export default function CustomersPage() {
     params.set("limit", "10000");
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [debouncedSearch, searchParams]);
+  }, [searchParams]);
   const toDate = useMemo(() => {
     const to = searchParams.get("to");
     const parsed = to ? new Date(to) : new Date();
@@ -132,23 +139,57 @@ export default function CustomersPage() {
     ? Math.max(0, Math.floor((toDate.getTime() - lastPurchaseDate.getTime()) / 86400000))
     : null;
 
-  // Sincronizar search desde URL (p. ej. al llegar desde dashboard con ?search=NIT&customerId=xxx)
-  useEffect(() => {
-    const q = searchParams.get("search");
-    if (q != null && q !== search) {
-      setSearch(q);
-      setDebouncedSearch(q);
-    }
-  }, [searchParams]);
+  const handleCustomerSearch = useCallback(
+    (query: string) => {
+      setCustomerSearchQuery(query);
+      if (!query.trim()) {
+        setCustomerSearchResults([]);
+        return;
+      }
+      const id = ++customerSearchRef.current;
+      setCustomerSearchLoading(true);
+      const params = new URLSearchParams();
+      params.set("search", query.trim());
+      params.set("from", searchParams.get("from") ?? new Date().toISOString().slice(0, 10));
+      params.set("to", searchParams.get("to") ?? new Date().toISOString().slice(0, 10));
+      params.set("limit", "150");
+      apiGet<Array<{ id: string; name: string; nit?: string }>>(`/customers?${params.toString()}`)
+        .then((data) => {
+          if (customerSearchRef.current !== id) return;
+          setCustomerSearchResults(
+            (data ?? []).map((c) => ({
+              value: c.id,
+              label: (c.name && c.name.trim()) || c.nit || c.id,
+            })),
+          );
+        })
+        .catch(() => {
+          if (customerSearchRef.current !== id) return;
+          setCustomerSearchResults([]);
+        })
+        .finally(() => {
+          if (customerSearchRef.current !== id) return;
+          setCustomerSearchLoading(false);
+        });
+    },
+    [searchParams],
+  );
 
-  // Debounce búsqueda para no disparar una petición por cada tecla
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 400);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [search]);
+  const setCustomerFilter = useCallback(
+    (ids: string[]) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (ids.length > 0) params.set("customer", ids.join(","));
+      else params.delete("customer");
+      params.delete("customerId");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [pathname, router, searchParams],
+  );
+
+  const clearCustomerFilter = useCallback(() => {
+    setCustomerFilter([]);
+  }, [setCustomerFilter]);
 
   useEffect(() => {
     const customerIdFromUrl = searchParams.get("customerId");
@@ -230,24 +271,22 @@ export default function CustomersPage() {
           <CardTitle>Buscar cliente</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex gap-2">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="NIT o nombre (vacío = todos)"
-              className="flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
+          <div className="space-y-2">
+            <FilterSelect
+              label="Cliente"
+              options={customerSearchQuery ? customerSearchResults : []}
+              value={customerIdsFromUrl}
+              onChange={setCustomerFilter}
+              placeholder="Escriba para buscar"
+              emptyLabel="Todos"
+              multiple
+              onSearchChange={handleCustomerSearch}
+              searchLoading={customerSearchLoading}
             />
             <button
               type="button"
-              onClick={() => {
-                setSearch("");
-                const q = new URLSearchParams(searchParams.toString());
-                q.delete("search");
-                q.delete("customerId");
-                const qs = q.toString();
-                router.replace(qs ? `${pathname}?${qs}` : pathname);
-              }}
-              className="shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              onClick={clearCustomerFilter}
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Ver todos
             </button>
