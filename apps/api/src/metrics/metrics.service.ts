@@ -571,13 +571,19 @@ export class MetricsService {
         classDisplayNames.add(classCodeToName.get(code) ?? code);
       });
       const classes = Array.from(classDisplayNames).filter((c) => c && c !== '(SIN MAPEO)').sort((a, b) => a.localeCompare(b, 'es'));
-      const [totalItems, itemsWithBrand, itemsWithClass] = await Promise.all([
+      const [totalItems, itemsWithBrand, itemsWithClass, customerRows] = await Promise.all([
         this.prisma.invoiceItem.count({ where: { tenantId } }),
         this.prisma.invoiceItem.count({
           where: { tenantId, brand: { notIn: ['', 'Sin marca'] } },
         }),
         this.prisma.invoiceItem.count({
           where: { tenantId, OR: [{ className: { not: null } }, { classCode: { not: null } }] },
+        }),
+        this.prisma.customer.findMany({
+          where: { tenantId },
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+          take: 1000,
         }),
       ]);
       // Marcas solo desde ítems (MARCA/REFER del sync). No usar ProductBrand para el filtro.
@@ -586,11 +592,16 @@ export class MetricsService {
         brandsFromItemsSet.size > 0
           ? Array.from(brandsFromItemsSet).sort((a, b) => a.localeCompare(b, 'es'))
           : [];
+      const customers = customerRows.map((c) => ({
+        value: c.id,
+        label: (c.name?.trim() && c.name.trim() !== c.id ? c.name.trim() : c.id) || c.id,
+      }));
       return {
         cities,
         vendors,
         brands,
         classes,
+        customers,
         itemDiagnostic: {
           totalItems,
           itemsWithBrand,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,7 +68,11 @@ export default function CustomersPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overview, setOverview] = useState<CustomerOverview | null>(null);
   const [brands, setBrands] = useState<CustomerBrand[]>([]);
@@ -104,16 +108,18 @@ export default function CustomersPage() {
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
-    if (search.trim()) params.set("search", search.trim());
+    const customer = searchParams.get("customer");
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
+    if (customer) params.set("customer", customer);
     params.set("limit", "10000");
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [search, searchParams]);
+  }, [debouncedSearch, searchParams]);
   const toDate = useMemo(() => {
     const to = searchParams.get("to");
     const parsed = to ? new Date(to) : new Date();
@@ -129,23 +135,44 @@ export default function CustomersPage() {
   // Sincronizar search desde URL (p. ej. al llegar desde dashboard con ?search=NIT&customerId=xxx)
   useEffect(() => {
     const q = searchParams.get("search");
-    if (q != null && q !== search) setSearch(q);
+    if (q != null && q !== search) {
+      setSearch(q);
+      setDebouncedSearch(q);
+    }
   }, [searchParams]);
+
+  // Debounce búsqueda para no disparar una petición por cada tecla
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search]);
 
   useEffect(() => {
     const customerIdFromUrl = searchParams.get("customerId");
-    apiGet<Customer[]>(`/customers${listQueryString}`).then((data) => {
-      setCustomers(data);
-      if (customerIdFromUrl && data.some((c) => c.id === customerIdFromUrl)) {
-        setSelectedId(customerIdFromUrl);
-      } else if (data.length > 0) {
-        setSelectedId((prev) =>
-          prev && data.some((c) => c.id === prev) ? prev : data[0].id,
-        );
-      } else {
+    setListLoading(true);
+    setListError(null);
+    apiGet<Customer[]>(`/customers${listQueryString}`, { timeoutMs: 60000 })
+      .then((data) => {
+        setCustomers(data);
+        if (customerIdFromUrl && data.some((c) => c.id === customerIdFromUrl)) {
+          setSelectedId(customerIdFromUrl);
+        } else if (data.length > 0) {
+          setSelectedId((prev) =>
+            prev && data.some((c) => c.id === prev) ? prev : data[0].id,
+          );
+        } else {
+          setSelectedId(null);
+        }
+      })
+      .catch((err) => {
+        setCustomers([]);
         setSelectedId(null);
-      }
-    });
+        setListError(err instanceof Error ? err.message : "Error al cargar clientes");
+      })
+      .finally(() => setListLoading(false));
   }, [listQueryString, searchParams]);
 
   useEffect(() => {
@@ -225,6 +252,17 @@ export default function CustomersPage() {
               Ver todos
             </button>
           </div>
+          {listError && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {listError}
+            </p>
+          )}
+          {listLoading ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+              Cargando clientes…
+            </div>
+          ) : (
           <div className="space-y-2">
             {customers.map((customer) => (
               <button
@@ -243,6 +281,7 @@ export default function CustomersPage() {
               </button>
             ))}
           </div>
+          )}
         </CardContent>
       </Card>
 

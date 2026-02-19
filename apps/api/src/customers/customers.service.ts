@@ -43,11 +43,15 @@ export class CustomersService {
     vendor?: string,
     brand?: string,
     classFilter?: string,
+    customerIdsParam?: string,
   ) {
     const trimmedCity = city?.trim();
     const trimmedVendor = vendor?.trim();
     const trimmedBrand = brand?.trim();
     const trimmedClass = classFilter?.trim();
+    const customerIds = customerIdsParam
+      ? customerIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
     const key = [
       tenantId,
       search ?? '',
@@ -59,6 +63,7 @@ export class CustomersService {
       trimmedVendor ?? '',
       trimmedBrand ?? '',
       trimmedClass ?? '',
+      customerIds.join(','),
     ].join('|');
 
     return this.getCached(key, 30000, async () => {
@@ -126,14 +131,18 @@ export class CustomersService {
         if (classCustomerIds.length === 0) return [];
       }
 
+      let baseCustomerIds: string[] | null = null;
+      if (customerIds.length > 0) {
+        baseCustomerIds = customerIds;
+      } else if (brandCustomerIds && classCustomerIds) {
+        baseCustomerIds = brandCustomerIds.filter((id) => classCustomerIds!.includes(id));
+      } else if (brandCustomerIds) {
+        baseCustomerIds = brandCustomerIds;
+      } else if (classCustomerIds) {
+        baseCustomerIds = classCustomerIds;
+      }
       const idFilter =
-        brandCustomerIds && classCustomerIds
-          ? { id: { in: brandCustomerIds.filter((id) => classCustomerIds!.includes(id)) } }
-          : brandCustomerIds
-            ? { id: { in: brandCustomerIds } }
-            : classCustomerIds
-              ? { id: { in: classCustomerIds } }
-              : {};
+        baseCustomerIds && baseCustomerIds.length > 0 ? { id: { in: baseCustomerIds } } : {};
       const customers = await this.prisma.customer.findMany({
         where: {
           tenantId,

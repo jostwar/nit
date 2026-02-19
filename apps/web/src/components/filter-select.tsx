@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
+type FilterOption = string | { value: string; label: string };
+
 type FilterSelectProps = {
-  options: string[];
+  options: FilterOption[];
   value: string[];
   onChange: (value: string[]) => void;
   placeholder: string;
@@ -13,6 +15,12 @@ type FilterSelectProps = {
   emptyLabel?: string;
   className?: string;
 };
+
+function normalizeOptions(opts: FilterOption[]): { value: string; label: string }[] {
+  return opts.map((o) =>
+    typeof o === "string" ? { value: o, label: o } : { value: o.value, label: o.label || o.value },
+  );
+}
 
 export function FilterSelect({
   options,
@@ -28,28 +36,35 @@ export function FilterSelect({
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const optionsNorm = useMemo(() => normalizeOptions(options), [options]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((o) => o.toLowerCase().includes(q));
-  }, [options, search]);
+    if (!q) return optionsNorm;
+    return optionsNorm.filter(
+      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
+    );
+  }, [optionsNorm, search]);
 
   const displayText = useMemo(() => {
     if (value.length === 0) return emptyLabel;
-    if (value.length === 1) return value[0];
+    if (value.length === 1) {
+      const found = optionsNorm.find((o) => o.value === value[0]);
+      return found ? found.label : value[0];
+    }
     return `${value.length} seleccionados`;
-  }, [value, emptyLabel]);
+  }, [value, emptyLabel, optionsNorm]);
 
   const toggle = useCallback(
-    (option: string) => {
+    (optionValue: string) => {
       if (multiple) {
-        if (value.includes(option)) {
-          onChange(value.filter((v) => v !== option));
+        if (value.includes(optionValue)) {
+          onChange(value.filter((v) => v !== optionValue));
         } else {
-          onChange([...value, option]);
+          onChange([...value, optionValue]);
         }
       } else {
-        onChange(value.includes(option) ? [] : [option]);
+        onChange(value.includes(optionValue) ? [] : [optionValue]);
         setOpen(false);
       }
     },
@@ -124,30 +139,30 @@ export function FilterSelect({
               <li className="px-3 py-2 text-sm text-slate-500">Sin resultados</li>
             ) : (
               filtered.map((opt) => (
-                <li key={opt}>
+                <li key={opt.value}>
                   <button
                     type="button"
                     role="option"
-                    aria-selected={value.includes(opt)}
-                    onClick={() => toggle(opt)}
+                    aria-selected={value.includes(opt.value)}
+                    onClick={() => toggle(opt.value)}
                     className={cn(
                       "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-50",
-                      value.includes(opt) && "bg-slate-100 font-medium",
+                      value.includes(opt.value) && "bg-slate-100 font-medium",
                     )}
                   >
                     {multiple && (
                       <span
                         className={cn(
                           "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs",
-                          value.includes(opt)
+                          value.includes(opt.value)
                             ? "border-slate-700 bg-slate-700 text-white"
                             : "border-slate-300",
                         )}
                       >
-                        {value.includes(opt) ? "✓" : ""}
+                        {value.includes(opt.value) ? "✓" : ""}
                       </span>
                     )}
-                    <span className="truncate">{opt}</span>
+                    <span className="truncate">{opt.label}</span>
                   </button>
                 </li>
               ))

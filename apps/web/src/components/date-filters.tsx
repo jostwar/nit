@@ -46,6 +46,7 @@ export function DateFilters() {
       vendor: parseMultiParam(searchParams.get("vendor")),
       brand: parseMultiParam(searchParams.get("brand")),
       class: parseMultiParam(searchParams.get("class")),
+      customer: parseMultiParam(searchParams.get("customer")),
     };
   }, [searchParams, today, defaultFrom]);
   const [from, setFrom] = useState(initial.from);
@@ -55,6 +56,7 @@ export function DateFilters() {
   const [vendor, setVendor] = useState<string[]>(initial.vendor);
   const [brand, setBrand] = useState<string[]>(initial.brand);
   const [classFilter, setClassFilter] = useState<string[]>(initial.class);
+  const [customer, setCustomer] = useState<string[]>(initial.customer);
 
   // Mantener filtros en sync con la URL (p. ej. al volver atrás o al cargar con query)
   useEffect(() => {
@@ -65,7 +67,8 @@ export function DateFilters() {
     setVendor(initial.vendor);
     setBrand(initial.brand);
     setClassFilter(initial.class);
-  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.vendor, initial.brand, initial.class]);
+    setCustomer(initial.customer);
+  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.vendor, initial.brand, initial.class, initial.customer]);
 
   // Mantener URL en sync con Desde/Hasta para que "Rango aplicado" coincida siempre con el filtro
   useEffect(() => {
@@ -103,6 +106,7 @@ export function DateFilters() {
     vendors: string[];
     brands: string[];
     classes: string[];
+    customers?: Array<{ value: string; label: string }>;
     itemDiagnostic?: {
       totalItems: number;
       itemsWithBrand: number;
@@ -152,6 +156,11 @@ export function DateFilters() {
     } else {
       params.delete("class");
     }
+    if (customer.length > 0) {
+      params.set("customer", customer.join(","));
+    } else {
+      params.delete("customer");
+    }
     router.replace(`?${params.toString()}`);
   };
 
@@ -188,6 +197,8 @@ export function DateFilters() {
     else params.delete("brand");
     if (classFilter.length > 0) params.set("class", classFilter.join(","));
     else params.delete("class");
+    if (customer.length > 0) params.set("customer", customer.join(","));
+    else params.delete("customer");
     router.replace(`?${params.toString()}`);
   };
 
@@ -240,7 +251,7 @@ export function DateFilters() {
 
   const fetchFilterOptions = () => {
     Promise.all([
-      apiGet<{ cities: string[]; vendors: string[]; brands: string[]; classes: string[] }>("/dashboard/filter-options"),
+      apiGet<{ cities: string[]; vendors: string[]; brands: string[]; classes: string[]; customers?: Array<{ value: string; label: string }> }>("/dashboard/filter-options"),
       apiGet<{ brands: string[] }>("/source/inventory-brands").catch(() => ({ brands: [] })),
     ])
       .then(([opts, brandsRes]) =>
@@ -249,10 +260,11 @@ export function DateFilters() {
           vendors: opts.vendors ?? [],
           brands: (opts.brands ?? []).length > 0 ? opts.brands ?? [] : (brandsRes.brands ?? []),
           classes: opts.classes ?? [],
+          customers: opts.customers ?? [],
           itemDiagnostic: (opts as { itemDiagnostic?: { totalItems: number; itemsWithBrand: number; itemsWithClass: number } }).itemDiagnostic,
         }),
       )
-      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [] }));
+      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [], customers: [] }));
   };
 
   useEffect(() => {
@@ -374,6 +386,15 @@ export function DateFilters() {
             onChange={setClassFilter}
             placeholder="Todas"
             emptyLabel="Todas"
+            multiple
+          />
+          <FilterSelect
+            label="Cliente"
+            options={filterOptions?.customers ?? []}
+            value={customer}
+            onChange={setCustomer}
+            placeholder="Todos"
+            emptyLabel="Todos"
             multiple
           />
           <Button
