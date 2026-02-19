@@ -251,7 +251,7 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
           ...messages,
           {
             role: 'user',
-            content: `Con los resultados de las herramientas anteriores, escribe una respuesta breve en texto natural para la pregunta del usuario. Si no hay datos en las tablas, explica que puede ser por rango sin datos o filtros muy restrictivos y sugiere ampliar el rango. Responde solo el texto, sin JSON.`,
+            content: `Con los resultados de las herramientas anteriores, escribe una respuesta breve en texto natural (1 o 2 frases). No repitas los datos de la tabla ni listes filas con pipes; la tabla ya se muestra debajo. Si no hay datos, explica que puede ser por rango sin datos o filtros restrictivos. Responde solo el texto, sin JSON.`,
           },
         ],
         max_tokens: 1024,

@@ -122,6 +122,7 @@ export class CopilotToolsService {
           by: ['customerId'],
           where,
           _sum: { signedTotal: true, signedUnits: true, signedMargin: true },
+          _count: { id: true },
           orderBy: { _sum: { signedTotal: 'desc' } },
           take: limit,
         });
@@ -130,14 +131,21 @@ export class CopilotToolsService {
         });
         const map = new Map(cust.map((c) => [c.id, c]));
         return {
-          columns: ['Cliente', 'NIT', 'Ventas (COP)', 'Unidades', 'Margen (COP)'],
-          rows: rows.map((r) => [
-            map.get(r.customerId)?.name ?? '',
-            map.get(r.customerId)?.nit ?? '',
-            Number(r._sum.signedTotal ?? 0),
-            Number(r._sum.signedUnits ?? 0),
-            Number(r._sum.signedMargin ?? 0),
-          ]),
+          columns: ['Cliente', 'NIT', 'Ventas (COP)', 'Facturas', 'Unidades', 'Margen (COP)', 'Margen %'],
+          rows: rows.map((r) => {
+            const total = Number(r._sum.signedTotal ?? 0);
+            const margin = Number(r._sum.signedMargin ?? 0);
+            const marginPct = total > 0 ? (margin / total) * 100 : 0;
+            return [
+              map.get(r.customerId)?.name ?? '',
+              map.get(r.customerId)?.nit ?? '',
+              total,
+              r._count.id,
+              Number(r._sum.signedUnits ?? 0),
+              margin,
+              marginPct,
+            ];
+          }),
         };
       }
       case 'brand': {

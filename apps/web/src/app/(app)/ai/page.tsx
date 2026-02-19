@@ -28,6 +28,18 @@ function isNewCopilotResponse(r: unknown): r is CopilotResponse {
   );
 }
 
+const TABLE_TITLES: Record<string, string> = {
+  sales_top: "Top clientes por ventas",
+  sales_change: "Cambio en ventas",
+  ar_summary: "Resumen de cartera",
+  resolve_period: "Período",
+  customer_lookup: "Búsqueda de clientes",
+  sync_status: "Estado de sincronización",
+};
+function tableDisplayTitle(toolName: string): string {
+  return TABLE_TITLES[toolName] ?? toolName;
+}
+
 export default function AiPage() {
   const [question, setQuestion] = useState("");
   const [city, setCity] = useState("");
@@ -187,7 +199,9 @@ export default function AiPage() {
               {tables.length > 0 ? (
                 tables.map((t, idx) => (
                   <div key={idx} className="overflow-x-auto">
-                    <p className="font-medium text-slate-800 mb-1">{t.title}</p>
+                    <p className="font-medium text-slate-800 mb-1">
+                      {tableDisplayTitle(t.title)}
+                    </p>
                     {t.rows.length > 0 ? (
                       <table className="w-full text-sm border border-slate-200">
                         <thead>
@@ -203,9 +217,11 @@ export default function AiPage() {
                               {row.map((cell, ci) => (
                                 <td key={ci} className="py-1.5 px-2">
                                   {typeof cell === "number"
-                                    ? (t.columns[ci]?.toLowerCase().includes("venta") || t.columns[ci]?.toLowerCase().includes("saldo") || t.columns[ci]?.toLowerCase().includes("margen") || t.columns[ci]?.toLowerCase().includes("cop")
-                                      ? formatCop(cell)
-                                      : cell.toLocaleString("es-CO"))
+                                    ? (t.columns[ci]?.toLowerCase().includes("margen %") || t.columns[ci]?.toLowerCase().includes("margen%")
+                                      ? `${Number(cell).toFixed(1)}%`
+                                      : t.columns[ci]?.toLowerCase().includes("venta") || t.columns[ci]?.toLowerCase().includes("saldo") || (t.columns[ci]?.toLowerCase().includes("margen") && !t.columns[ci]?.includes("%")) || t.columns[ci]?.toLowerCase().includes("cop")
+                                        ? formatCop(cell)
+                                        : cell.toLocaleString("es-CO"))
                                     : cell}
                                 </td>
                               ))}

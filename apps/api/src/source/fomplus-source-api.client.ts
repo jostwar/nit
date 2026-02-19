@@ -729,8 +729,12 @@ export class FomplusSourceApiClient implements SourceApiClient {
         this.toNumber(this.pick(record, ['valor', 'abono', 'pago', 'valorpago', 'vrpago'])) ?? 0;
       const balance = this.toNumber(this.pick(record, ['saldo'])) ?? undefined;
       const dueAt = this.normalizeDate(this.pick(record, ['fecven', 'fechaven', 'fechavenc']));
+      // Monto vencido explícito (API puede enviar vencido/por_vencer por separado; evita que salgan igual por error en otra capa)
+      const overdueAmount = this.toNumber(
+        this.pick(record, ['vencido', 'VENCIDO', 'saldo_vencido', 'valor_vencido', 'vr_vencido']),
+      ) ?? undefined;
       // daiaven: negativo = días vencidos, positivo = días por vencer; el sync espera overdueDays > 0 para sumar a vencido
-      const rawDaiaven = this.toNumber(this.pick(record, ['daiaven'])) ?? undefined;
+      const rawDaiaven = this.toNumber(this.pick(record, ['daiaven', 'DAIAVEN'])) ?? undefined;
       const overdueDays =
         rawDaiaven != null && rawDaiaven < 0 ? Math.abs(rawDaiaven) : undefined;
       const creditLimit = this.toNumber(
@@ -749,6 +753,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
         balance,
         dueAt,
         overdueDays,
+        ...(overdueAmount != null && overdueAmount >= 0 ? { overdueAmount } : {}),
         creditLimit: creditLimit != null && creditLimit >= 0 ? creditLimit : undefined,
       });
     }

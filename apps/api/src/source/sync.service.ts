@@ -378,6 +378,7 @@ export class SyncService {
       balance?: number;
       dueAt?: string;
       overdueDays?: number;
+      overdueAmount?: number;
       creditLimit?: number;
     }) => {
       const normalizedNit = normalizeCustomerId(payment.customerNit) || payment.customerNit;
@@ -397,8 +398,14 @@ export class SyncService {
           overdueCount: 0,
         };
         summary.balance += balance;
-        if (overdueDays > 0) {
-          summary.overdue += balance;
+        const rowOverdue =
+          payment.overdueAmount != null && payment.overdueAmount >= 0
+            ? Math.min(payment.overdueAmount, balance)
+            : overdueDays > 0
+              ? balance
+              : 0;
+        if (rowOverdue > 0) {
+          summary.overdue += rowOverdue;
           summary.overdueDaysSum += overdueDays;
           summary.overdueCount += 1;
         }

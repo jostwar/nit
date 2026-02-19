@@ -35,6 +35,8 @@ export type SourcePayment = {
   balance?: number;
   dueAt?: string;
   overdueDays?: number;
+  /** Monto vencido explícito desde la API (evita deducir solo por daiaven cuando el proveedor envía vencido/por vencer por separado). */
+  overdueAmount?: number;
   /** Cupo / crédito autorizado (desde API cartera). */
   creditLimit?: number;
 };
