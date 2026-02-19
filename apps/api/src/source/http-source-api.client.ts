@@ -39,9 +39,10 @@ export class HttpSourceApiClient implements SourceApiClient {
     page: number,
     pageSize: number,
     vendor?: string,
+    cedula?: string,
   ): Promise<SourceCustomer[]> {
     const response = await this.client.get('/customers', {
-      params: { tenantExternalId, page, pageSize, vendor },
+      params: { tenantExternalId, page, pageSize, vendor, cedula },
     });
     return response.data;
   }

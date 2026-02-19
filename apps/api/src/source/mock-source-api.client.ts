@@ -24,6 +24,7 @@ export class MockSourceApiClient implements SourceApiClient {
     _page: number,
     _pageSize: number,
     _vendor?: string,
+    _cedula?: string,
   ): Promise<SourceCustomer[]> {
     return [];
   }

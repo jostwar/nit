@@ -76,6 +76,7 @@ export interface SourceApiClient {
     page: number,
     pageSize: number,
     vendor?: string,
+    cedula?: string,
   ): Promise<SourceCustomer[]>;
   /** Marcas únicas desde API inventarios (GenerarInformacionInventariosGet). Opcional. */
   getInventoryBrandNames?(tenantExternalId: string): Promise<string[]>;

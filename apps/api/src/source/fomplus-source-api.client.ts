@@ -146,11 +146,13 @@ export class FomplusSourceApiClient implements SourceApiClient {
     page: number,
     pageSize: number,
     vendor?: string,
+    cedula?: string,
   ): Promise<SourceCustomer[]> {
-    const params = {
+    const params: Record<string, string | number> = {
       strPar_Basedatos: this.config.database || tenantExternalId,
       strPar_Token: this.config.token,
       strPar_Vended: vendor ?? '',
+      strPar_Cedula: (cedula && cedula.trim()) ? cedula.trim() : '',
       intPar_Filas: pageSize,
       intPar_Pagina: page,
     };
