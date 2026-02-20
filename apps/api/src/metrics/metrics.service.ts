@@ -426,24 +426,30 @@ export class MetricsService {
         }));
       })();
 
-      const [current, compare, distinctCustomers, seriesRows] = await Promise.all([
-        this.prisma.invoice.aggregate({
-          where: currentWhere,
-          _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
-          _count: { _all: true },
-        }),
-        this.prisma.invoice.aggregate({
-          where: compareWhere,
-          _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
-          _count: { _all: true },
-        }),
-        this.prisma.invoice.findMany({
-          where: currentWhere,
-          distinct: ['customerId'],
-          select: { customerId: true },
-        }),
-        seriesPromise,
-      ]);
+      const [current, compare, distinctCustomers, distinctCompareCustomers, seriesRows] =
+        await Promise.all([
+          this.prisma.invoice.aggregate({
+            where: currentWhere,
+            _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
+            _count: { _all: true },
+          }),
+          this.prisma.invoice.aggregate({
+            where: compareWhere,
+            _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
+            _count: { _all: true },
+          }),
+          this.prisma.invoice.findMany({
+            where: currentWhere,
+            distinct: ['customerId'],
+            select: { customerId: true },
+          }),
+          this.prisma.invoice.findMany({
+            where: compareWhere,
+            distinct: ['customerId'],
+            select: { customerId: true },
+          }),
+          seriesPromise,
+        ]);
 
       const currentSum = current._sum ?? {};
       const currentCount =
@@ -469,6 +475,11 @@ export class MetricsService {
           totalMargin: Number(compareSum.signedMargin ?? 0),
           totalUnits: Number(compareSum.signedUnits ?? 0),
           totalInvoices: compareCount._all ?? 0,
+          uniqueCustomers: distinctCompareCustomers.length,
+          avgTicket:
+            (compareCount._all ?? 0) > 0
+              ? Number(compareSum.signedTotal ?? 0) / (compareCount._all ?? 0)
+              : 0,
         },
         series: seriesRows,
       };

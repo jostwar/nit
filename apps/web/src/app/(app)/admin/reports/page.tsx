@@ -28,6 +28,8 @@ type DashboardSummary = {
     totalMargin: number;
     totalUnits: number;
     totalInvoices: number;
+    uniqueCustomers?: number;
+    avgTicket?: number;
   };
   series: Array<{
     date: string;
@@ -88,11 +90,14 @@ export default function AdminReportsPage() {
       ? (summary.compare.totalMargin / summary.compare.totalSales) * 100
       : 0;
   const compareAvgTicket =
-    summary && summary.compare.totalInvoices > 0
-      ? summary.compare.totalSales / summary.compare.totalInvoices
-      : 0;
-  const variation = (current: number, compare: number) =>
-    compare === 0 ? (current === 0 ? 0 : null) : ((current - compare) / compare) * 100;
+    summary?.compare?.avgTicket != null
+      ? summary.compare.avgTicket
+      : summary && summary.compare.totalInvoices > 0
+        ? summary.compare.totalSales / summary.compare.totalInvoices
+        : 0;
+  /** Variación vs periodo principal: (principal - comparado) / principal. Así el % es respecto al periodo actual. */
+  const variationVsPrincipal = (principal: number, compare: number) =>
+    principal === 0 ? (compare === 0 ? 0 : null) : ((principal - compare) / principal) * 100;
 
   return (
     <div className="space-y-8">
@@ -119,7 +124,7 @@ export default function AdminReportsPage() {
 
       <div>
         <h3 className="mb-3 text-sm font-medium text-slate-700">Periodo principal</h3>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Card>
             <CardHeader>
               <CardTitle>Ventas Totales</CardTitle>
@@ -146,6 +151,14 @@ export default function AdminReportsPage() {
           </Card>
           <Card>
             <CardHeader>
+              <CardTitle>Facturas</CardTitle>
+            </CardHeader>
+            <CardContent className="text-lg font-semibold text-slate-900">
+              {(summary?.current.totalInvoices ?? 0).toLocaleString("es-CO")}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle>Clientes Únicos</CardTitle>
             </CardHeader>
             <CardContent className="text-lg font-semibold text-slate-900">
@@ -158,7 +171,7 @@ export default function AdminReportsPage() {
       {isCompareActive && summary && (
         <div>
           <h3 className="mb-3 text-sm font-medium text-slate-700">Periodo a comparar</h3>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <Card className="border-slate-200 bg-slate-50/50">
               <CardHeader>
                 <CardTitle>Ventas Totales</CardTitle>
@@ -167,10 +180,10 @@ export default function AdminReportsPage() {
                 <div className="text-lg font-semibold text-slate-900">
                   {formatCop(summary.compare.totalSales)}
                 </div>
-                {variation(summary.current.totalSales, summary.compare.totalSales) != null && (
-                  <p className={`mt-1 text-xs ${variation(summary.current.totalSales, summary.compare.totalSales)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {variation(summary.current.totalSales, summary.compare.totalSales)! >= 0 ? "+" : ""}
-                    {variation(summary.current.totalSales, summary.compare.totalSales)!.toFixed(1)}% vs periodo principal
+                {variationVsPrincipal(summary.current.totalSales, summary.compare.totalSales) != null && (
+                  <p className={`mt-1 text-xs ${variationVsPrincipal(summary.current.totalSales, summary.compare.totalSales)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variationVsPrincipal(summary.current.totalSales, summary.compare.totalSales)! >= 0 ? "+" : ""}
+                    {variationVsPrincipal(summary.current.totalSales, summary.compare.totalSales)!.toFixed(1)}% vs periodo principal
                   </p>
                 )}
               </CardContent>
@@ -183,10 +196,10 @@ export default function AdminReportsPage() {
                 <div className="text-lg font-semibold text-slate-900">
                   {compareMarginPercent.toFixed(1)}%
                 </div>
-                {variation(marginPercent, compareMarginPercent) != null && (
-                  <p className={`mt-1 text-xs ${variation(marginPercent, compareMarginPercent)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {variation(marginPercent, compareMarginPercent)! >= 0 ? "+" : ""}
-                    {variation(marginPercent, compareMarginPercent)!.toFixed(1)}% vs periodo principal
+                {variationVsPrincipal(marginPercent, compareMarginPercent) != null && (
+                  <p className={`mt-1 text-xs ${variationVsPrincipal(marginPercent, compareMarginPercent)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variationVsPrincipal(marginPercent, compareMarginPercent)! >= 0 ? "+" : ""}
+                    {variationVsPrincipal(marginPercent, compareMarginPercent)!.toFixed(1)}% vs periodo principal
                   </p>
                 )}
               </CardContent>
@@ -199,10 +212,10 @@ export default function AdminReportsPage() {
                 <div className="text-lg font-semibold text-slate-900">
                   {formatCop(compareAvgTicket)}
                 </div>
-                {variation(summary.current.avgTicket, compareAvgTicket) != null && (
-                  <p className={`mt-1 text-xs ${variation(summary.current.avgTicket, compareAvgTicket)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {variation(summary.current.avgTicket, compareAvgTicket)! >= 0 ? "+" : ""}
-                    {variation(summary.current.avgTicket, compareAvgTicket)!.toFixed(1)}% vs periodo principal
+                {variationVsPrincipal(summary.current.avgTicket, compareAvgTicket) != null && (
+                  <p className={`mt-1 text-xs ${variationVsPrincipal(summary.current.avgTicket, compareAvgTicket)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variationVsPrincipal(summary.current.avgTicket, compareAvgTicket)! >= 0 ? "+" : ""}
+                    {variationVsPrincipal(summary.current.avgTicket, compareAvgTicket)!.toFixed(1)}% vs periodo principal
                   </p>
                 )}
               </CardContent>
@@ -215,10 +228,26 @@ export default function AdminReportsPage() {
                 <div className="text-lg font-semibold text-slate-900">
                   {summary.compare.totalInvoices.toLocaleString("es-CO")}
                 </div>
-                {variation(summary.current.totalInvoices, summary.compare.totalInvoices) != null && (
-                  <p className={`mt-1 text-xs ${variation(summary.current.totalInvoices, summary.compare.totalInvoices)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {variation(summary.current.totalInvoices, summary.compare.totalInvoices)! >= 0 ? "+" : ""}
-                    {variation(summary.current.totalInvoices, summary.compare.totalInvoices)!.toFixed(1)}% vs periodo principal
+                {variationVsPrincipal(summary.current.totalInvoices, summary.compare.totalInvoices) != null && (
+                  <p className={`mt-1 text-xs ${variationVsPrincipal(summary.current.totalInvoices, summary.compare.totalInvoices)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variationVsPrincipal(summary.current.totalInvoices, summary.compare.totalInvoices)! >= 0 ? "+" : ""}
+                    {variationVsPrincipal(summary.current.totalInvoices, summary.compare.totalInvoices)!.toFixed(1)}% vs periodo principal
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200 bg-slate-50/50">
+              <CardHeader>
+                <CardTitle>Clientes Únicos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold text-slate-900">
+                  {summary.compare.uniqueCustomers != null ? summary.compare.uniqueCustomers.toLocaleString("es-CO") : "—"}
+                </div>
+                {summary.compare.uniqueCustomers != null && variationVsPrincipal(summary.current.uniqueCustomers ?? 0, summary.compare.uniqueCustomers) != null && (
+                  <p className={`mt-1 text-xs ${variationVsPrincipal(summary.current.uniqueCustomers ?? 0, summary.compare.uniqueCustomers)! >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {variationVsPrincipal(summary.current.uniqueCustomers ?? 0, summary.compare.uniqueCustomers)! >= 0 ? "+" : ""}
+                    {variationVsPrincipal(summary.current.uniqueCustomers ?? 0, summary.compare.uniqueCustomers)!.toFixed(1)}% vs periodo principal
                   </p>
                 )}
               </CardContent>
