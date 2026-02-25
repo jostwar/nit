@@ -29,13 +29,14 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'sales_top',
-      description: 'Top ventas por cliente, marca, clase, producto o vendedor en un rango. Filtros opcionales ciudad, vendedor, marca, clase.',
+      description: 'Top ventas agrupadas por la dimensión que pida el usuario: clientes (customer), vendedores (seller), marcas (brand), clases (class), referencias/productos (product) o por mes (month). order desc = mayor venta primero, order asc = menor venta primero. Filtros opcionales ciudad, vendedor, marca, clase.',
       parameters: {
         type: 'object',
         properties: {
           start: { type: 'string', description: 'ISO YYYY-MM-DD' },
           end: { type: 'string', description: 'ISO YYYY-MM-DD' },
-          group_by: { type: 'string', enum: ['customer', 'brand', 'class', 'product', 'seller'] },
+          group_by: { type: 'string', enum: ['customer', 'brand', 'class', 'product', 'seller', 'month'], description: 'customer=clientes, seller=vendedores, brand=marcas, class=clases, product=referencias/productos, month=ventas por mes' },
+          order: { type: 'string', enum: ['asc', 'desc'], description: 'desc = mayor venta primero (default), asc = menor venta primero' },
           city: { type: 'string' },
           vendor: { type: 'string' },
           brand: { type: 'string' },
@@ -173,7 +174,8 @@ export class CopilotService {
 
     const systemContent = `Eres un asistente de BI. Contexto: empresa/tenant actual; periodo ${rangeStart} a ${rangeEnd}; filtros opcionales: ciudad=${filters?.city ?? 'ninguno'}, vendedor=${filters?.vendor ?? 'ninguno'}, marca=${filters?.brand ?? 'ninguno'}, clase=${filters?.class ?? 'ninguno'}.
 Responde usando las herramientas. Sin SQL libre. Si piden "último trimestre" o "mes actual" ya tienes el periodo en contexto.
-Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=seller.`;
+El usuario puede consultar ventas por CUALQUIERA de estas dimensiones: clientes (group_by: customer), vendedores (seller), marcas (brand), clases (class), referencias o productos (product), o por mes / evolución mensual (group_by: month). Elige siempre el group_by que coincida con lo que pide (ej. "top marcas" -> brand, "ventas por mes" -> month).
+Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=seller. Para "menos ventas", "menor venta" usa sales_top con order: "asc".`;
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemContent },
@@ -251,7 +253,7 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
           ...messages,
           {
             role: 'user',
-            content: `Con los resultados de las herramientas anteriores, escribe una respuesta breve en texto natural (1 o 2 frases). No repitas los datos de la tabla ni listes filas con pipes; la tabla ya se muestra debajo. Si no hay datos, explica que puede ser por rango sin datos o filtros restrictivos. Responde solo el texto, sin JSON.`,
+            content: `Con los resultados de las herramientas anteriores, escribe UNA sola frase breve en texto natural. NO incluyas listas, tablas con pipes ni repitas filas de datos; todo el contenido debe verse solo en la tabla debajo. Si no hay datos, explica brevemente. Responde solo el texto, sin JSON.`,
           },
         ],
         max_tokens: 1024,
@@ -322,6 +324,7 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
           start,
           end,
           group_by: (args.group_by as any) || 'customer',
+          order: (args.order as 'asc' | 'desc') || 'desc',
           city: (args.city as string) || filters?.city,
           vendor: (args.vendor as string) || filters?.vendor,
           brand: (args.brand as string) || filters?.brand,
@@ -389,8 +392,11 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
       const match = question.match(/(?:buscar|nit|nombre)\s+(.+)/i);
       result = await this.tools.customer_lookup(tenantId, { query: match?.[1]?.trim() ?? '' });
     } else {
-      const groupBy = q.includes('marca') ? 'brand' : q.includes('clase') ? 'class' : q.includes('vendedor') ? 'seller' : q.includes('producto') ? 'product' : 'customer';
-      result = await this.tools.sales_top(tenantId, { start, end, group_by: groupBy as any, limit: 10, ...filters });
+      const groupBy = q.includes('por mes') || q.includes('ventas por mes') || q.includes('mensual') || (q.includes('mes') && !q.includes('meses')) ? 'month' : q.includes('marca') ? 'brand' : q.includes('clase') ? 'class' : q.includes('vendedor') ? 'seller' : q.includes('producto') || q.includes('referencia') ? 'product' : 'customer';
+      const orderAsc = /menos\s*ventas|menor\s*venta|referencias\s*con\s*menos/i.test(question);
+      const limitMatch = question.match(/\b(\d{1,3})\s*(referencias?|productos?|clientes?)?/i);
+      const limit = limitMatch ? Math.min(parseInt(limitMatch[1], 10) || 10, 100) : 10;
+      result = await this.tools.sales_top(tenantId, { start, end, group_by: groupBy as any, order: orderAsc ? 'asc' : 'desc', limit, ...filters });
     }
     const tables: CopilotTable[] = [{ title: 'Resultado', columns: result.columns, rows: result.rows }];
     const answer = result.rows.length > 0

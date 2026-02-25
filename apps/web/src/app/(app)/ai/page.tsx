@@ -29,14 +29,22 @@ function isNewCopilotResponse(r: unknown): r is CopilotResponse {
 }
 
 const TABLE_TITLES: Record<string, string> = {
-  sales_top: "Top clientes por ventas",
   sales_change: "Cambio en ventas",
   ar_summary: "Resumen de cartera",
   resolve_period: "Período",
   customer_lookup: "Búsqueda de clientes",
   sync_status: "Estado de sincronización",
 };
-function tableDisplayTitle(toolName: string): string {
+function tableDisplayTitle(toolName: string, columns: string[] = []): string {
+  if (toolName === "sales_top" && columns.length > 0) {
+    const first = (columns[0] ?? "").toLowerCase();
+    if (first.includes("producto")) return "Top referencias por ventas";
+    if (first.includes("cliente")) return "Top clientes por ventas";
+    if (first.includes("marca")) return "Top marcas por ventas";
+    if (first.includes("clase")) return "Top clases por ventas";
+    if (first.includes("vendedor")) return "Top vendedores por ventas";
+    if (first.includes("mes")) return "Ventas por mes";
+  }
   return TABLE_TITLES[toolName] ?? toolName;
 }
 
@@ -200,7 +208,7 @@ export default function AiPage() {
                 tables.map((t, idx) => (
                   <div key={idx} className="overflow-x-auto">
                     <p className="font-medium text-slate-800 mb-1">
-                      {tableDisplayTitle(t.title)}
+                      {tableDisplayTitle(t.title, t.columns)}
                     </p>
                     {t.rows.length > 0 ? (
                       <table className="w-full text-sm border border-slate-200">

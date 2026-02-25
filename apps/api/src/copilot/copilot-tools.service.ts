@@ -5,6 +5,8 @@ import { resolvePeriodText, ResolvedPeriod } from '../common/utils/period-resolv
 import { parseRange } from '../common/utils/date-range';
 
 export type GroupBy = 'customer' | 'brand' | 'class' | 'product' | 'seller';
+/** group_by para sales_top: incluye además 'month' (ventas por mes). */
+export type SalesTopGroupBy = GroupBy | 'month';
 export type SalesMetric = 'sales' | 'units' | 'margin';
 export type ChangeDirection = 'drop' | 'growth';
 
@@ -15,7 +17,9 @@ export interface ResolvePeriodInput {
 export interface SalesTopInput {
   start: string;
   end: string;
-  group_by: GroupBy;
+  group_by: SalesTopGroupBy;
+  /** 'desc' = mayor venta primero (default), 'asc' = menor venta primero (referencias/clientes con menos ventas). */
+  order?: 'asc' | 'desc';
   city?: string;
   vendor?: string;
   brand?: string;
@@ -108,6 +112,7 @@ export class CopilotToolsService {
       return { columns: ['Error'], rows: [['Rango inválido: start debe ser <= end']] };
     }
     const limit = Math.min(input.limit ?? 10, 100);
+    const orderDir = input.order === 'asc' ? 'asc' : 'desc';
     const filters = { city: input.city, vendor: input.vendor, brand: input.brand, class: input.class };
     const where = this.baseWhere(tenantId, start, end, filters);
     const customerIds = await this.resolveCustomerIds(tenantId, { city: input.city, vendor: input.vendor });
@@ -123,7 +128,7 @@ export class CopilotToolsService {
           where,
           _sum: { signedTotal: true, signedUnits: true, signedMargin: true },
           _count: { id: true },
-          orderBy: { _sum: { signedTotal: 'desc' } },
+          orderBy: { _sum: { signedTotal: orderDir } },
           take: limit,
         });
         const cust = await this.prisma.customer.findMany({
@@ -149,6 +154,7 @@ export class CopilotToolsService {
         };
       }
       case 'brand': {
+        const orderSql = orderDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
         const rows = await this.prisma.$queryRaw<
           Array<{ brand: string; total: string; units: string; margin: string }>
         >(Prisma.sql`
@@ -161,7 +167,7 @@ export class CopilotToolsService {
           WHERE i."tenantId" = ${tenantId}
             AND i."issuedAt" >= ${start} AND i."issuedAt" <= ${end}
           GROUP BY it.brand
-          ORDER BY SUM(i."signedTotal") DESC
+          ORDER BY SUM(i."signedTotal") ${orderSql}
           LIMIT ${limit}
         `);
         return {
@@ -170,6 +176,7 @@ export class CopilotToolsService {
         };
       }
       case 'class': {
+        const orderSql = orderDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
         const rows = await this.prisma.$queryRaw<
           Array<{ className: string; total: string; units: string }>
         >(Prisma.sql`
@@ -181,7 +188,7 @@ export class CopilotToolsService {
           WHERE i."tenantId" = ${tenantId}
             AND i."issuedAt" >= ${start} AND i."issuedAt" <= ${end}
           GROUP BY it."className"
-          ORDER BY SUM(i."signedTotal") DESC
+          ORDER BY SUM(i."signedTotal") ${orderSql}
           LIMIT ${limit}
         `);
         return {
@@ -190,6 +197,7 @@ export class CopilotToolsService {
         };
       }
       case 'product': {
+        const orderSql = orderDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
         const rows = await this.prisma.$queryRaw<
           Array<{ productName: string; total: string; units: string }>
         >(Prisma.sql`
@@ -201,7 +209,7 @@ export class CopilotToolsService {
           WHERE i."tenantId" = ${tenantId}
             AND i."issuedAt" >= ${start} AND i."issuedAt" <= ${end}
           GROUP BY it."productName"
-          ORDER BY SUM(i."signedTotal") DESC
+          ORDER BY SUM(i."signedTotal") ${orderSql}
           LIMIT ${limit}
         `);
         return {
@@ -214,12 +222,32 @@ export class CopilotToolsService {
           by: ['vendor'],
           where: { ...where, vendor: { not: null } },
           _sum: { signedTotal: true, signedUnits: true },
-          orderBy: { _sum: { signedTotal: 'desc' } },
+          orderBy: { _sum: { signedTotal: orderDir } },
           take: limit,
         });
         return {
           columns: ['Vendedor', 'Ventas (COP)', 'Unidades'],
           rows: rows.map((r) => [r.vendor ?? 'N/A', Number(r._sum.signedTotal ?? 0), Number(r._sum.signedUnits ?? 0)]),
+        };
+      }
+      case 'month': {
+        const orderSql = orderDir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+        const rows = await this.prisma.$queryRaw<
+          Array<{ mes: string; total: string; units: string }>
+        >(Prisma.sql`
+          SELECT TO_CHAR(i."issuedAt", 'YYYY-MM') as mes,
+            SUM(i."signedTotal")::text as total,
+            SUM(i."signedUnits")::text as units
+          FROM "Invoice" i
+          WHERE i."tenantId" = ${tenantId}
+            AND i."issuedAt" >= ${start} AND i."issuedAt" <= ${end}
+          GROUP BY TO_CHAR(i."issuedAt", 'YYYY-MM')
+          ORDER BY SUM(i."signedTotal") ${orderSql}
+          LIMIT ${limit}
+        `);
+        return {
+          columns: ['Mes', 'Ventas (COP)', 'Unidades'],
+          rows: rows.map((r) => [r.mes, Number(r.total), Number(r.units)]),
         };
       }
       default:
