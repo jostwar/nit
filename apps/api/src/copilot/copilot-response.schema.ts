@@ -14,6 +14,7 @@ export interface CopilotAppliedFilters {
   city: string | null;
   brand: string | null;
   class: string | null;
+  documentType: string | null;
 }
 
 export interface CopilotResponse {
@@ -58,8 +59,9 @@ export const COPILOT_RESPONSE_JSON_SCHEMA = {
         city: { type: ['string', 'null'] },
         brand: { type: ['string', 'null'] },
         class: { type: ['string', 'null'] },
+        documentType: { type: ['string', 'null'] },
       },
-      required: ['start', 'end', 'seller', 'city', 'brand', 'class'],
+      required: ['start', 'end', 'seller', 'city', 'brand', 'class', 'documentType'],
     },
     warnings: {
       type: 'array',

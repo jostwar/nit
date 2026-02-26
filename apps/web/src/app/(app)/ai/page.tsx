@@ -15,7 +15,7 @@ type CopilotResponse = {
   tables: CopilotTable[];
   download_available: boolean;
   download_query_id: string | null;
-  applied_filters: { start: string; end: string; seller: string | null; city: string | null; brand: string | null; class: string | null };
+  applied_filters: { start: string; end: string; seller: string | null; city: string | null; brand: string | null; class: string | null; documentType: string | null };
   warnings: string[];
 };
 
@@ -55,6 +55,7 @@ export default function AiPage() {
   const [vendor, setVendor] = useState("");
   const [brand, setBrand] = useState("");
   const [classFilter, setClassFilter] = useState("");
+  const [docType, setDocType] = useState("");
   const [response, setResponse] = useState<CopilotResponse | Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
@@ -105,6 +106,7 @@ export default function AiPage() {
         vendor: vendor.trim() || undefined,
         brand: brand.trim() || undefined,
         class: classFilter.trim() || undefined,
+        documentType: docType.trim() || undefined,
       });
       setResponse(result);
     } catch (e) {
@@ -114,7 +116,7 @@ export default function AiPage() {
         tables: [],
         download_available: false,
         download_query_id: null,
-        applied_filters: { start: period.start, end: period.end, seller: null, city: null, brand: null, class: null },
+        applied_filters: { start: period.start, end: period.end, seller: null, city: null, brand: null, class: null, documentType: null },
         warnings: [msg],
       });
     } finally {
@@ -136,7 +138,7 @@ export default function AiPage() {
             placeholder="Ej: Top 10 clientes por ventas en el último trimestre. ¿Marcas que más vendieron? ¿Vendedores con mayor caída? ¿Estado de cartera? Puedes decir 'últimos 30 días', 'mes actual'."
             className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
           />
-          <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -161,6 +163,12 @@ export default function AiPage() {
               placeholder="Clase"
               className="rounded-md border border-slate-200 px-3 py-2 text-sm"
             />
+            <input
+              value={docType}
+              onChange={(e) => setDocType(e.target.value)}
+              placeholder="Tipo Doc (ej. 01)"
+              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+            />
           </div>
           <p className="text-xs text-slate-500">
             Usa las fechas del período principal o escribe en la pregunta &quot;último trimestre&quot;, &quot;mes actual&quot;, etc. Las ventas se filtran por fecha de factura.
@@ -181,9 +189,9 @@ export default function AiPage() {
               {newResponse?.applied_filters && (
                 <p className="text-xs text-slate-500">
                   Periodo: {newResponse.applied_filters.start} – {newResponse.applied_filters.end}
-                  {[newResponse.applied_filters.city, newResponse.applied_filters.seller, newResponse.applied_filters.brand, newResponse.applied_filters.class]
+                  {[newResponse.applied_filters.city, newResponse.applied_filters.seller, newResponse.applied_filters.brand, newResponse.applied_filters.class, newResponse.applied_filters.documentType ? `Tipo Doc: ${newResponse.applied_filters.documentType}` : null]
                     .filter(Boolean)
-                    .join(" · ") && ` · Filtros: ${[newResponse.applied_filters.city, newResponse.applied_filters.seller, newResponse.applied_filters.brand, newResponse.applied_filters.class].filter(Boolean).join(", ")}`}
+                    .join(" · ") && ` · Filtros: ${[newResponse.applied_filters.city, newResponse.applied_filters.seller, newResponse.applied_filters.brand, newResponse.applied_filters.class, newResponse.applied_filters.documentType ? `Tipo Doc: ${newResponse.applied_filters.documentType}` : null].filter(Boolean).join(", ")}`}
                 </p>
               )}
               {downloadAvailable && (

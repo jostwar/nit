@@ -24,6 +24,7 @@ export interface SalesTopInput {
   vendor?: string;
   brand?: string;
   class?: string;
+  documentType?: string;
   limit?: number;
 }
 
@@ -39,6 +40,7 @@ export interface SalesChangeInput {
   vendor?: string;
   brand?: string;
   class?: string;
+  documentType?: string;
   limit?: number;
 }
 
@@ -71,7 +73,7 @@ export class CopilotToolsService {
     tenantId: string,
     start: Date,
     end: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const w: Prisma.InvoiceWhereInput = {
       tenantId,
@@ -89,6 +91,9 @@ export class CopilotToolsService {
     }
     if (filters?.class?.trim()) {
       w.items = { some: { className: { contains: filters.class.trim(), mode: 'insensitive' } } };
+    }
+    if (filters?.documentType?.trim()) {
+      w.documentType = { equals: filters.documentType.trim() };
     }
     return w;
   }
@@ -113,7 +118,7 @@ export class CopilotToolsService {
     }
     const limit = Math.min(input.limit ?? 10, 100);
     const orderDir = input.order === 'asc' ? 'asc' : 'desc';
-    const filters = { city: input.city, vendor: input.vendor, brand: input.brand, class: input.class };
+    const filters = { city: input.city, vendor: input.vendor, brand: input.brand, class: input.class, documentType: input.documentType };
     const where = this.baseWhere(tenantId, start, end, filters);
     const customerIds = await this.resolveCustomerIds(tenantId, { city: input.city, vendor: input.vendor });
     if (customerIds && customerIds.length === 0) {
@@ -261,7 +266,7 @@ export class CopilotToolsService {
     const compareStart = new Date(input.compare_start + 'T00:00:00.000Z');
     const compareEnd = new Date(input.compare_end + 'T23:59:59.999Z');
     const limit = Math.min(input.limit ?? 10, 100);
-    const filters = { city: input.city, vendor: input.vendor, brand: input.brand, class: input.class };
+    const filters = { city: input.city, vendor: input.vendor, brand: input.brand, class: input.class, documentType: input.documentType };
     const customerIds = await this.resolveCustomerIds(tenantId, { city: input.city, vendor: input.vendor });
     const whereCurr = this.baseWhere(tenantId, start, end, filters);
     const whereCompare = this.baseWhere(tenantId, compareStart, compareEnd, filters);

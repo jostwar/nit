@@ -29,4 +29,8 @@ export class CopilotAskDto {
   @IsOptional()
   @IsString()
   class?: string;
+
+  @IsOptional()
+  @IsString()
+  documentType?: string;
 }

@@ -37,6 +37,7 @@ export class CopilotController {
       vendor: dto.vendor,
       brand: dto.brand,
       class: dto.class,
+      documentType: dto.documentType,
     });
   }
 

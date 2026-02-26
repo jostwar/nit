@@ -29,7 +29,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'sales_top',
-      description: 'Top ventas agrupadas por la dimensión que pida el usuario: clientes (customer), vendedores (seller), marcas (brand), clases (class), referencias/productos (product) o por mes (month). order desc = mayor venta primero, order asc = menor venta primero. Filtros opcionales ciudad, vendedor, marca, clase.',
+      description: 'Top ventas agrupadas por la dimensión que pida el usuario: clientes (customer), vendedores (seller), marcas (brand), clases (class), referencias/productos (product) o por mes (month). order desc = mayor venta primero, order asc = menor venta primero. Filtros opcionales ciudad, vendedor, marca, clase, tipo de documento.',
       parameters: {
         type: 'object',
         properties: {
@@ -41,6 +41,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           vendor: { type: 'string' },
           brand: { type: 'string' },
           class: { type: 'string' },
+          document_type: { type: 'string', description: 'Código de tipo de documento (TIPOMOV). Ej: 01=factura, 04=nota crédito, etc.' },
           limit: { type: 'number' },
         },
         required: ['start', 'end', 'group_by'],
@@ -64,6 +65,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           direction: { type: 'string', enum: ['drop', 'growth'] },
           city: { type: 'string' },
           vendor: { type: 'string' },
+          document_type: { type: 'string', description: 'Código de tipo de documento (TIPOMOV).' },
           limit: { type: 'number' },
         },
         required: ['start', 'end', 'compare_start', 'compare_end', 'group_by', 'metric', 'direction'],
@@ -129,7 +131,7 @@ export class CopilotService {
     question: string,
     start?: string,
     end?: string,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ): Promise<CopilotResponse> {
     const appliedFilters: CopilotAppliedFilters = {
       start: '',
@@ -138,6 +140,7 @@ export class CopilotService {
       city: filters?.city ?? null,
       brand: filters?.brand ?? null,
       class: filters?.class ?? null,
+      documentType: filters?.documentType ?? null,
     };
 
     let rangeStart = start;
@@ -172,7 +175,7 @@ export class CopilotService {
       };
     }
 
-    const systemContent = `Eres NITiQ Ask, un asistente de BI. Contexto: empresa/tenant actual; periodo ${rangeStart} a ${rangeEnd}; filtros opcionales: ciudad=${filters?.city ?? 'ninguno'}, vendedor=${filters?.vendor ?? 'ninguno'}, marca=${filters?.brand ?? 'ninguno'}, clase=${filters?.class ?? 'ninguno'}.
+    const systemContent = `Eres NITiQ Ask, un asistente de BI. Contexto: empresa/tenant actual; periodo ${rangeStart} a ${rangeEnd}; filtros opcionales: ciudad=${filters?.city ?? 'ninguno'}, vendedor=${filters?.vendor ?? 'ninguno'}, marca=${filters?.brand ?? 'ninguno'}, clase=${filters?.class ?? 'ninguno'}, tipo_documento=${filters?.documentType ?? 'ninguno'}.
 Responde SOLO usando las herramientas. Sin SQL libre. Si piden "último trimestre" o "mes actual" ya tienes el periodo en contexto.
 El usuario puede consultar ventas por CUALQUIERA de estas dimensiones: clientes (group_by: customer), vendedores (seller), marcas (brand), clases (class), referencias o productos (product), o por mes / evolución mensual (group_by: month). Elige siempre el group_by que coincida con lo que pide (ej. "top marcas" -> brand, "ventas por mes" -> month).
 Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=seller. Para "menos ventas", "menor venta" usa sales_top con order: "asc".
@@ -318,7 +321,7 @@ REGLA CRÍTICA: NUNCA incluyas tablas, listas de datos, filas con pipes (|), ni 
     args: Record<string, unknown>,
     defaultStart: string,
     defaultEnd: string,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ): Promise<{ columns: string[]; rows: (string | number)[][] }> {
     const start = (args.start as string) || defaultStart;
     const end = (args.end as string) || defaultEnd;
@@ -341,6 +344,7 @@ REGLA CRÍTICA: NUNCA incluyas tablas, listas de datos, filas con pipes (|), ni 
           vendor: (args.vendor as string) || filters?.vendor,
           brand: (args.brand as string) || filters?.brand,
           class: (args.class as string) || filters?.class,
+          documentType: (args.document_type as string) || filters?.documentType,
           limit,
         });
       case 'sales_change':
@@ -354,6 +358,7 @@ REGLA CRÍTICA: NUNCA incluyas tablas, listas de datos, filas con pipes (|), ni 
           direction: (args.direction as any) || 'drop',
           city: (args.city as string) || filters?.city,
           vendor: (args.vendor as string) || filters?.vendor,
+          documentType: (args.document_type as string) || filters?.documentType,
           limit,
         });
       case 'ar_summary':
@@ -383,7 +388,7 @@ REGLA CRÍTICA: NUNCA incluyas tablas, listas de datos, filas con pipes (|), ni 
     question: string,
     start: string,
     end: string,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ): Promise<{ answer: string; tables: CopilotTable[]; warnings: string[] }> {
     const warnings = ['OPENAI_API_KEY no configurado; usando lógica interna.'];
     const q = question.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
