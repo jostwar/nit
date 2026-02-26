@@ -172,10 +172,11 @@ export class CopilotService {
       };
     }
 
-    const systemContent = `Eres un asistente de BI. Contexto: empresa/tenant actual; periodo ${rangeStart} a ${rangeEnd}; filtros opcionales: ciudad=${filters?.city ?? 'ninguno'}, vendedor=${filters?.vendor ?? 'ninguno'}, marca=${filters?.brand ?? 'ninguno'}, clase=${filters?.class ?? 'ninguno'}.
-Responde usando las herramientas. Sin SQL libre. Si piden "último trimestre" o "mes actual" ya tienes el periodo en contexto.
+    const systemContent = `Eres NITiQ Ask, un asistente de BI. Contexto: empresa/tenant actual; periodo ${rangeStart} a ${rangeEnd}; filtros opcionales: ciudad=${filters?.city ?? 'ninguno'}, vendedor=${filters?.vendor ?? 'ninguno'}, marca=${filters?.brand ?? 'ninguno'}, clase=${filters?.class ?? 'ninguno'}.
+Responde SOLO usando las herramientas. Sin SQL libre. Si piden "último trimestre" o "mes actual" ya tienes el periodo en contexto.
 El usuario puede consultar ventas por CUALQUIERA de estas dimensiones: clientes (group_by: customer), vendedores (seller), marcas (brand), clases (class), referencias o productos (product), o por mes / evolución mensual (group_by: month). Elige siempre el group_by que coincida con lo que pide (ej. "top marcas" -> brand, "ventas por mes" -> month).
-Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=seller. Para "menos ventas", "menor venta" usa sales_top con order: "asc".`;
+Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=seller. Para "menos ventas", "menor venta" usa sales_top con order: "asc".
+REGLA CRÍTICA: NUNCA incluyas tablas, listas de datos, filas con pipes (|), ni repitas los datos en tu texto. Los datos ya se muestran automáticamente en una tabla en la interfaz. Tu texto debe ser SOLO 1-2 oraciones breves describiendo qué se consultó.`;
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemContent },
@@ -211,7 +212,8 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
         });
 
         if (!choice.message.tool_calls?.length) {
-          const answer = (choice.message.content ?? '').trim() || 'No pude generar una respuesta.';
+          const raw = (choice.message.content ?? '').trim() || 'No pude generar una respuesta.';
+          const answer = tables.length > 0 ? (this.stripDataFromAnswer(raw) || 'Consulta los datos en la tabla.') : raw;
           const queryId = tables.length > 0 ? this.storeAndGetId(tables) : null;
           return {
             answer,
@@ -260,7 +262,7 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
       });
 
       const rawAnswer = finalAnswer.choices[0]?.message?.content?.trim() || '';
-      const answer = this.stripMarkdownTables(rawAnswer)
+      const answer = this.stripDataFromAnswer(rawAnswer)
         || (tables.length > 0 ? 'Consulta los datos en la tabla.' : 'No hay datos para el periodo o filtros seleccionados.');
 
       if (tables.length === 0 && !answer.includes('ampliar')) {
@@ -294,12 +296,14 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
     }
   }
 
-  private stripMarkdownTables(text: string): string {
-    return text
-      .replace(/\|[^\n]+\|/g, '')
-      .replace(/[-:]{3,}/g, '')
-      .replace(/\n{2,}/g, '\n\n')
-      .trim();
+  private stripDataFromAnswer(text: string): string {
+    let cleaned = text;
+    cleaned = cleaned.replace(/^[|\s][-–:| ]+$/gm, '');
+    cleaned = cleaned.replace(/\|[^|\n]*\|/g, '');
+    cleaned = cleaned.replace(/^\s*\d+\.\s+.{40,}$/gm, '');
+    cleaned = cleaned.replace(/^\s*[-*]\s+\S.*\|.*$/gm, '');
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    return cleaned.trim();
   }
 
   private storeAndGetId(tables: CopilotTable[]): string {
