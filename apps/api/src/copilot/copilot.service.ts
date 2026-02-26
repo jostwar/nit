@@ -253,15 +253,15 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
           ...messages,
           {
             role: 'user',
-            content: `Con los resultados de las herramientas anteriores, escribe UNA sola frase breve en texto natural. NO incluyas listas, tablas con pipes ni repitas filas de datos; todo el contenido debe verse solo en la tabla debajo. Si no hay datos, explica brevemente. Responde solo el texto, sin JSON.`,
+            content: `Con los resultados anteriores, responde MÁXIMO 1-2 oraciones en texto natural describiendo qué se encontró (ej. "Aquí tienes los top 10 clientes por ventas del periodo."). PROHIBIDO incluir tablas, listas, filas de datos, pipes (|), guiones (---) o cualquier repetición de los datos; los datos ya se muestran en la tabla debajo. Solo texto breve, sin JSON.`,
           },
         ],
         max_tokens: 1024,
       });
 
-      const answer =
-        finalAnswer.choices[0]?.message?.content?.trim() ||
-        (tables.length > 0 ? 'Consulta los datos en las tablas.' : 'No hay datos para el periodo o filtros seleccionados.');
+      const rawAnswer = finalAnswer.choices[0]?.message?.content?.trim() || '';
+      const answer = this.stripMarkdownTables(rawAnswer)
+        || (tables.length > 0 ? 'Consulta los datos en la tabla.' : 'No hay datos para el periodo o filtros seleccionados.');
 
       if (tables.length === 0 && !answer.includes('ampliar')) {
         warnings.push('No se encontraron datos; considera ampliar el rango de fechas o relajar filtros.');
@@ -292,6 +292,14 @@ Sinónimos: marca=brand, clase=class, cliente=customer, caída=drop, vendedor=se
         warnings: [msg],
       };
     }
+  }
+
+  private stripMarkdownTables(text: string): string {
+    return text
+      .replace(/\|[^\n]+\|/g, '')
+      .replace(/[-:]{3,}/g, '')
+      .replace(/\n{2,}/g, '\n\n')
+      .trim();
   }
 
   private storeAndGetId(tables: CopilotTable[]): string {
