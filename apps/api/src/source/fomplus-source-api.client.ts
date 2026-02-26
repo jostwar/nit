@@ -573,7 +573,7 @@ export class FomplusSourceApiClient implements SourceApiClient {
           issuedAt,
           total: groupTotal,
           margin: 0,
-          units: quantity ?? 0,
+          units: 0,
           vendor: nomven,
           city: ciudad,
           documentType,
