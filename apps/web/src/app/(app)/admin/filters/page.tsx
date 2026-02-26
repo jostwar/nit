@@ -40,7 +40,7 @@ export default function AdminFiltersPage() {
       { key: "dashboard", label: "Dashboard" },
       { key: "customers", label: "Cliente 360" },
       { key: "alerts", label: "Alertas" },
-      { key: "ai", label: "AI Copilot" },
+      { key: "ai", label: "NITiQ Ask" },
       { key: "dataUpdate", label: "Actualización de datos" },
       { key: "adminUsers", label: "Usuarios" },
       { key: "adminFilters", label: "Filtros de Apps" },

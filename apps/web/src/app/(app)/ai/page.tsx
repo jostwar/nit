@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { apiPost, getAccessToken } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ export default function AiPage() {
     <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Copilot BI</CardTitle>
+          <CardTitle>NITiQ Ask</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <textarea
@@ -196,7 +197,11 @@ export default function AiPage() {
                   Descargar Excel (CSV)
                 </Button>
               )}
-              <p>{newResponse?.answer ?? (response as any).explanation ?? "—"}</p>
+              <div className="prose prose-sm prose-slate max-w-none">
+                <ReactMarkdown>
+                  {newResponse?.answer ?? (response as any).explanation ?? "—"}
+                </ReactMarkdown>
+              </div>
               {(newResponse?.warnings ?? []).length > 0 && (
                 <ul className="text-amber-700 text-xs list-disc pl-4">
                   {(newResponse?.warnings ?? []).map((w, i) => (

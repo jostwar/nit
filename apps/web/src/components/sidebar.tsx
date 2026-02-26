@@ -9,7 +9,7 @@ const navItems = [
   { key: "dashboard", href: "/dashboard", label: "Dashboard" },
   { key: "customers", href: "/customers", label: "Cliente 360" },
   { key: "alerts", href: "/alerts", label: "Alertas" },
-  { key: "ai", href: "/ai", label: "AI Copilot" },
+  { key: "ai", href: "/ai", label: "NITiQ Ask" },
   { key: "dataUpdate", href: "/data-update", label: "Actualización de datos" },
 ];
 
