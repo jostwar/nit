@@ -142,6 +142,7 @@ export default function DashboardPage() {
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
+    const documentType = searchParams.get("documentType");
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (compareFrom) params.set("compareFrom", compareFrom);
@@ -149,6 +150,7 @@ export default function DashboardPage() {
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
+    if (documentType) params.set("documentType", documentType);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
   }, [searchParams]);
@@ -224,11 +226,13 @@ export default function DashboardPage() {
         const vendor = searchParams.get("vendor");
         const brand = searchParams.get("brand");
         const classFilter = searchParams.get("class");
+        const documentType = searchParams.get("documentType");
         if (from) params.set("from", from);
         if (to) params.set("to", to);
         if (vendor) params.set("vendor", vendor);
         if (brand) params.set("brand", brand);
         if (classFilter) params.set("class", classFilter);
+        if (documentType) params.set("documentType", documentType);
         params.set("limit", "10000");
         const current = await apiGet<CustomerRow[]>(`/customers?${params.toString()}`);
 
@@ -333,9 +337,11 @@ export default function DashboardPage() {
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
+    const documentType = searchParams.get("documentType");
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
+    if (documentType) params.set("documentType", documentType);
     params.set("limit", "10000");
     apiGet<CustomerRow[]>(`/customers?${params.toString()}`)
       .then((data) => {
@@ -954,11 +960,13 @@ export default function DashboardPage() {
                               const vendor = searchParams.get("vendor");
                               const brand = searchParams.get("brand");
                               const classFilter = searchParams.get("class");
+                              const documentType = searchParams.get("documentType");
                               if (from) params.set("from", from);
                               if (to) params.set("to", to);
                               if (vendor) params.set("vendor", vendor);
                               if (brand) params.set("brand", brand);
                               if (classFilter) params.set("class", classFilter);
+                              if (documentType) params.set("documentType", documentType);
                               window.location.href = `/customers?${params.toString()}`;
                             }}
                           >

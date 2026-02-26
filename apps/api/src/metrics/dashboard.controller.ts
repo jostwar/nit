@@ -23,6 +23,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     const hasCompare = compareFrom != null && compareTo != null && compareFrom !== '' && compareTo !== '';
@@ -35,7 +36,7 @@ export class DashboardController {
       current.to,
       compare.from,
       compare.to,
-      { city, vendor, brand, class: classFilter },
+      { city, vendor, brand, class: classFilter, documentType },
     );
   }
 
@@ -48,6 +49,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesTotal(tenantId, current.from, current.to, {
@@ -55,6 +57,7 @@ export class DashboardController {
       vendor,
       brand,
       class: classFilter,
+      documentType,
     });
   }
 
@@ -94,6 +97,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesByClass(tenantId, current.from, current.to, {
@@ -101,6 +105,7 @@ export class DashboardController {
       vendor,
       brand,
       class: classFilter,
+      documentType,
     });
   }
 
@@ -113,6 +118,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesByVendor(tenantId, current.from, current.to, {
@@ -120,6 +126,7 @@ export class DashboardController {
       vendor,
       brand,
       class: classFilter,
+      documentType,
     });
   }
 
@@ -132,6 +139,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesByBrand(tenantId, current.from, current.to, {
@@ -139,6 +147,7 @@ export class DashboardController {
       vendor,
       brand,
       class: classFilter,
+      documentType,
     });
   }
 
@@ -151,6 +160,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesByHour(tenantId, current.from, current.to, {
@@ -158,6 +168,7 @@ export class DashboardController {
       vendor,
       brand,
       class: classFilter,
+      documentType,
     });
   }
 
@@ -170,6 +181,7 @@ export class DashboardController {
     @Query('vendor') vendor?: string,
     @Query('brand') brand?: string,
     @Query('class') classFilter?: string,
+    @Query('documentType') documentType?: string,
   ) {
     const current = parseRange(from, to);
     return this.metricsService.getSalesByDayOfWeek(tenantId, current.from, current.to, {
@@ -177,6 +189,7 @@ export class DashboardController {
       vendor,
       brand,
       class: classFilter,
+      documentType,
     });
   }
 }

@@ -67,11 +67,13 @@ export default function DashboardTasksPage() {
         const vendor = searchParams.get("vendor");
         const brand = searchParams.get("brand");
         const classFilter = searchParams.get("class");
+        const documentType = searchParams.get("documentType");
         if (from) params.set("from", from);
         if (to) params.set("to", to);
         if (vendor) params.set("vendor", vendor);
         if (brand) params.set("brand", brand);
         if (classFilter) params.set("class", classFilter);
+        if (documentType) params.set("documentType", documentType);
         params.set("limit", "10000");
 
         const [summaryRes, current] = await Promise.all([

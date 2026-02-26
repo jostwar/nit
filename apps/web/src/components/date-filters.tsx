@@ -47,6 +47,7 @@ export function DateFilters() {
       brand: parseMultiParam(searchParams.get("brand")),
       class: parseMultiParam(searchParams.get("class")),
       customer: parseMultiParam(searchParams.get("customer")),
+      documentType: parseMultiParam(searchParams.get("documentType")),
     };
   }, [searchParams, today, defaultFrom]);
   const [from, setFrom] = useState(initial.from);
@@ -57,6 +58,7 @@ export function DateFilters() {
   const [brand, setBrand] = useState<string[]>(initial.brand);
   const [classFilter, setClassFilter] = useState<string[]>(initial.class);
   const [customer, setCustomer] = useState<string[]>(initial.customer);
+  const [documentType, setDocumentType] = useState<string[]>(initial.documentType);
 
   // Mantener filtros en sync con la URL (p. ej. al volver atrás o al cargar con query)
   useEffect(() => {
@@ -68,7 +70,8 @@ export function DateFilters() {
     setBrand(initial.brand);
     setClassFilter(initial.class);
     setCustomer(initial.customer);
-  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.vendor, initial.brand, initial.class, initial.customer]);
+    setDocumentType(initial.documentType);
+  }, [initial.from, initial.to, initial.compareFrom, initial.compareTo, initial.vendor, initial.brand, initial.class, initial.customer, initial.documentType]);
 
   // Mantener URL en sync con Desde/Hasta para que "Rango aplicado" coincida siempre con el filtro
   useEffect(() => {
@@ -106,6 +109,7 @@ export function DateFilters() {
     vendors: string[];
     brands: string[];
     classes: string[];
+    documentTypes?: string[];
     customers?: Array<{ value: string; label: string }>;
     itemDiagnostic?: {
       totalItems: number;
@@ -200,6 +204,11 @@ export function DateFilters() {
     } else {
       params.delete("customer");
     }
+    if (documentType.length > 0) {
+      params.set("documentType", documentType.join(","));
+    } else {
+      params.delete("documentType");
+    }
     router.replace(`?${params.toString()}`);
   };
 
@@ -238,6 +247,8 @@ export function DateFilters() {
     else params.delete("class");
     if (customer.length > 0) params.set("customer", customer.join(","));
     else params.delete("customer");
+    if (documentType.length > 0) params.set("documentType", documentType.join(","));
+    else params.delete("documentType");
     router.replace(`?${params.toString()}`);
   };
 
@@ -299,11 +310,12 @@ export function DateFilters() {
           vendors: opts.vendors ?? [],
           brands: (opts.brands ?? []).length > 0 ? opts.brands ?? [] : (brandsRes.brands ?? []),
           classes: opts.classes ?? [],
+          documentTypes: (opts as { documentTypes?: string[] }).documentTypes ?? [],
           customers: opts.customers ?? [],
           itemDiagnostic: (opts as { itemDiagnostic?: { totalItems: number; itemsWithBrand: number; itemsWithClass: number } }).itemDiagnostic,
         }),
       )
-      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [], customers: [] }));
+      .catch(() => setFilterOptions({ cities: [], vendors: [], brands: [], classes: [], documentTypes: [], customers: [] }));
   };
 
   useEffect(() => {
@@ -425,6 +437,15 @@ export function DateFilters() {
             onChange={setClassFilter}
             placeholder="Todas"
             emptyLabel="Todas"
+            multiple
+          />
+          <FilterSelect
+            label="Tipo Doc"
+            options={filterOptions?.documentTypes ?? []}
+            value={documentType}
+            onChange={setDocumentType}
+            placeholder="Todos"
+            emptyLabel="Todos"
             multiple
           />
           <FilterSelect

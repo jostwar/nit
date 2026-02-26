@@ -116,12 +116,14 @@ export default function CustomersPage() {
     const vendor = searchParams.get("vendor");
     const brand = searchParams.get("brand");
     const classFilter = searchParams.get("class");
+    const documentType = searchParams.get("documentType");
     const customer = searchParams.get("customer");
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     if (vendor) params.set("vendor", vendor);
     if (brand) params.set("brand", brand);
     if (classFilter) params.set("class", classFilter);
+    if (documentType) params.set("documentType", documentType);
     if (customer) params.set("customer", customer);
     params.set("limit", "10000");
     const qs = params.toString();

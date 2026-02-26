@@ -176,11 +176,12 @@ export class MetricsService {
   /** Condiciones SQL raw para vendor/brand/class (múltiples valores). */
   private async buildRawVendorBrandClass(
     tenantId: string,
-    filters?: { vendor?: string; brand?: string; class?: string },
+    filters?: { vendor?: string; brand?: string; class?: string; documentType?: string },
   ): Promise<{
     vendorCond: Prisma.Sql;
     brandCond: Prisma.Sql;
     classCond: Prisma.Sql;
+    docTypeCond: Prisma.Sql;
   }> {
     const vendorList = parseMulti(filters?.vendor);
     const brandList = parseMulti(filters?.brand);
@@ -217,7 +218,13 @@ export class MetricsService {
           : Prisma.sql` AND it."className" IN (${Prisma.join(classList.map((c) => Prisma.sql`${c}`))})`;
     }
 
-    return { vendorCond, brandCond, classCond };
+    const docTypeList = parseMulti(filters?.documentType);
+    const docTypeCond =
+      docTypeList.length > 0
+        ? Prisma.sql` AND i."documentType" IN (${Prisma.join(docTypeList.map((d) => Prisma.sql`${d}`))})`
+        : Prisma.empty;
+
+    return { vendorCond, brandCond, classCond, docTypeCond };
   }
 
   /** @deprecated Usar itemsBrandClassWhere para combinar con clase. */
@@ -257,13 +264,22 @@ export class MetricsService {
     };
   }
 
+  private documentTypeWhere(documentType?: string): Prisma.InvoiceWhereInput {
+    const dt = documentType?.trim();
+    if (!dt) return {};
+    const list = dt.split(',').map((s) => s.trim()).filter(Boolean);
+    return list.length === 1
+      ? { documentType: { equals: list[0] } }
+      : { documentType: { in: list } };
+  }
+
   async getDashboardSummary(
     tenantId: string,
     from: Date,
     to: Date,
     compareFrom: Date,
     compareTo: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const key = [
       tenantId,
@@ -275,6 +291,7 @@ export class MetricsService {
       filters?.vendor?.trim() ?? '',
       filters?.brand?.trim() ?? '',
       filters?.class?.trim() ?? '',
+      filters?.documentType?.trim() ?? '',
     ].join('|');
 
     return this.getCached(key, 30000, async () => {
@@ -288,6 +305,7 @@ export class MetricsService {
       const itemsWhere = await this.itemsBrandClassWhere(tenantId, filters?.brand, filters?.class);
       const vendorWhere =
         vendorList.length > 0 ? { vendor: { in: vendorList } } : {};
+      const docTypeWhere = this.documentTypeWhere(filters?.documentType);
       const currentWhere: Prisma.InvoiceWhereInput = {
         tenantId,
         issuedAt: { gte: from, lte: to },
@@ -295,6 +313,7 @@ export class MetricsService {
         ...cityWhere,
         ...vendorWhere,
         ...itemsWhere,
+        ...docTypeWhere,
       };
       const compareWhere: Prisma.InvoiceWhereInput = {
         tenantId,
@@ -303,6 +322,7 @@ export class MetricsService {
         ...cityWhere,
         ...vendorWhere,
         ...itemsWhere,
+        ...docTypeWhere,
       };
 
       const rawFilters = await this.buildRawVendorBrandClass(tenantId, filters);
@@ -317,7 +337,7 @@ export class MetricsService {
           totalMargin: number;
         }>
       > = (async () => {
-        const { vendorCond, brandCond, classCond } = rawFilters;
+        const { vendorCond, brandCond, classCond, docTypeCond } = rawFilters;
         const vendorAnd = vendorCond;
         const brandJoinCond = brandCond;
         const classJoinCond = classCond;
@@ -345,7 +365,7 @@ export class MetricsService {
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}
                     AND i."documentType" IS NOT NULL
-                    AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}
+                    AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}${docTypeCond}
                   GROUP BY date(i."issuedAt")
                   ORDER BY 1
                 `
@@ -361,7 +381,7 @@ export class MetricsService {
                   WHERE i."tenantId" = ${tenantId}
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}
-                    AND i."documentType" IS NOT NULL${vendorAnd}
+                    AND i."documentType" IS NOT NULL${vendorAnd}${docTypeCond}
                   GROUP BY date(i."issuedAt")
                   ORDER BY 1
                 `,
@@ -397,7 +417,7 @@ export class MetricsService {
                     AND i."issuedAt" >= ${from}
                     AND i."issuedAt" <= ${to}
                     AND i."documentType" IS NOT NULL
-                    AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}
+                    AND i."customerId" IN (${Prisma.join(scopedCustomerIds)})${vendorAnd}${docTypeCond}
                 GROUP BY date(i."issuedAt")
                 ORDER BY 1
               `
@@ -412,7 +432,7 @@ export class MetricsService {
                 WHERE i."tenantId" = ${tenantId}
                   AND i."issuedAt" >= ${from}
                   AND i."issuedAt" <= ${to}
-                  AND i."documentType" IS NOT NULL${vendorAnd}
+                  AND i."documentType" IS NOT NULL${vendorAnd}${docTypeCond}
                 GROUP BY date(i."issuedAt")
                 ORDER BY 1
               `,
@@ -582,6 +602,17 @@ export class MetricsService {
         classDisplayNames.add(classCodeToName.get(code) ?? code);
       });
       const classes = Array.from(classDisplayNames).filter((c) => c && c !== '(SIN MAPEO)').sort((a, b) => a.localeCompare(b, 'es'));
+      const documentTypes = await this.prisma.invoice
+        .groupBy({
+          by: ['documentType'],
+          where: { tenantId, documentType: { not: null } },
+        })
+        .then((rows) =>
+          rows
+            .map((r) => r.documentType)
+            .filter((d): d is string => d != null && d.trim() !== '')
+            .sort((a, b) => a.localeCompare(b, 'es')),
+        );
       const [totalItems, itemsWithBrand, itemsWithClass, customerRows] = await Promise.all([
         this.prisma.invoiceItem.count({ where: { tenantId } }),
         this.prisma.invoiceItem.count({
@@ -613,6 +644,7 @@ export class MetricsService {
         brands,
         classes,
         customers,
+        documentTypes,
         itemDiagnostic: {
           totalItems,
           itemsWithBrand,
@@ -626,7 +658,7 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const key = [
       tenantId,
@@ -636,6 +668,7 @@ export class MetricsService {
       filters?.vendor?.trim() ?? '',
       filters?.brand?.trim() ?? '',
       filters?.class?.trim() ?? '',
+      filters?.documentType?.trim() ?? '',
     ].join('|');
     return this.getCached(key, 30000, async () => {
       const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
@@ -646,6 +679,7 @@ export class MetricsService {
       const itemsWhere = await this.itemsBrandClassWhere(tenantId, filters?.brand, filters?.class);
       const vendorWhere =
         vendorList.length > 0 ? { vendor: { in: vendorList } } : {};
+      const docTypeWhere = this.documentTypeWhere(filters?.documentType);
       const totals = await this.prisma.invoice.aggregate({
         where: {
           tenantId,
@@ -654,6 +688,7 @@ export class MetricsService {
           ...cityWhere,
           ...vendorWhere,
           ...itemsWhere,
+          ...docTypeWhere,
         },
         _sum: { signedTotal: true, signedMargin: true, signedUnits: true },
         _count: { _all: true },
@@ -674,12 +709,12 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
-    const { vendorCond, brandCond, classCond } =
+    const { vendorCond, brandCond, classCond, docTypeCond } =
       await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
@@ -703,7 +738,7 @@ export class MetricsService {
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
         AND i."documentType" IS NOT NULL
-        ${cityCond}${vendorCond}${brandCond}${classCond}
+        ${cityCond}${vendorCond}${brandCond}${classCond}${docTypeCond}
       GROUP BY it."className", it."classCode"
       ORDER BY SUM(it.total * i."saleSign") DESC
     `);
@@ -729,10 +764,10 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, { city: filters?.city });
-    const { vendorCond, brandCond, classCond } =
+    const { vendorCond, brandCond, classCond, docTypeCond } =
       await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
@@ -755,7 +790,7 @@ export class MetricsService {
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
         AND i."documentType" IS NOT NULL
-        ${cityCond}${vendorCond}${brandCond}${classCond}
+        ${cityCond}${vendorCond}${brandCond}${classCond}${docTypeCond}
       GROUP BY i."vendor"
       ORDER BY SUM(it.total * i."saleSign") DESC
     `);
@@ -771,10 +806,10 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, { city: filters?.city });
-    const { vendorCond, brandCond, classCond } =
+    const { vendorCond, brandCond, classCond, docTypeCond } =
       await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
@@ -797,7 +832,7 @@ export class MetricsService {
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
         AND i."documentType" IS NOT NULL
-        ${cityCond}${vendorCond}${brandCond}${classCond}
+        ${cityCond}${vendorCond}${brandCond}${classCond}${docTypeCond}
       GROUP BY COALESCE(NULLIF(TRIM(it.brand), ''), 'Sin marca')
       ORDER BY SUM(it.total * i."saleSign") DESC
     `);
@@ -813,12 +848,12 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
-    const { vendorCond, brandCond, classCond } =
+    const { vendorCond, brandCond, classCond, docTypeCond } =
       await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
@@ -841,7 +876,7 @@ export class MetricsService {
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
         AND i."documentType" IS NOT NULL
-        ${cityCond}${vendorCond}${brandCond}${classCond}
+        ${cityCond}${vendorCond}${brandCond}${classCond}${docTypeCond}
       GROUP BY EXTRACT(HOUR FROM i."issuedAt")
       ORDER BY "hour"
     `);
@@ -857,12 +892,12 @@ export class MetricsService {
     tenantId: string,
     from: Date,
     to: Date,
-    filters?: { city?: string; vendor?: string; brand?: string; class?: string },
+    filters?: { city?: string; vendor?: string; brand?: string; class?: string; documentType?: string },
   ) {
     const scopedCustomerIds = await this.resolveCustomerScope(tenantId, {
       city: filters?.city,
     });
-    const { vendorCond, brandCond, classCond } =
+    const { vendorCond, brandCond, classCond, docTypeCond } =
       await this.buildRawVendorBrandClass(tenantId, filters);
     const city = filters?.city?.trim();
     const cityCond =
@@ -886,7 +921,7 @@ export class MetricsService {
         AND i."issuedAt" >= ${from}
         AND i."issuedAt" <= ${to}
         AND i."documentType" IS NOT NULL
-        ${cityCond}${vendorCond}${brandCond}${classCond}
+        ${cityCond}${vendorCond}${brandCond}${classCond}${docTypeCond}
       GROUP BY EXTRACT(DOW FROM i."issuedAt")
       ORDER BY "dayOfWeek"
     `);
