@@ -136,38 +136,38 @@ export default function AiPage() {
             onChange={(e) => setQuestion(e.target.value)}
             rows={6}
             placeholder="Ej: Top 10 clientes por ventas en el último trimestre. ¿Marcas que más vendieron? ¿Vendedores con mayor caída? ¿Estado de cartera? Puedes decir 'últimos 30 días', 'mes actual'."
-            className="w-full rounded-md border border-slate-200 p-3 text-sm text-slate-900 placeholder:text-slate-400"
+            className="w-full rounded-md border border-gray-200 p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
           />
           <div className="grid gap-2 grid-cols-2 md:grid-cols-5">
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="Ciudad"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
             <input
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
               placeholder="Vendedor"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
             <input
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="Marca"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
             <input
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
               placeholder="Clase"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
             <input
               value={docType}
               onChange={(e) => setDocType(e.target.value)}
               placeholder="Tipo Doc (ej. 01)"
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
           </div>
           <p className="text-xs text-slate-500">
@@ -224,9 +224,9 @@ export default function AiPage() {
                       {tableDisplayTitle(t.title, t.columns)}
                     </p>
                     {t.rows.length > 0 ? (
-                      <table className="w-full text-sm border border-slate-200">
+                      <table className="w-full text-sm border border-gray-200">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
+                          <tr className="bg-gray-50 border-b border-gray-200">
                             {t.columns.map((col, i) => (
                               <th key={i} className="text-left py-2 px-2">{col}</th>
                             ))}
@@ -234,7 +234,7 @@ export default function AiPage() {
                         </thead>
                         <tbody>
                           {t.rows.map((row, ri) => (
-                            <tr key={ri} className="border-b border-slate-100">
+                            <tr key={ri} className="border-b border-slate-100 transition-colors hover:bg-indigo-50/50">
                               {row.map((cell, ci) => (
                                 <td key={ci} className="py-1.5 px-2">
                                   {typeof cell === "number"

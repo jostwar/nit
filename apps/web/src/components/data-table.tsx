@@ -44,9 +44,9 @@ export function DataTable<TData>({ columns, data }: DataTableProps<TData>) {
   });
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
       <table className="min-w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase text-slate-500">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => {
@@ -77,7 +77,7 @@ export function DataTable<TData>({ columns, data }: DataTableProps<TData>) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-slate-50">
+            <tr key={row.id} className="transition-colors hover:bg-indigo-50/50">
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="px-4 py-3 text-slate-700">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

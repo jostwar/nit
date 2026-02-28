@@ -374,14 +374,14 @@ export function DateFilters() {
   }, []);
 
   const inputClass =
-    "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200";
+    "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100";
 
   return (
     <div className="flex flex-col gap-3 text-sm">
       {/* Bloque principal: título + período + filtros */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex flex-col gap-0.5">
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Panel BI</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-indigo-900">Panel BI</h1>
           <p className="text-xs text-slate-500">Insights de ventas y cartera por cliente</p>
         </div>
         <div className="flex flex-wrap items-end gap-4">
@@ -462,7 +462,7 @@ export function DateFilters() {
           <Button
             onClick={applyFilters}
             disabled={syncing}
-            className="h-[2.625rem] shrink-0 bg-slate-800 px-5 text-sm font-medium text-white hover:bg-slate-700"
+            className="h-[2.625rem] shrink-0 bg-indigo-600 px-5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
           >
             {syncing ? "Cargando…" : "Consultar"}
           </Button>

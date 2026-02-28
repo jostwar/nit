@@ -49,8 +49,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 shadow-xl">
         <div className="mb-6 flex justify-center">
           <Image src={(typeof process !== "undefined" && process.env.NEXT_PUBLIC_LOGO) || "/logo.png"} alt="NITIQ" width={140} height={42} priority className="h-10 w-auto object-contain" />
         </div>
@@ -62,7 +62,7 @@ export default function LoginPage() {
             <input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               type="email"
               placeholder="admin@nitiq.local"
             />
@@ -72,7 +72,7 @@ export default function LoginPage() {
             <input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               type="password"
               placeholder="••••••••"
             />
@@ -82,7 +82,7 @@ export default function LoginPage() {
               type="checkbox"
               checked={rememberMe}
               onChange={(event) => setRememberMe(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
             />
             Recordarme (mantener sesión y recordar usuario)
           </label>
@@ -94,6 +94,10 @@ export default function LoginPage() {
           <Button className="w-full" onClick={handleLogin} disabled={loading}>
             {loading ? "Validando..." : "Entrar"}
           </Button>
+        </div>
+        <div className="mt-6 border-t border-gray-100 pt-4 text-center">
+          <p className="text-xs font-medium text-slate-500">BPI - Soluciones Empresariales</p>
+          <p className="text-[10px] text-slate-400">Powered By iPeakAgency</p>
         </div>
       </div>
     </div>

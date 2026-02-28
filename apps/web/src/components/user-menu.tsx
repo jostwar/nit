@@ -51,7 +51,7 @@ export function UserMenu() {
         onClick={() => setOpen((prev) => !prev)}
         className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-[11px] font-semibold text-white">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-semibold text-white">
           {initials}
         </span>
         <span className="hidden text-xs text-slate-600 md:inline">

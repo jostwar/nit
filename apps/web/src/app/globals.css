@@ -2,18 +2,25 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --background: #ffffff;
+  --background: #f9fafb;
   --foreground: #171717;
+  --sidebar-bg: #1e293b;
+  --sidebar-text: #cbd5e1;
+  --sidebar-hover: rgba(255, 255, 255, 0.1);
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-light: #eef2ff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* Forzar tema claro: no usar dark para evitar fondos negros */
 body {
   background: var(--background);
   color: var(--foreground);
@@ -26,7 +33,6 @@ select {
   color: #0f172a;
 }
 
-/* Asegurar que los select muestren el ícono desplegable nativo */
 select {
   appearance: auto;
   -webkit-appearance: menulist;
