@@ -151,7 +151,7 @@ export function Sidebar() {
     }`;
 
   return (
-    <aside className="flex h-screen w-56 flex-shrink-0 flex-col border-r border-slate-700/50 bg-[var(--sidebar-bg)] px-3 py-5 lg:w-60">
+    <aside className="fixed left-0 top-0 z-30 flex h-screen w-56 flex-shrink-0 flex-col border-r border-slate-700/50 bg-[var(--sidebar-bg)] px-3 py-5 lg:w-60">
       <Link href={hrefWithParams("/dashboard")} className="mb-6 flex items-center gap-2 px-3">
         <Image src={LOGO_SRC} alt="NITIQ" width={110} height={32} priority className="h-8 w-auto object-contain brightness-0 invert" />
       </Link>
