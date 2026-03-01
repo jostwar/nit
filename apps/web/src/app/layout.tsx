@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NITIQ",
-  description: "Plataforma SaaS B2B de inteligencia de negocios con AI",
+  title: "NitIQ - Gestión de Clientes y Ventas",
+  description: "Plataforma inteligente de gestión de clientes y ventas",
 };
 
 export default function RootLayout({
